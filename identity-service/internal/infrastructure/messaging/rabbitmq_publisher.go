@@ -8,18 +8,18 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/rabbitmq/amqp091-go"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 const exchangeName = "identity.events"
 
 type RabbitMQPublisher struct {
-	conn    *amqp091.Connection
-	channel *amqp091.Channel
+	conn    *amqp.Connection
+	channel *amqp.Channel
 }
 
 func NewRabbitMQPublisher(amqpURL string) *RabbitMQPublisher {
-	conn, err := amqp091.Dial(amqpURL)
+	conn, err := amqp.Dial(amqpURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
 	}
@@ -81,14 +81,14 @@ func (p *RabbitMQPublisher) publish(
 			routingKey,
 			false,
 			false,
-			amqp091.Publishing{
+			amqp.Publishing{
 				ContentType:  "application/json",
 				Body:         body,
-				DeliveryMode: amqp091.Persistent,
+				DeliveryMode: amqp.Persistent,
 				MessageId:    uuid.NewString(),
 				Timestamp:    time.Now().UTC(),
 				Type:         routingKey,
-				Headers: amqp091.Table{
+				Headers: amqp.Table{
 					"x-event-name": routingKey,
 				},
 			},
@@ -114,6 +114,20 @@ func (p *RabbitMQPublisher) publish(
 		}
 		return err
 	}
+}
+
+func (p *RabbitMQPublisher) Ping(ctx context.Context) error {
+	if p.conn == nil || p.conn.IsClosed() {
+		return amqp.ErrClosed
+	}
+
+	ch, err := p.conn.Channel()
+	if err != nil {
+		return err
+	}
+	defer ch.Close()
+
+	return nil
 }
 
 func (p *RabbitMQPublisher) Close() {

@@ -6,13 +6,17 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
+type Redis struct {
+	Client *goredis.Client
+}
+
 type Config struct {
 	Addr     string
 	Password string
 	DB       int
 }
 
-func InitRedis(cfg Config) (*goredis.Client, error) {
+func InitRedis(cfg Config) (*Redis, error) {
 	client := goredis.NewClient(&goredis.Options{
 		Addr:     cfg.Addr,
 		Password: cfg.Password,
@@ -23,5 +27,11 @@ func InitRedis(cfg Config) (*goredis.Client, error) {
 		return nil, err
 	}
 
-	return client, nil
+	return &Redis{
+		Client: client,
+	}, nil
+}
+
+func (r *Redis) Ping(ctx context.Context) error {
+	return r.Client.Ping(ctx).Err()
 }
