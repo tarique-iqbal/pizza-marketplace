@@ -3,8 +3,6 @@ package container
 import (
 	"os"
 
-	"gorm.io/gorm"
-
 	"identity-service/internal/domain/outbox"
 	"identity-service/internal/infrastructure/db"
 	"identity-service/internal/infrastructure/messaging"
@@ -12,7 +10,7 @@ import (
 )
 
 type Shared struct {
-	DB         *gorm.DB
+	Postgres   *db.Postgres
 	OutboxRepo outbox.OutboxRepository
 	Publisher  *messaging.RabbitMQPublisher
 }
@@ -20,24 +18,24 @@ type Shared struct {
 func NewShared() (*Shared, error) {
 	amqpURL := os.Getenv("RABBITMQ_URL")
 
-	database, err := db.InitDB()
+	postgres, err := db.NewDB()
 	if err != nil {
 		return nil, err
 	}
 
-	outboxRepo := persistence.NewOutboxRepository(database)
+	outboxRepo := persistence.NewOutboxRepository(postgres.DB)
 	publisher := messaging.NewRabbitMQPublisher(amqpURL)
 
 	return &Shared{
-		DB:         database,
+		Postgres:   postgres,
 		OutboxRepo: outboxRepo,
 		Publisher:  publisher,
 	}, nil
 }
 
 func (c *Shared) Close() {
-	if c.DB != nil {
-		db, err := c.DB.DB()
+	if c.Postgres.DB != nil {
+		db, err := c.Postgres.DB.DB()
 		if err == nil {
 			_ = db.Close()
 		}

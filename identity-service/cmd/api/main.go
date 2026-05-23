@@ -14,21 +14,22 @@ func main() {
 	l := logger.New()
 	slog.SetDefault(l)
 
-	c, err := container.NewAPIContainer()
+	app, err := container.NewAPIContainer()
 	if err != nil {
 		slog.Error("failed to initialize API container", "error", err)
 		return
 	}
-	defer c.Close()
+	defer app.Close()
 
 	router := gin.Default()
 
 	handlers := &routes.Handlers{
-		UserHandler: c.UserHandler,
-		AuthHandler: c.AuthHandler,
+		UserHandler:   app.UserHandler,
+		AuthHandler:   app.AuthHandler,
+		HealthHandler: app.HealthHandler,
 	}
 
-	routes.SetupRoutes(router, handlers, c.Middleware)
+	routes.SetupRoutes(router, handlers, app.Middleware)
 
 	slog.Info("starting HTTP server", "addr", ":8080")
 

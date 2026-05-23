@@ -4,6 +4,7 @@ import (
 	"os"
 
 	authapp "identity-service/internal/application/auth"
+	"identity-service/internal/application/health"
 	"identity-service/internal/application/user"
 	authinfra "identity-service/internal/infrastructure/auth"
 	"identity-service/internal/infrastructure/persistence"
@@ -15,9 +16,10 @@ import (
 
 type APIContainer struct {
 	*Shared
-	UserHandler *http.UserHandler
-	AuthHandler *http.AuthHandler
-	Middleware  *middlewares.Middleware
+	UserHandler   *http.UserHandler
+	AuthHandler   *http.AuthHandler
+	HealthHandler *http.HealthHandler
+	Middleware    *middlewares.Middleware
 }
 
 func NewAPIContainer() (*APIContainer, error) {
@@ -31,7 +33,7 @@ func NewAPIContainer() (*APIContainer, error) {
 		return nil, err
 	}
 
-	rc, err := redis.InitRedis(cfg)
+	redisStore, err := redis.NewRedis(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -42,15 +44,17 @@ func NewAPIContainer() (*APIContainer, error) {
 	middleware := middlewares.NewMiddleware(jwtManager)
 	otp := security.NewOTPGenerator()
 
-	refreshTokenRepo := persistence.NewRefreshTokenRepository(rc)
-	emailVerificationRepo := persistence.NewEmailVerificationRepository(base.DB)
-	userRepo := persistence.NewUserRepository(base.DB)
+	refreshTokenRepo := persistence.NewRefreshTokenRepository(redisStore.Client)
+	emailVerificationRepo := persistence.NewEmailVerificationRepository(base.Postgres.DB)
+	userRepo := persistence.NewUserRepository(base.Postgres.DB)
 
 	codeVerifier := authinfra.NewEmailVerifier(emailVerificationRepo)
 
 	// user
 	registerCustomer := user.NewRegisterCustomer(codeVerifier, userRepo, hasher, base.Publisher)
-	registerOwner := user.NewRegisterOwner(base.DB, codeVerifier, hasher, userRepo, base.OutboxRepo, base.Publisher)
+	registerOwner := user.NewRegisterOwner(
+		base.Postgres.DB, codeVerifier, hasher, userRepo, base.OutboxRepo, base.Publisher,
+	)
 	findByID := user.NewFindByID(userRepo)
 	userHandler := http.NewUserHandler(registerCustomer, registerOwner, findByID)
 
@@ -61,10 +65,15 @@ func NewAPIContainer() (*APIContainer, error) {
 	logout := authapp.NewLogout(refreshTokenRepo, refreshTokenManager)
 	authHandler := http.NewAuthHandler(login, emailOTP, refreshToken, logout)
 
+	// health
+	readiness := health.NewReadiness(base.Postgres, redisStore, base.Publisher)
+	healthHandler := http.NewHealthHandler(readiness)
+
 	return &APIContainer{
-		Shared:      base,
-		UserHandler: userHandler,
-		AuthHandler: authHandler,
-		Middleware:  middleware,
+		Shared:        base,
+		UserHandler:   userHandler,
+		AuthHandler:   authHandler,
+		HealthHandler: healthHandler,
+		Middleware:    middleware,
 	}, nil
 }
