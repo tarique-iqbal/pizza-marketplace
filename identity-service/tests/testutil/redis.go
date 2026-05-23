@@ -23,7 +23,7 @@ var (
 
 func Redis(t *testing.T) *TestRedis {
 	redisOnce.Do(func() {
-		rc, err := redis.InitRedis(redis.Config{
+		redisStore, err := redis.NewRedis(redis.Config{
 			Addr: os.Getenv("REDIS_ADDR"),
 			DB:   1,
 		})
@@ -32,7 +32,7 @@ func Redis(t *testing.T) *TestRedis {
 		}
 
 		rdb = &TestRedis{
-			Client: rc,
+			Client: redisStore.Client,
 		}
 	})
 

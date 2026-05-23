@@ -27,13 +27,13 @@ var (
 
 func DB(t *testing.T) *TestDB {
 	dbOnce.Do(func() {
-		conn, err := dbinfra.InitDB()
+		tdb, err := dbinfra.NewDB()
 		if err != nil {
 			panic(err)
 		}
 
 		db = &TestDB{
-			DB: conn,
+			DB: tdb.DB,
 		}
 	})
 

@@ -16,7 +16,7 @@ type Config struct {
 	DB       int
 }
 
-func InitRedis(cfg Config) (*Redis, error) {
+func NewRedis(cfg Config) (*Redis, error) {
 	client := goredis.NewClient(&goredis.Options{
 		Addr:     cfg.Addr,
 		Password: cfg.Password,
