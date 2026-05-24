@@ -1,29 +1,34 @@
 package messaging
 
 import (
+	"context"
 	"encoding/json"
-	"log"
-	"restaurant-service/internal/shared/event"
+	"fmt"
+	"time"
 
-	"github.com/rabbitmq/amqp091-go"
+	"github.com/google/uuid"
+	amqp "github.com/rabbitmq/amqp091-go"
+
+	logobs "restaurant-service/internal/infrastructure/observability/logger"
+	"restaurant-service/internal/shared/event"
 )
 
 const exchangeName = "restaurant.events"
 
 type RabbitMQPublisher struct {
-	conn    *amqp091.Connection
-	channel *amqp091.Channel
+	conn    *amqp.Connection
+	channel *amqp.Channel
 }
 
-func NewRabbitMQPublisher(amqpURL string) *RabbitMQPublisher {
-	conn, err := amqp091.Dial(amqpURL)
+func NewRabbitMQPublisher(amqpURL string) (*RabbitMQPublisher, error) {
+	conn, err := amqp.Dial(amqpURL)
 	if err != nil {
-		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
+		return nil, fmt.Errorf("rabbitmq connect: %w", err)
 	}
 
 	ch, err := conn.Channel()
 	if err != nil {
-		log.Fatalf("Failed to open a channel: %v", err)
+		return nil, fmt.Errorf("open channel: %w", err)
 	}
 
 	err = ch.ExchangeDeclare(
@@ -36,36 +41,75 @@ func NewRabbitMQPublisher(amqpURL string) *RabbitMQPublisher {
 		nil,          // Arguments
 	)
 	if err != nil {
-		log.Fatalf("Failed to declare exchange: %v", err)
+		return nil, fmt.Errorf("declare exchange: %w", err)
 	}
 
-	return &RabbitMQPublisher{conn: conn, channel: ch}
+	return &RabbitMQPublisher{conn: conn, channel: ch}, nil
 }
 
-func (p *RabbitMQPublisher) Publish(event event.Event) error {
-	var body []byte
-	var err error
-
-	body, err = json.Marshal(event)
+func (p *RabbitMQPublisher) PublishEvent(ctx context.Context, event event.Event) error {
+	body, err := json.Marshal(event)
 	if err != nil {
 		return err
 	}
 
-	err = p.channel.Publish(
-		exchangeName,         // Exchange name
-		event.GetEventName(), // Routing key (e.g., restaurant.created)
-		false,                // Mandatory
-		false,                // Immediate
-		amqp091.Publishing{
-			ContentType:  "application/json",
-			Body:         body,
-			DeliveryMode: amqp091.Persistent,
-		},
-	)
-	if err != nil {
-		log.Printf("Failed to publish message: %v body: %s event: %s", err, body, event.GetEventName())
+	return p.publish(ctx, event.GetEventName(), body)
+}
+
+func (p *RabbitMQPublisher) publish(
+	ctx context.Context,
+	routingKey string,
+	body []byte,
+) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
 	}
-	return err
+
+	errCh := make(chan error, 1)
+
+	go func() {
+		err := p.channel.Publish(
+			exchangeName,
+			routingKey,
+			false,
+			false,
+			amqp.Publishing{
+				ContentType:  "application/json",
+				Body:         body,
+				DeliveryMode: amqp.Persistent,
+				MessageId:    uuid.NewString(),
+				Timestamp:    time.Now().UTC(),
+				Type:         routingKey,
+				Headers: amqp.Table{
+					"x-event-name": routingKey,
+				},
+			},
+		)
+
+		// prevent goroutine leak
+		select {
+		case errCh <- err:
+		default:
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+
+	case err := <-errCh:
+		if err != nil {
+			logobs.FromContext(ctx).Warn(
+				"failed to publish message",
+				"error", err,
+				"body", string(body),
+				"event", routingKey,
+			)
+		}
+		return err
+	}
 }
 
 func (p *RabbitMQPublisher) Close() {

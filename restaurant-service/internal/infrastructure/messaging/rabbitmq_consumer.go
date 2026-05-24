@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
-	"restaurant-service/internal/domain/restaurant"
+	amqp "github.com/rabbitmq/amqp091-go"
 
-	"github.com/rabbitmq/amqp091-go"
+	"restaurant-service/internal/domain/restaurant"
+	logobs "restaurant-service/internal/infrastructure/observability/logger"
 )
 
 const (
@@ -25,9 +25,9 @@ var Exchanges = map[string][]string{
 }
 
 type RabbitMQConsumer struct {
-	conn    *amqp091.Connection
-	channel *amqp091.Channel
 	amqpURL string
+	conn    *amqp.Connection
+	channel *amqp.Channel
 }
 
 func NewRabbitMQConsumer(amqpURL string) (*RabbitMQConsumer, error) {
@@ -39,7 +39,7 @@ func NewRabbitMQConsumer(amqpURL string) (*RabbitMQConsumer, error) {
 }
 
 func (c *RabbitMQConsumer) connect() error {
-	conn, err := amqp091.Dial(c.amqpURL)
+	conn, err := amqp.Dial(c.amqpURL)
 	if err != nil {
 		return fmt.Errorf("RabbitMQ connection failed: %w", err)
 	}
@@ -62,7 +62,7 @@ func (c *RabbitMQConsumer) connect() error {
 	}
 
 	// Queue with DLX
-	args := amqp091.Table{
+	args := amqp.Table{
 		"x-dead-letter-exchange":    DLXName,
 		"x-dead-letter-routing-key": QueueName + ".retry",
 	}
@@ -89,8 +89,8 @@ func (c *RabbitMQConsumer) connect() error {
 	return nil
 }
 
-func (c *RabbitMQConsumer) GetMessages() (<-chan amqp091.Delivery, error) {
-	if err := c.ensureConnected(); err != nil {
+func (c *RabbitMQConsumer) GetMessages(ctx context.Context) (<-chan amqp.Delivery, error) {
+	if err := c.ensureConnected(ctx); err != nil {
 		return nil, err
 	}
 
@@ -110,16 +110,17 @@ func (c *RabbitMQConsumer) GetMessages() (<-chan amqp091.Delivery, error) {
 	return msgs, nil
 }
 
-func (c *RabbitMQConsumer) ensureConnected() error {
-	if c.conn.IsClosed() {
-		log.Println("Reconnecting to RabbitMQ...")
+func (c *RabbitMQConsumer) ensureConnected(ctx context.Context) error {
+	if c.conn == nil || c.conn.IsClosed() {
+		logobs.FromContext(ctx).Warn("reconnecting to RabbitMQ...")
+
 		return c.connect()
 	}
 	return nil
 }
 
 func (c *RabbitMQConsumer) Run(ctx context.Context, dispatcher restaurant.EventDispatcher) error {
-	msgs, err := c.GetMessages()
+	msgs, err := c.GetMessages(ctx)
 	if err != nil {
 		return err
 	}
@@ -140,14 +141,23 @@ func (c *RabbitMQConsumer) Run(ctx context.Context, dispatcher restaurant.EventD
 
 			if err := dispatcher.Dispatch(ctx, event); err != nil {
 				retryCount := getRetryCount(msg.Headers)
+
 				if retryCount >= MaxRetryAttempts {
-					log.Printf("Message %s exceeded retry limit", msg.MessageId)
+					logobs.FromContext(ctx).Warn(
+						"message exceeded retry limit",
+						"message_id", msg.MessageId,
+						"retry_count", retryCount,
+					)
+
 					_ = msg.Nack(false, false) // discard
+
 					continue
 				}
 
 				time.Sleep(time.Second * time.Duration(retryCount+1))
+
 				_ = msg.Nack(false, true) // requeue
+
 				continue
 			}
 
@@ -156,7 +166,7 @@ func (c *RabbitMQConsumer) Run(ctx context.Context, dispatcher restaurant.EventD
 	}
 }
 
-func getRetryCount(headers amqp091.Table) int {
+func getRetryCount(headers amqp.Table) int {
 	if val, ok := headers["x-retry-count"]; ok {
 		if count, ok := val.(int32); ok {
 			return int(count)

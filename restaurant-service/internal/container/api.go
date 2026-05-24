@@ -26,8 +26,11 @@ func NewAPIContainer() (*APIContainer, error) {
 
 	opencageApiKey := os.Getenv("OPENCAGE_API_KEY")
 
-	publisher := messaging.NewRabbitMQPublisher(base.AMQPURL)
 	middleware := middleware.NewMiddleware()
+	publisher, err := messaging.NewRabbitMQPublisher(base.AMQPURL)
+	if err != nil {
+		return nil, err
+	}
 
 	restaurantRepo := persistence.NewRestaurantRepository(base.DB)
 
