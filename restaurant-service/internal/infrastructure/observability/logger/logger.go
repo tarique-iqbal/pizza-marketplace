@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-func New(serviceName string) *slog.Logger {
+func NewLogger(serviceName string) *slog.Logger {
 	env := os.Getenv("APP_ENV")
 
 	opts := &slog.HandlerOptions{

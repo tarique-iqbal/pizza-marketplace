@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	logger := logobs.New("restaurant-worker")
+	logger := logobs.NewLogger("restaurant-worker")
 
 	if err := bootstrap.NewApp(logger).Run(); err != nil {
 		logger.Error("application exited with error", "error", err)

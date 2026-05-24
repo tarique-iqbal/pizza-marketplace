@@ -13,7 +13,7 @@ type Shared struct {
 }
 
 func NewShared() (*Shared, error) {
-	database, err := db.InitDB()
+	postgres, err := db.NewDB()
 	if err != nil {
 		return nil, err
 	}
@@ -22,6 +22,6 @@ func NewShared() (*Shared, error) {
 
 	return &Shared{
 		AMQPURL: amqpURL,
-		DB:      database,
+		DB:      postgres.DB,
 	}, nil
 }

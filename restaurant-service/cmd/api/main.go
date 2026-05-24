@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	logger := logobs.New("restaurant-api")
+	logger := logobs.NewLogger("restaurant-api")
 
 	app, err := container.NewAPIContainer()
 	if err != nil {
