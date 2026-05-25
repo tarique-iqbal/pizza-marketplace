@@ -1,11 +1,12 @@
 package http
 
 import (
-	"identity-service/internal/application/auth"
-	"identity-service/internal/interfaces/http/validation"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"identity-service/internal/application/auth"
+	"identity-service/internal/interfaces/http/validation"
 )
 
 type AuthHandler struct {
@@ -109,4 +110,8 @@ func (h *AuthHandler) Logout(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{
 		"message": "logged out successfully",
 	})
+}
+
+func (h *AuthHandler) Verify(ctx *gin.Context) {
+	ctx.Status(http.StatusOK)
 }
