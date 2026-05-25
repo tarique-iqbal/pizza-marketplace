@@ -1,5 +1,22 @@
 services:
-  # Database (identity service)
+  # API gateway
+  traefik:
+    image: traefik:v3.0
+    container_name: pizza-traefik
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - backend
+
+  # Database (identity)
   postgres-identity:
     image: postgres:17-alpine
     container_name: pizza-pg-identity
@@ -16,8 +33,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - internal
 
-  # Database (restaurant service)
+  # Database (restaurant)
   postgres-restaurant:
     image: postgres:17-alpine
     container_name: pizza-pg-restaurant
@@ -34,6 +53,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - internal
 
   # Message Broker
   rabbitmq:
@@ -50,6 +71,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+    networks:
+      - internal
 
   # Redis Cache
   redis:
@@ -65,6 +88,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    networks:
+      - internal
 
   # Search Engine
   elasticsearch:
@@ -83,6 +108,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+    networks:
+      - internal
 
   # Identity Service
   identity-service:
@@ -101,8 +128,20 @@ services:
       redis:
         condition: service_healthy
     env_file: identity-service/.env
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.identity.rule=PathPrefix(`/auth`) || PathPrefix(`/users`)"
+      - "traefik.http.routers.auth.entrypoints=web"
+      - "traefik.http.services.auth.loadbalancer.server.port=8080"
+      # forward-auth middleware
+      - "traefik.http.middlewares.jwt.forwardauth.address=http://identity-service:8080/auth/verify"
+      - "traefik.http.middlewares.jwt.forwardauth.authRequestHeaders=Authorization"
+      - "traefik.http.middlewares.jwt.forwardauth.authResponseHeaders=X-User-ID,X-User-Role"
+    networks:
+      - backend
+      - internal
 
   # Restaurant Service
   restaurant-service:
@@ -121,8 +160,15 @@ services:
       elasticsearch:
         condition: service_healthy
     env_file: restaurant-service/.env
-    ports:
-      - "8081:8080"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.user.rule=PathPrefix(`/restaurant`)"
+      - "traefik.http.routers.user.entrypoints=web"
+      - "traefik.http.routers.user.middlewares=jwt@docker"
+      - "traefik.http.services.user.loadbalancer.server.port=8080"
+    networks:
+      - backend
+      - internal
 
   # Email Service
   email-service:
@@ -137,9 +183,18 @@ services:
     volumes:
       - ./email-service:/app
     env_file: email-service/.env
+    networks:
+      - internal
 
 volumes:
   pg_identity:
   pg_restaurant:
   elasticsearch_data:
   redis_data:
+
+networks:
+  backend:
+    driver: bridge
+  internal:
+    driver: bridge
+    internal: true
