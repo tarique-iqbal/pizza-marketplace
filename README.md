@@ -148,7 +148,7 @@ All routes are served through Traefik on port `80`.
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `GET` | `/search/restaurants` | JWT | Search restaurants (geo, keyword) |
+| `GET` | `/search/restaurants` | — | Search restaurants (geo, keyword) |
 
 
 ## Event flow
