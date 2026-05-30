@@ -162,7 +162,7 @@ services:
     env_file: restaurant-service/.env
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.user.rule=PathPrefix(`/restaurant`)"
+      - "traefik.http.routers.user.rule=PathPrefix(`/restaurants`)"
       - "traefik.http.routers.user.entrypoints=web"
       - "traefik.http.routers.user.middlewares=jwt@docker"
       - "traefik.http.services.user.loadbalancer.server.port=8080"
@@ -197,4 +197,3 @@ networks:
     driver: bridge
   internal:
     driver: bridge
-    internal: true

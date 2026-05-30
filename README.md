@@ -27,7 +27,7 @@ Client (Web)
         ▼
 Traefik API Gateway (:80)
   ├── /auth, /users  ──► Identity Service
-  ├── /restaurant    ──► Restaurant Service  (JWT protected)
+  ├── /restaurants   ──► Restaurant Service  (JWT protected)
   └── /search        ──► Search Service      (JWT protected)
 
 Async event flow via RabbitMQ:
@@ -138,11 +138,11 @@ All routes are served through Traefik on port `80`.
 | `POST` | `/users/customers` | — | Register customer account |
 | `GET` | `/users/{id}` | JWT | Get user by ID |
 
-### Restaurant service — `/restaurant`
+### Restaurant service — `/restaurants`
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `PATCH` | `/restaurant/{id}/address` | JWT | Update address |
+| `PATCH` | `/restaurants/{id}/address` | JWT | Update address |
 
 ### Search service — `/search`
 
