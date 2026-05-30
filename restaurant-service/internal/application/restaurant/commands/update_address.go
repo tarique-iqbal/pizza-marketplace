@@ -51,9 +51,15 @@ func (uc *UpdateAddress) Execute(
 		City:       input.City,
 	}
 
-	lat, lon, err := uc.geocoder.GeocodeAddress(ctx, addr)
-	if err != nil {
-		return resapp.RestaurantResponse{}, fmt.Errorf("failed to geocode address: %w", err)
+	var lat, lon float64
+
+	if res.Address == addr {
+		lat, lon = *res.Lat, *res.Lon
+	} else {
+		lat, lon, err = uc.geocoder.GeocodeAddress(ctx, addr)
+		if err != nil {
+			return resapp.RestaurantResponse{}, fmt.Errorf("failed to geocode address: %w", err)
+		}
 	}
 
 	slug, err := uc.generateUniqueSlug(ctx, res.ID, res.Name, input.City, input.Street)
