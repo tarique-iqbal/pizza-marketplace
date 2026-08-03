@@ -99,6 +99,21 @@ func (r *Restaurant) WithCoordinates(lat, lon float64) *Restaurant {
 	return r
 }
 
+func (r *Restaurant) WithDelivery(
+	pickup bool,
+	deliveryType DeliveryType,
+	deliveryKm *int16,
+	deliveryFee decimal.Decimal,
+	minimumOrder decimal.Decimal,
+) *Restaurant {
+	r.Pickup = pickup
+	r.DeliveryType = deliveryType
+	r.DeliveryKm = deliveryKm
+	r.DeliveryFee = deliveryFee
+	r.MinimumOrder = minimumOrder
+	return r
+}
+
 func (r *Restaurant) WithUpdated() *Restaurant {
 	now := time.Now().UTC()
 	r.UpdatedAt = &now
