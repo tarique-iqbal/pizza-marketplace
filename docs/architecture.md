@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the current system architecture, service boundaries, communication patterns, security model, and infrastructure design of the platform.
+This diagram describes the current system architecture, service boundaries, communication patterns, security model, and infrastructure design of the platform.
 
 ```mermaid
 flowchart TD
@@ -43,7 +43,7 @@ flowchart TD
 
   CLIENT -->|HTTP :80| GW
   GW -->|"/auth, /users"| IS
-  GW -->|"/restaurant + verify JWT"| RS
+  GW -->|"/restaurants + verify JWT"| RS
   GW -->|"/search"| SS
 
   IS -->|owns| PGI
