@@ -13,9 +13,10 @@ import (
 
 type APIContainer struct {
 	*Shared
-	Middleware     *middleware.Middleware
-	Publisher      *messaging.RabbitMQPublisher
-	AddressHandler *handlers.AddressHandler
+	Middleware      *middleware.Middleware
+	Publisher       *messaging.RabbitMQPublisher
+	AddressHandler  *handlers.AddressHandler
+	DeliveryHandler *handlers.DeliveryHandler
 }
 
 func NewAPIContainer() (*APIContainer, error) {
@@ -39,11 +40,15 @@ func NewAPIContainer() (*APIContainer, error) {
 	updateAddress := commands.NewUpdateAddress(geocoder, restaurantRepo)
 	addressHandler := handlers.NewAddressHandler(updateAddress)
 
+	updateDelivery := commands.NewUpdateDelivery(restaurantRepo)
+	deliveryHandler := handlers.NewDeliveryHandler(updateDelivery)
+
 	return &APIContainer{
-		Shared:         base,
-		Middleware:     middleware,
-		Publisher:      publisher,
-		AddressHandler: addressHandler,
+		Shared:          base,
+		Middleware:      middleware,
+		Publisher:       publisher,
+		AddressHandler:  addressHandler,
+		DeliveryHandler: deliveryHandler,
 	}, nil
 }
 

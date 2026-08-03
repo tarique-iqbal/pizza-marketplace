@@ -20,7 +20,8 @@ func main() {
 
 	router := gin.Default()
 	handlers := &routes.Handlers{
-		AddressHandler: app.AddressHandler,
+		AddressHandler:  app.AddressHandler,
+		DeliveryHandler: app.DeliveryHandler,
 	}
 
 	routes.SetupRoutes(router, handlers, app.Middleware)
