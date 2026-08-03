@@ -8,9 +8,11 @@ import (
 )
 
 type Handlers struct {
-	AddressHandler *handlers.AddressHandler
+	AddressHandler  *handlers.AddressHandler
+	DeliveryHandler *handlers.DeliveryHandler
 }
 
 func SetupRoutes(router *gin.Engine, h *Handlers, m *middleware.Middleware) {
 	SetupAddressRoutes(router, h.AddressHandler, m)
+	SetupDeliveryRoutes(router, h.DeliveryHandler, m)
 }
