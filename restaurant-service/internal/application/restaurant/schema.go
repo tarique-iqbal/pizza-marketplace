@@ -20,6 +20,14 @@ type UpdateAddressRequest struct {
 	PostalCode string `json:"postalCode" binding:"required"`
 }
 
+type UpdateDeliveryRequest struct {
+	Pickup       bool            `json:"pickup"`
+	DeliveryType DeliveryType    `json:"deliveryType" binding:"required,oneof=own external none"`
+	DeliveryKm   *int16          `json:"deliveryKm" binding:"omitempty,gte=1,lte=25"`
+	DeliveryFee  decimal.Decimal `json:"deliveryFee"`
+	MinimumOrder decimal.Decimal `json:"minimumOrder"`
+}
+
 type RestaurantResponse struct {
 	ID             uuid.UUID        `json:"id"`
 	Name           string           `json:"name"`
