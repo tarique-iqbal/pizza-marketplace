@@ -15,8 +15,6 @@ The platform follows **Domain-Driven Design** and **Clean Architecture** princip
 - [Event flow](#event-flow)
 - [Project structure](#project-structure)
 - [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [License](#license)
 
 
 ## Architecture overview
@@ -28,18 +26,16 @@ Client (Web)
 Traefik API Gateway (:80)
   ├── /auth, /users  ──► Identity Service
   ├── /restaurants   ──► Restaurant Service  (JWT protected)
-  └── /search        ──► Search Service      (JWT protected)
+  └── /search        ──► Search Service      (planned)
 
 Async event flow via RabbitMQ:
   Identity Service  ──► email.verification_created
                     ──► user.registered
                     ──► restaurant.initiated
-  Restaurant Service──► restaurant.launched
 
 Consumers:
   Email Service       ◄── email.verification_created, user.registered
-  Restaurant Worker   ◄── restaurant.initiated
-  Search Service      ◄── restaurant.launched ──► Elasticsearch
+  Restaurant Service   ◄── restaurant.initiated (worker)
 ```
 
 Each service owns its data store. There is no shared database.
@@ -53,10 +49,10 @@ See the system architecture diagram: [Architecture diagram](docs/architecture.md
 |---|---|---|---|
 | `identity-service` | Go · Gin | Auth, JWT, user management | private |
 | `restaurant-service` | Go · Gin | Restaurant & menu CRUD | private |
-| `search-service` | Go · Gin | Search API + Elasticsearch indexing | private |
+| `search-service` | Go · Gin | Search API + Elasticsearch indexing | **not implemented** |
 | `email-service` | Go | Email notifications (background worker) | — |
-| `identity-worker` | Go | Outbox event publisher (AMQP) | — |
-| `restaurant-worker` | Go | Consumes identity events to initialize restaurants | — |
+
+`identity-service` and `restaurant-service` each also run a `cmd/worker` process (outbox relay / event consumer) alongside their API — not separate services.
 
 All services are behind Traefik and not directly reachable from outside the Docker network.
 
@@ -123,32 +119,10 @@ Each service is configured via its own `.env` file. Copy the `.env.example` in e
 
 ## API routes
 
-All routes are served through Traefik on port `80`.
+All routes are served through Traefik on port `80`. See each service's API reference for details:
 
-### Identity service — `/auth`, `/users`
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `POST` | `/auth/email/verify` | — | Create email verification request |
-| `POST` | `/auth/login` | — | Login user and issue JWT tokens |
-| `POST` | `/auth/refresh` | — | Refresh access token |
-| `GET` | `/auth/verify` | JWT | Internal forward-auth endpoint (used by Traefik) |
-| `POST` | `/auth/logout` | JWT | Invalidate refresh token |
-| `POST` | `/users/owners` | — | Register owner account |
-| `POST` | `/users/customers` | — | Register customer account |
-| `GET` | `/users/{id}` | JWT | Get user by ID |
-
-### Restaurant service — `/restaurants`
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `PATCH` | `/restaurants/{id}/address` | JWT | Update address |
-
-### Search service — `/search`
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `GET` | `/search/restaurants` | — | Search restaurants (geo, keyword) |
+- [Identity service — `/auth`, `/users`](docs/identity-service-api.md)
+- [Restaurant service — `/restaurants`](docs/restaurant-service-api.md)
 
 
 ## Event flow
@@ -156,20 +130,17 @@ All routes are served through Traefik on port `80`.
 Events are published to RabbitMQ and consumed asynchronously. The outbox pattern is used in producer services for at-least-once delivery.
 
 ```
-identity-service  ──publishes──► email.verification_created
-                                 user.registered
-                                 restaurant.initiated
+identity-service   ──publishes──► email.verification_created
+                                   user.registered
+                                   restaurant.initiated
 
-restaurant-service──publishes──► restaurant.launched
+email-service       ◄──consumes── email.verification_created
+                                   user.registered
 
-email-service     ◄──consumes── email.verification_created
-                                user.registered
-
-restaurant-worker ◄──consumes── restaurant.initiated
-
-search-service    ◄──consumes── restaurant.launched
-                  ──indexes───► Elasticsearch
+restaurant-service   ◄──consumes── restaurant.initiated
 ```
+
+Planned, not wired up yet: once `search-service` is implemented, `restaurant-service` will publish `restaurant.launched` for it to consume and index into Elasticsearch.
 
 
 ## Project structure
@@ -179,9 +150,7 @@ pizza-marketplace/
 ├── docker/
 │   ├── identity-service/Dockerfile
 │   ├── restaurant-service/Dockerfile
-│   ├── email-service/Dockerfile
-│   └── search-service/Dockerfile
-│
+│   └── email-service/Dockerfile
 ├── identity-service/
 │   ├── cmd
 │   │   ├── api
@@ -192,12 +161,10 @@ pizza-marketplace/
 │   │   ├── infrastructure
 │   │   └── interfaces
 │   └── .env.example
-│
 ├── restaurant-service/
 ├── email-service/
 ├── search-service/
 ├── web-user/
-│
 ├── docker-compose.yml
 └── README.md
 ```
@@ -219,13 +186,3 @@ pizza-marketplace/
 - [ ] CI/CD pipeline
 - [ ] Cloud deployment — deploy infrastructure to cloud environment
 - [ ] AI-assisted automation — deployment optimization and anomaly detection
-
-
-## Contributing
-
-⚠️ This project is in early development. Pull requests are not currently accepted and will open after v1.0.0. The project has known issues, but you are welcome to explore it and provide feedback via issues.
-
-
-## License
-
-This project is licensed under the [GNU Affero General Public License v3.0](LICENSE).
