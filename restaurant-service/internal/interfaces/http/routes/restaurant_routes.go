@@ -32,4 +32,5 @@ func SetupPayoutRoutes(router *gin.Engine, h *handlers.PayoutHandler, m *middlew
 	protected.Use(m.Auth, m.EnsureOwner)
 
 	protected.POST("/:id/payout-details", h.CreatePayout)
+	protected.PUT("/:id/payout-details", h.UpdatePayout)
 }

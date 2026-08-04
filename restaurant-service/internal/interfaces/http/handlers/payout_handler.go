@@ -14,13 +14,16 @@ import (
 
 type PayoutHandler struct {
 	createPayout *commands.CreatePayout
+	updatePayout *commands.UpdatePayout
 }
 
 func NewPayoutHandler(
 	createPayout *commands.CreatePayout,
+	updatePayout *commands.UpdatePayout,
 ) *PayoutHandler {
 	return &PayoutHandler{
 		createPayout: createPayout,
+		updatePayout: updatePayout,
 	}
 }
 
@@ -64,4 +67,46 @@ func (h *PayoutHandler) CreatePayout(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusCreated, res)
+}
+
+func (h *PayoutHandler) UpdatePayout(ctx *gin.Context) {
+	reqCtx := ctx.Request.Context()
+
+	var input resapp.UpdatePayoutRequest
+
+	idParam := ctx.Param("id")
+	restaurantID, err := uuid.Parse(idParam)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid restaurant id",
+		})
+		return
+	}
+
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		validationErrors := validation.ExtractValidationErrors(err)
+
+		ctx.JSON(http.StatusUnprocessableEntity, gin.H{
+			"errors": validationErrors,
+		})
+		return
+	}
+
+	userID := ctx.MustGet("userID").(string)
+
+	ownerID, err := uuid.Parse(userID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid owner id",
+		})
+		return
+	}
+
+	res, err := h.updatePayout.Execute(reqCtx, restaurantID, ownerID, input)
+	if err != nil {
+		response.HandleError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, res)
 }
