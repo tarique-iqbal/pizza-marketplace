@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 
@@ -34,6 +35,35 @@ func (repo *PayoutDetailsRepository) Create(
 			return restaurant.ErrPendingPayoutExists
 		}
 		return err
+	}
+
+	return nil
+}
+
+func (repo *PayoutDetailsRepository) UpdatePending(
+	ctx context.Context,
+	restaurantID uuid.UUID,
+	accountHolder string,
+	iban string,
+	bic string,
+	bankName string,
+) error {
+	result := repo.db.WithContext(ctx).
+		Model(&restaurant.PayoutDetails{}).
+		Where("restaurant_id = ? AND status = ?", restaurantID, restaurant.PayoutPending).
+		Updates(map[string]any{
+			"account_holder": accountHolder,
+			"iban":           iban,
+			"bic":            bic,
+			"bank_name":      bankName,
+		})
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return restaurant.ErrNoPendingPayout
 	}
 
 	return nil
