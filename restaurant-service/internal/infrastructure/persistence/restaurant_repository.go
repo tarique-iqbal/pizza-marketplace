@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type RestaurantRepository struct {
@@ -32,7 +33,7 @@ func (repo *RestaurantRepository) Update(
 	ctx context.Context,
 	res *restaurant.Restaurant,
 ) error {
-	return repo.db.WithContext(ctx).Save(res).Error
+	return repo.db.WithContext(ctx).Omit(clause.Associations).Save(res).Error
 }
 
 func (repo *RestaurantRepository) FindBySlug(
@@ -60,6 +61,9 @@ func (repo *RestaurantRepository) FindByIDAndOwner(
 	var r restaurant.Restaurant
 
 	err := repo.db.WithContext(ctx).
+		Preload("PayoutDetails", func(db *gorm.DB) *gorm.DB {
+			return db.Where("status = ?", restaurant.PayoutActive)
+		}).
 		Where("id = ? AND owner_id = ?", restaurantID, ownerID).
 		Take(&r).Error
 
