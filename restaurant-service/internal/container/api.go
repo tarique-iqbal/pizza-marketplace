@@ -17,6 +17,7 @@ type APIContainer struct {
 	Publisher       *messaging.RabbitMQPublisher
 	AddressHandler  *handlers.AddressHandler
 	DeliveryHandler *handlers.DeliveryHandler
+	PayoutHandler   *handlers.PayoutHandler
 }
 
 func NewAPIContainer() (*APIContainer, error) {
@@ -35,7 +36,6 @@ func NewAPIContainer() (*APIContainer, error) {
 
 	restaurantRepo := persistence.NewRestaurantRepository(base.DB)
 
-	// restaurant
 	geocoder := geocoder.NewOpenCageGeocoder(opencageApiKey)
 	updateAddress := commands.NewUpdateAddress(geocoder, restaurantRepo)
 	addressHandler := handlers.NewAddressHandler(updateAddress)
@@ -43,12 +43,17 @@ func NewAPIContainer() (*APIContainer, error) {
 	updateDelivery := commands.NewUpdateDelivery(restaurantRepo)
 	deliveryHandler := handlers.NewDeliveryHandler(updateDelivery)
 
+	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(base.DB)
+	createPayout := commands.NewCreatePayout(restaurantRepo, payoutDetailsRepo)
+	payoutHandler := handlers.NewPayoutHandler(createPayout)
+
 	return &APIContainer{
 		Shared:          base,
 		Middleware:      middleware,
 		Publisher:       publisher,
 		AddressHandler:  addressHandler,
 		DeliveryHandler: deliveryHandler,
+		PayoutHandler:   payoutHandler,
 	}, nil
 }
 

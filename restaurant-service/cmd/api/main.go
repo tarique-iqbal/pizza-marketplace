@@ -22,6 +22,7 @@ func main() {
 	handlers := &routes.Handlers{
 		AddressHandler:  app.AddressHandler,
 		DeliveryHandler: app.DeliveryHandler,
+		PayoutHandler:   app.PayoutHandler,
 	}
 
 	routes.SetupRoutes(router, handlers, app.Middleware)
