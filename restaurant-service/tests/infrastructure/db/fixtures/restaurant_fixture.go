@@ -76,6 +76,22 @@ func LoadRestaurantFixtures(t *testing.T, db *gorm.DB) error {
 
 		err := db.Create(&r).Error
 		require.NoError(t, err)
+
+		if r.Checklist[restaurant.ChecklistPayment] {
+			pd, err := restaurant.NewPayoutDetails(
+				r.ID,
+				"Mehmet Yilmaz",
+				"DE89370400440532013000",
+				"DEUTDEFF",
+				"Deutsche Bank",
+			)
+			require.NoError(t, err)
+
+			pd.Status = restaurant.PayoutActive
+
+			err = db.Create(pd).Error
+			require.NoError(t, err)
+		}
 	}
 
 	return nil

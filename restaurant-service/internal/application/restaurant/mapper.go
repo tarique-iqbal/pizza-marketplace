@@ -29,6 +29,7 @@ func ToRestaurantResponse(r *restaurant.Restaurant) RestaurantResponse {
 			Fee:          r.DeliveryFee,
 			MinimumOrder: r.MinimumOrder,
 		},
+		Payout:       toPayoutResponse(r.PayoutDetails),
 		Pickup:       r.Pickup,
 		Currency:     r.Currency,
 		Rating:       r.Rating,
@@ -38,6 +39,20 @@ func ToRestaurantResponse(r *restaurant.Restaurant) RestaurantResponse {
 		Status:       r.Status,
 		CreatedAt:    r.CreatedAt,
 		UpdatedAt:    r.UpdatedAt,
+	}
+}
+
+func toPayoutResponse(pd *restaurant.PayoutDetails) PayoutResponse {
+	if pd == nil {
+		return PayoutResponse{}
+	}
+
+	return PayoutResponse{
+		AccountHolder: pd.AccountHolder,
+		IBAN:          pd.IBAN,
+		BIC:           pd.BIC,
+		BankName:      pd.BankName,
+		Status:        pd.Status,
 	}
 }
 
