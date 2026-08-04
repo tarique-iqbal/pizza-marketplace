@@ -45,7 +45,8 @@ func NewAPIContainer() (*APIContainer, error) {
 
 	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(base.DB)
 	createPayout := commands.NewCreatePayout(restaurantRepo, payoutDetailsRepo)
-	payoutHandler := handlers.NewPayoutHandler(createPayout)
+	updatePayout := commands.NewUpdatePayout(restaurantRepo, payoutDetailsRepo)
+	payoutHandler := handlers.NewPayoutHandler(createPayout, updatePayout)
 
 	return &APIContainer{
 		Shared:          base,
