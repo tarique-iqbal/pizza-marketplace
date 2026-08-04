@@ -36,6 +36,8 @@ type CreatePayoutRequest struct {
 	BankName      string `json:"bankName" binding:"required,max=100"`
 }
 
+type UpdatePayoutRequest = CreatePayoutRequest
+
 type RestaurantResponse struct {
 	ID             uuid.UUID        `json:"id"`
 	Name           string           `json:"name"`
