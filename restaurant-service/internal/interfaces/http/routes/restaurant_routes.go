@@ -24,3 +24,12 @@ func SetupDeliveryRoutes(router *gin.Engine, h *handlers.DeliveryHandler, m *mid
 
 	protected.PATCH("/:id/delivery", h.UpdateDelivery)
 }
+
+func SetupPayoutRoutes(router *gin.Engine, h *handlers.PayoutHandler, m *middleware.Middleware) {
+	restaurants := router.Group("/restaurants")
+
+	protected := restaurants.Group("")
+	protected.Use(m.Auth, m.EnsureOwner)
+
+	protected.POST("/:id/payout-details", h.CreatePayout)
+}

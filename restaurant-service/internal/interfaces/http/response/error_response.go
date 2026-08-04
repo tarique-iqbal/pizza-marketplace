@@ -21,6 +21,9 @@ func HandleError(ctx *gin.Context, err error) {
 	case errors.Is(err, apperr.ErrNotFound):
 		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 
+	case errors.Is(err, restaurant.ErrPendingPayoutExists):
+		ctx.JSON(http.StatusConflict, gin.H{"error": "a payout submission is already pending review"})
+
 	case errors.Is(err, apperr.ErrConflict) ||
 		errors.Is(err, restaurant.ErrEmailAlreadyExists):
 		ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
