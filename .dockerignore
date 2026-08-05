@@ -24,7 +24,7 @@ node_modules/  # For web-user if added later
 .env.*
 !.env
 *.local
-docker-compose.override.yml
+compose.override.yaml
 
 *.log
 *.tmp
@@ -40,10 +40,10 @@ coverage.out
 *.coverprofile
 *.cover
 
-!docker/  # Keep this directory
-Dockerfile*  # Ignore root Dockerfiles (we use docker/*/Dockerfile)
-docker-compose*  # Except our main compose file
-!docker-compose.yml
+compose*  # Except our main compose file
+!compose.yaml
+
+*/Dockerfile
 
 *.md
 !README.md
