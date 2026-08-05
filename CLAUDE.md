@@ -36,7 +36,7 @@ tests/                      # mirrors internal/ structure; integration-style, hi
 
 ## Commands
 
-There is no root Makefile/task runner — everything is `go` + `docker compose`, run per-service.
+A root `Makefile` wraps the common `go`/`docker compose` commands below (`make up`, `make down`, `make down-v`, `make test-up`, `make test-down`, `make test-identity`/`test-restaurant`/`test-email`/`test`, `make fmt`/`vet`/`lint`) — see it for the exact underlying commands, which also still work directly.
 
 **Local dev environment** (from repo root):
 ```bash
