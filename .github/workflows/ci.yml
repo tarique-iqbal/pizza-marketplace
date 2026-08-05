@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_identity:
+        description: Run identity-service tests
+        type: boolean
+        default: false
+      run_restaurant:
+        description: Run restaurant-service tests
+        type: boolean
+        default: false
+      run_email:
+        description: Run email-service tests
+        type: boolean
+        default: false
+
+jobs:
+  detect-changes:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    outputs:
+      identity: ${{ steps.filter.outputs.identity }}
+      restaurant: ${{ steps.filter.outputs.restaurant }}
+      email: ${{ steps.filter.outputs.email }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            identity:
+              - 'identity-service/**'
+              - 'compose.yaml'
+              - 'compose.test.yaml'
+            restaurant:
+              - 'restaurant-service/**'
+              - 'compose.yaml'
+              - 'compose.test.yaml'
+            email:
+              - 'email-service/**'
+              - 'compose.yaml'
+
+  identity-ci:
+    needs: detect-changes
+    if: |
+      always() &&
+      (needs.detect-changes.outputs.identity == 'true' ||
+        (github.event_name == 'workflow_dispatch' && inputs.run_identity))
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write .env.test
+        run: |
+          cat > identity-service/.env.test <<'EOF'
+          APP_ENV=test
+          POSTGRES_USER=user_test
+          POSTGRES_PASSWORD=pass_test
+          POSTGRES_DB=identity_db_test
+          POSTGRES_HOST=pg-identity-test
+          POSTGRES_PORT=5432
+          JWT_SECRET=test-secret
+          REDIS_ADDR=redis-test:6379
+          RABBITMQ_URL=amqp://user_test:pass_test@rabbitmq-test:5672/
+          EOF
+
+      - name: Start test stack
+        run: docker compose -f compose.test.yaml --profile test up -d identity-test
+
+      - name: Run migrations
+        run: docker compose -f compose.test.yaml --profile test up migrate-identity-test
+
+      - name: Run tests
+        run: docker compose -f compose.test.yaml exec -T identity-test sh -c "cd /app && go test -p 1 -count=1 ./..."
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f compose.test.yaml down -v
+
+  restaurant-ci:
+    needs: detect-changes
+    if: |
+      always() &&
+      (needs.detect-changes.outputs.restaurant == 'true' ||
+        (github.event_name == 'workflow_dispatch' && inputs.run_restaurant))
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write .env.test
+        run: |
+          cat > restaurant-service/.env.test <<'EOF'
+          APP_ENV=test
+          LOG_LEVEL=info
+          POSTGRES_USER=user_test
+          POSTGRES_PASSWORD=pass_test
+          POSTGRES_DB=restaurant_db_test
+          POSTGRES_HOST=pg-restaurant-test
+          POSTGRES_PORT=5432
+          JWT_SECRET=test-secret
+          RABBITMQ_URL=amqp://user_test:pass_test@rabbitmq-test:5672/
+          OPENCAGE_API_KEY=test-key
+          EOF
+
+      - name: Start test stack
+        run: docker compose -f compose.test.yaml --profile test up -d restaurant-test
+
+      - name: Run migrations
+        run: docker compose -f compose.test.yaml --profile test up migrate-restaurant-test
+
+      - name: Run tests
+        run: docker compose -f compose.test.yaml exec -T restaurant-test sh -c "cd /app && go test -p 1 -count=1 ./..."
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f compose.test.yaml down -v
+
+  email-ci:
+    needs: detect-changes
+    if: |
+      always() &&
+      (needs.detect-changes.outputs.email == 'true' ||
+        (github.event_name == 'workflow_dispatch' && inputs.run_email))
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: email-service/go.mod
+
+      - name: Run tests
+        run: cd email-service && go test ./...
