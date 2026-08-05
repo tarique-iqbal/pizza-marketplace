@@ -13,6 +13,7 @@ type Address = restaurant.Address
 type DeliveryType = restaurant.DeliveryType
 type RestaurantStatus = restaurant.RestaurantStatus
 type PayoutStatus = restaurant.PayoutStatus
+type OpeningHoursResponse = restaurant.OpeningHours
 
 type UpdateAddressRequest struct {
 	House      string `json:"house" binding:"required,max=64"`
@@ -38,26 +39,41 @@ type CreatePayoutRequest struct {
 
 type UpdatePayoutRequest = CreatePayoutRequest
 
+type DayRangeRequest struct {
+	Open  string `json:"open" binding:"required,hhmm"`
+	Close string `json:"close" binding:"required,hhmm"`
+}
+
+type UpdateOpeningHoursRequest struct {
+	Monday    []DayRangeRequest `json:"monday" binding:"dive"`
+	Tuesday   []DayRangeRequest `json:"tuesday" binding:"dive"`
+	Wednesday []DayRangeRequest `json:"wednesday" binding:"dive"`
+	Thursday  []DayRangeRequest `json:"thursday" binding:"dive"`
+	Friday    []DayRangeRequest `json:"friday" binding:"dive"`
+	Saturday  []DayRangeRequest `json:"saturday" binding:"dive"`
+	Sunday    []DayRangeRequest `json:"sunday" binding:"dive"`
+}
+
 type RestaurantResponse struct {
-	ID             uuid.UUID        `json:"id"`
-	Name           string           `json:"name"`
-	Slug           *string          `json:"slug,omitempty"`
-	Contact        ContactResponse  `json:"contact"`
-	Address        Address          `json:"address"`
-	DisplayAddress string           `json:"displayAddress"`
-	Lat            *float64         `json:"lat,omitempty"`
-	Lon            *float64         `json:"lon,omitempty"`
-	Delivery       DeliveryResponse `json:"delivery"`
-	Payout         PayoutResponse   `json:"payout"`
-	Currency       string           `json:"currency"`
-	Rating         float64          `json:"rating"`
-	TotalReviews   int32            `json:"totalReviews"`
-	Pickup         bool             `json:"pickup"`
-	Tags           []string         `json:"tags"`
-	OpeningHours   any              `json:"openingHours"`
-	Status         RestaurantStatus `json:"status"`
-	CreatedAt      time.Time        `json:"createdAt"`
-	UpdatedAt      *time.Time       `json:"updatedAt,omitempty"`
+	ID             uuid.UUID            `json:"id"`
+	Name           string               `json:"name"`
+	Slug           *string              `json:"slug,omitempty"`
+	Contact        ContactResponse      `json:"contact"`
+	Address        Address              `json:"address"`
+	DisplayAddress string               `json:"displayAddress"`
+	Lat            *float64             `json:"lat,omitempty"`
+	Lon            *float64             `json:"lon,omitempty"`
+	Delivery       DeliveryResponse     `json:"delivery"`
+	Payout         PayoutResponse       `json:"payout"`
+	Currency       string               `json:"currency"`
+	Rating         float64              `json:"rating"`
+	TotalReviews   int32                `json:"totalReviews"`
+	Pickup         bool                 `json:"pickup"`
+	Tags           []string             `json:"tags"`
+	OpeningHours   OpeningHoursResponse `json:"openingHours"`
+	Status         RestaurantStatus     `json:"status"`
+	CreatedAt      time.Time            `json:"createdAt"`
+	UpdatedAt      *time.Time           `json:"updatedAt,omitempty"`
 }
 
 type ContactResponse struct {
