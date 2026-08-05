@@ -56,6 +56,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: identity-service/go.mod
+
+      - name: Check formatting
+        run: |
+          cd identity-service
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Run go vet
+        run: cd identity-service && go vet ./...
+
       - name: Write .env.test
         run: |
           cat > identity-service/.env.test <<'EOF'
@@ -92,6 +108,22 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: restaurant-service/go.mod
+
+      - name: Check formatting
+        run: |
+          cd restaurant-service
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Run go vet
+        run: cd restaurant-service && go vet ./...
 
       - name: Write .env.test
         run: |
@@ -134,6 +166,18 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: email-service/go.mod
+
+      - name: Check formatting
+        run: |
+          cd email-service
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Run go vet
+        run: cd email-service && go vet ./...
 
       - name: Run tests
         run: cd email-service && go test ./...
