@@ -1,10 +1,11 @@
-/bin/
+bin/
 *.exe
 *.out
 *.test
+__debug_bin*
 
-/vendor/
-/pkg/
+vendor/
+pkg/
 
 .DS_Store
 Thumbs.db
@@ -15,14 +16,20 @@ Thumbs.db
 *.log
 *.tmp
 *.swp
+*.swo
 
 .env
 .env.test
 
 coverage.out
+*.coverprofile
+*.cover
 
-/build/
+build/
+node_modules/
 
 /email-service/tmp
 /identity-service/tmp
 /restaurant-service/tmp
+
+notes/
