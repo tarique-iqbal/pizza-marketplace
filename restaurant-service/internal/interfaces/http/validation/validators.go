@@ -1,16 +1,24 @@
 package validation
 
 import (
+	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
+
+	"restaurant-service/internal/application/restaurant"
 )
+
+var hhmmPattern = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`)
 
 func init() {
 	if engine, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		_ = engine.RegisterValidation("iban", isIban)
+		_ = engine.RegisterValidation("hhmm", isHHMM)
+		engine.RegisterStructValidation(validateDayRange, restaurant.DayRangeRequest{})
 	}
 }
 
@@ -54,4 +62,20 @@ func mod97(numeric string) int {
 		remainder = (remainder*10 + int(r-'0')) % 97
 	}
 	return remainder
+}
+
+func isHHMM(fl validator.FieldLevel) bool {
+	return hhmmPattern.MatchString(fl.Field().String())
+}
+
+func validateDayRange(sl validator.StructLevel) {
+	dr := sl.Current().Interface().(restaurant.DayRangeRequest)
+
+	if !hhmmPattern.MatchString(dr.Open) || !hhmmPattern.MatchString(dr.Close) {
+		return
+	}
+
+	if dr.Open >= dr.Close {
+		sl.ReportError(reflect.ValueOf(dr.Close), "Close", "Close", "gtfield_open", "")
+	}
 }

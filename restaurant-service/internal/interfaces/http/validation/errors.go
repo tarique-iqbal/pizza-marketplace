@@ -31,6 +31,10 @@ func getErrorMsg(fe validator.FieldError) string {
 		return "Must be a valid IBAN."
 	case "bic":
 		return "Must be a valid BIC/SWIFT code."
+	case "hhmm":
+		return "Must be a valid time in HH:MM format."
+	case "gtfield_open":
+		return "Close must be later than open."
 	}
 	return "Unknown error"
 }
