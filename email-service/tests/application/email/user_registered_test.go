@@ -41,9 +41,9 @@ func (m *mockTemplateLoader) Render(name string, data any) (string, error) {
 	}
 	m.RenderCount++
 	switch name {
-	case "user_welcome_email_subject.html":
+	case "customer_welcome_email_subject.html":
 		return "Welcome to MockApp!", nil
-	case "user_welcome_email_body.html":
+	case "customer_welcome_email_body.html":
 		return "Hello Alice, welcome to MockApp!", nil
 	}
 	return "", nil
@@ -62,7 +62,7 @@ func TestUserRegistered_Handle_Success(t *testing.T) {
 		Data: []byte(`{
 			"email": "test@example.com",
 			"first_name": "Alice",
-			"role": "user",
+			"role": "customer",
 			"timestamp": "2024-01-01T00:00:00Z"
 		}`),
 	}
@@ -123,7 +123,7 @@ func TestUserRegistered_Handle_EmailSendFails(t *testing.T) {
 		Data: []byte(`{
 			"email": "test@example.com",
 			"first_name": "Alice",
-			"role": "user",
+			"role": "customer",
 			"timestamp": "2024-01-01T00:00:00Z"
 		}`),
 	}
