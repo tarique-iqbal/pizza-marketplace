@@ -165,7 +165,7 @@ pizza-marketplace/
 ├── email-service/
 ├── search-service/
 ├── web-user/
-├── docker-compose.yml
+├── compose.yaml
 └── README.md
 ```
 
