@@ -16,6 +16,7 @@ func TestNewChecklist(t *testing.T) {
 	assert.False(t, checklist[restaurant.ChecklistAddress])
 	assert.False(t, checklist[restaurant.ChecklistDelivery])
 	assert.False(t, checklist[restaurant.ChecklistPayment])
+	assert.False(t, checklist[restaurant.ChecklistOpeningHours])
 }
 
 func TestChecklist_Complete(t *testing.T) {
@@ -55,6 +56,7 @@ func TestChecklist_IsCompleted_ReturnsTrue(t *testing.T) {
 		restaurant.ChecklistAddress,
 		restaurant.ChecklistDelivery,
 		restaurant.ChecklistPayment,
+		restaurant.ChecklistOpeningHours,
 	}
 
 	for _, item := range items {
