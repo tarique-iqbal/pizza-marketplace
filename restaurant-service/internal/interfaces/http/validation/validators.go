@@ -13,11 +13,13 @@ import (
 )
 
 var hhmmPattern = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`)
+var phonePattern = regexp.MustCompile(`^\+?[0-9()\-\s]{6,32}$`)
 
 func init() {
 	if engine, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		_ = engine.RegisterValidation("iban", isIban)
 		_ = engine.RegisterValidation("hhmm", isHHMM)
+		_ = engine.RegisterValidation("phone", isPhone)
 		engine.RegisterStructValidation(validateDayRange, restaurant.DayRangeRequest{})
 	}
 }
@@ -66,6 +68,26 @@ func mod97(numeric string) int {
 
 func isHHMM(fl validator.FieldLevel) bool {
 	return hhmmPattern.MatchString(fl.Field().String())
+}
+
+// isPhone accepts digits with optional leading +, spaces, hyphens, and
+// parentheses, requiring at least 6 digits so strings like "asdf" or
+// all-separator input don't pass.
+func isPhone(fl validator.FieldLevel) bool {
+	value := fl.Field().String()
+
+	if !phonePattern.MatchString(value) {
+		return false
+	}
+
+	digits := 0
+	for _, r := range value {
+		if r >= '0' && r <= '9' {
+			digits++
+		}
+	}
+
+	return digits >= 6
 }
 
 func validateDayRange(sl validator.StructLevel) {

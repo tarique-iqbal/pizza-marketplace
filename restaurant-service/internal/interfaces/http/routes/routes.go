@@ -9,6 +9,7 @@ import (
 
 type Handlers struct {
 	AddressHandler      *handlers.AddressHandler
+	ContactHandler      *handlers.ContactHandler
 	DeliveryHandler     *handlers.DeliveryHandler
 	PayoutHandler       *handlers.PayoutHandler
 	OpeningHoursHandler *handlers.OpeningHoursHandler
@@ -16,6 +17,7 @@ type Handlers struct {
 
 func SetupRoutes(router *gin.Engine, h *Handlers, m *middleware.Middleware) {
 	SetupAddressRoutes(router, h.AddressHandler, m)
+	SetupContactRoutes(router, h.ContactHandler, m)
 	SetupDeliveryRoutes(router, h.DeliveryHandler, m)
 	SetupPayoutRoutes(router, h.PayoutHandler, m)
 	SetupOpeningHoursRoutes(router, h.OpeningHoursHandler, m)

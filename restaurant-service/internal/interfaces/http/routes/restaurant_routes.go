@@ -16,6 +16,15 @@ func SetupAddressRoutes(router *gin.Engine, h *handlers.AddressHandler, m *middl
 	protected.PATCH("/:id/address", h.UpdateAddress)
 }
 
+func SetupContactRoutes(router *gin.Engine, h *handlers.ContactHandler, m *middleware.Middleware) {
+	restaurants := router.Group("/restaurants")
+
+	protected := restaurants.Group("")
+	protected.Use(m.Auth, m.EnsureOwner)
+
+	protected.PATCH("/:id/contact", h.UpdateContact)
+}
+
 func SetupDeliveryRoutes(router *gin.Engine, h *handlers.DeliveryHandler, m *middleware.Middleware) {
 	restaurants := router.Group("/restaurants")
 
