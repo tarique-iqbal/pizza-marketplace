@@ -16,6 +16,7 @@ type APIContainer struct {
 	Middleware          *middleware.Middleware
 	Publisher           *messaging.RabbitMQPublisher
 	AddressHandler      *handlers.AddressHandler
+	ContactHandler      *handlers.ContactHandler
 	DeliveryHandler     *handlers.DeliveryHandler
 	PayoutHandler       *handlers.PayoutHandler
 	OpeningHoursHandler *handlers.OpeningHoursHandler
@@ -41,6 +42,9 @@ func NewAPIContainer() (*APIContainer, error) {
 	updateAddress := commands.NewUpdateAddress(geocoder, restaurantRepo)
 	addressHandler := handlers.NewAddressHandler(updateAddress)
 
+	updateContact := commands.NewUpdateContact(restaurantRepo)
+	contactHandler := handlers.NewContactHandler(updateContact)
+
 	updateDelivery := commands.NewUpdateDelivery(restaurantRepo)
 	deliveryHandler := handlers.NewDeliveryHandler(updateDelivery)
 
@@ -57,6 +61,7 @@ func NewAPIContainer() (*APIContainer, error) {
 		Middleware:          middleware,
 		Publisher:           publisher,
 		AddressHandler:      addressHandler,
+		ContactHandler:      contactHandler,
 		DeliveryHandler:     deliveryHandler,
 		PayoutHandler:       payoutHandler,
 		OpeningHoursHandler: openingHoursHandler,
