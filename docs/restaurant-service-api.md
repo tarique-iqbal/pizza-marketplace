@@ -6,11 +6,14 @@ Routes served under `/restaurants` via the Traefik gateway.
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
+| `PATCH` | `/restaurants/{id}/contact` | JWT | Update contact info (email, phone, website) |
 | `PATCH` | `/restaurants/{id}/address` | JWT | Update address |
 | `PATCH` | `/restaurants/{id}/delivery` | JWT | Update delivery settings (pickup, delivery type, radius, fee, minimum order) |
 | `POST` | `/restaurants/{id}/payout-details` | JWT | Submit new payout bank details (account holder, IBAN, BIC, bank name) for verification |
 | `PUT` | `/restaurants/{id}/payout-details` | JWT | Replace the pending payout submission (all four fields required) |
 | `PATCH` | `/restaurants/{id}/opening-hours` | JWT | Replace the weekly opening hours (full replace, one or more `{open, close}` ranges per weekday) |
+
+`PATCH /:id/contact` requires `email` and `phone`; `website` is optional and cleared when omitted. `phone` accepts digits with an optional leading `+`, spaces, hyphens, and parentheses (at least 6 digits) — a loose format check, not strict E.164 validation.
 
 `POST /:id/payout-details` never overwrites data in place — it creates a new `pending` payout record. If one is already pending, the call fails with `409 Conflict`. An existing `active` record is never touched by a new submission; only a future review-promotion step changes it. Promoting a `pending` record to `active` — and flipping the prior `active` record to `superseded` — happens via a review step that isn't implemented yet. Only the `active` record is ever paid out.
 
