@@ -26,7 +26,6 @@ coverage.out
 *.cover
 
 build/
-node_modules/
 
 /email-service/tmp
 /identity-service/tmp

@@ -164,7 +164,6 @@ pizza-marketplace/
 ├── restaurant-service/
 ├── email-service/
 ├── search-service/
-├── web-user/
 ├── compose.yaml
 └── README.md
 ```
@@ -176,7 +175,7 @@ pizza-marketplace/
 - [ ] Profile service — user profile, address, and payment info management
 - [ ] Order service — place and track orders
 - [ ] Payment service — payment processing
-- [ ] Web user client — React frontend application
+- [ ] Web user client — React frontend application (separate repo)
 - [ ] Notification service — SMS/web notification consumer
 - [ ] Analytics service — metrics, reporting, and audit logs
 - [ ] gRPC inter-service communication

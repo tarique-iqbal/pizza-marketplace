@@ -14,9 +14,10 @@ Pizza Marketplace: an online pizza ordering platform built as a Go microservices
 | `restaurant-service` | Restaurant & menu CRUD, geocoding | implemented (API + worker) |
 | `email-service` | Consumes email-related events, sends notifications | implemented (worker only) |
 | `search-service` | Search API + Elasticsearch indexing | **not implemented** — `go.mod` only, no code |
-| `web-user` | React frontend | **not implemented** — empty placeholder dir |
 
-Don't assume `search-service` or `web-user` have code to read — check before referencing them. The `restaurant.launched` → search-indexing flow described in `README.md` / `docs/architecture.md` is documented but not yet wired up anywhere in Go code.
+This repo holds backend services only — the React frontend (`web-user`) lives in a separate repo.
+
+Don't assume `search-service` has code to read — check before referencing it. The `restaurant.launched` → search-indexing flow described in `README.md` / `docs/architecture.md` is documented but not yet wired up anywhere in Go code.
 
 Each Go service (`identity-service`, `restaurant-service`, `email-service`) follows the same internal layout:
 

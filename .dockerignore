@@ -15,7 +15,6 @@ obj/
 .cache/
 vendor/
 pkg/
-node_modules/  # For web-user if added later
 
 .vscode/
 .idea/
@@ -28,9 +27,6 @@ compose.override.yaml
 
 *.log
 *.tmp
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
 .git/
 .gitignore
@@ -51,5 +47,3 @@ compose*  # Except our main compose file
 email-service/tmp
 identity-service/tmp
 restaurant-service/tmp
-web-user/build/
-web-user/node_modules/
