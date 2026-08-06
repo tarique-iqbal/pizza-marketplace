@@ -45,12 +45,12 @@ See the system architecture diagram: [Architecture diagram](docs/architecture.md
 
 ## Services
 
-| Service | Language | Role | Exposure |
-|---|---|---|---|
-| `identity-service` | Go · Gin | Auth, JWT, user management | private |
-| `restaurant-service` | Go · Gin | Restaurant & menu CRUD | private |
-| `search-service` | Go · Gin | Search API + Elasticsearch indexing | **not implemented** |
-| `email-service` | Go | Email notifications (background worker) | — |
+| Service | Role | Exposure |
+|---|---|---|
+| `identity-service` | Auth, JWT, user management | mixed (public and JWT-protected) |
+| `restaurant-service` | Restaurant & menu CRUD | JWT-protected |
+| `search-service` | Search API + Elasticsearch indexing | **not implemented** |
+| `email-service` | Email notifications (background worker) | — |
 
 `identity-service` and `restaurant-service` each also run a `cmd/worker` process (outbox relay / event consumer) alongside their API — not separate services.
 
@@ -62,12 +62,12 @@ All services are behind Traefik and not directly reachable from outside the Dock
 | Layer | Technology |
 |---|---|
 | Language | Go |
-| API gateway | Traefik v3 |
 | HTTP framework | Gin |
 | Message broker | RabbitMQ 3 |
 | Relational DB | PostgreSQL 17 |
 | Cache | Redis 7 |
 | Search engine | Elasticsearch 8.9 |
+| API gateway | Traefik v3 |
 | Containerisation | Docker · Docker Compose |
 
 
@@ -121,8 +121,8 @@ Each service is configured via its own `.env` file. Copy the `.env.example` in e
 
 All routes are served through Traefik on port `80`. See each service's API reference for details:
 
-- [Identity service — `/auth`, `/users`](docs/identity-service-api.md)
-- [Restaurant service — `/restaurants`](docs/restaurant-service-api.md)
+- [Identity service](docs/identity-service-api.md) — `/auth`, `/users`
+- [Restaurant service](docs/restaurant-service-api.md) — `/restaurants`
 
 
 ## Event flow
@@ -147,10 +147,6 @@ Planned, not wired up yet: once `search-service` is implemented, `restaurant-ser
 
 ```
 pizza-marketplace/
-├── docker/
-│   ├── identity-service/Dockerfile
-│   ├── restaurant-service/Dockerfile
-│   └── email-service/Dockerfile
 ├── identity-service/
 │   ├── cmd
 │   │   ├── api
@@ -160,27 +156,29 @@ pizza-marketplace/
 │   │   ├── domain
 │   │   ├── infrastructure
 │   │   └── interfaces
+│   ├── Dockerfile
 │   └── .env.example
 ├── restaurant-service/
 ├── email-service/
 ├── search-service/
 ├── compose.yaml
+├── compose.test.yaml
 └── README.md
 ```
 
 
 ## Roadmap
 
-- [ ] Search service — Elasticsearch-based search and indexing
 - [ ] Profile service — user profile, address, and payment info management
-- [ ] Order service — place and track orders
+- [ ] Search service — Elasticsearch-based search and indexing
 - [ ] Payment service — payment processing
-- [ ] Web user client — React frontend application (separate repo)
+- [ ] Order service — place and track orders
 - [ ] Notification service — SMS/web notification consumer
 - [ ] Analytics service — metrics, reporting, and audit logs
 - [ ] gRPC inter-service communication
 - [ ] Zero-trust networking — trusted proxies, mTLS, and workload identity
 - [ ] Observability stack — logs, metrics, traces, and monitoring
+- [ ] Web user client — React frontend application (separate repo)
 - [ ] Kubernetes manifests
 - [ ] CI/CD pipeline
 - [ ] Cloud deployment — deploy infrastructure to cloud environment
