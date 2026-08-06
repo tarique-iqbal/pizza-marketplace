@@ -89,6 +89,13 @@ func (r *Restaurant) WithSlug(slug string) *Restaurant {
 	return r
 }
 
+func (r *Restaurant) WithContact(email, phone, website *string) *Restaurant {
+	r.Email = email
+	r.Phone = phone
+	r.Website = website
+	return r
+}
+
 func (r *Restaurant) WithAddress(address Address) *Restaurant {
 	r.Address = address
 	return r

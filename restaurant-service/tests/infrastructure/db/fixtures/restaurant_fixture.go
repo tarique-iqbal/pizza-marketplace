@@ -33,7 +33,7 @@ func LoadRestaurantFixtures(t *testing.T, db *gorm.DB) error {
 			Website:   testutil.StringPtr("https://anatolisch.de"),
 			Checklist: restaurant.Checklist{
 				restaurant.ChecklistBasic:        true,
-				restaurant.ChecklistContract:     true,
+				restaurant.ChecklistContact:      true,
 				restaurant.ChecklistAddress:      true,
 				restaurant.ChecklistDelivery:     true,
 				restaurant.ChecklistPayment:      true,

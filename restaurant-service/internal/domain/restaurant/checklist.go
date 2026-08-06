@@ -4,7 +4,7 @@ type ChecklistItem string
 
 const (
 	ChecklistBasic        ChecklistItem = "basic"
-	ChecklistContract     ChecklistItem = "contract"
+	ChecklistContact      ChecklistItem = "contact"
 	ChecklistAddress      ChecklistItem = "address"
 	ChecklistDelivery     ChecklistItem = "delivery"
 	ChecklistPayment      ChecklistItem = "payment"
@@ -16,7 +16,7 @@ type Checklist map[ChecklistItem]bool
 func NewChecklist() Checklist {
 	return Checklist{
 		ChecklistBasic:        false,
-		ChecklistContract:     false,
+		ChecklistContact:      false,
 		ChecklistAddress:      false,
 		ChecklistDelivery:     false,
 		ChecklistPayment:      false,
@@ -35,7 +35,7 @@ func (c Checklist) Reopen(item ChecklistItem) {
 func (c Checklist) IsCompleted() bool {
 	required := []ChecklistItem{
 		ChecklistBasic,
-		ChecklistContract,
+		ChecklistContact,
 		ChecklistAddress,
 		ChecklistDelivery,
 		ChecklistPayment,
