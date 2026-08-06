@@ -22,6 +22,12 @@ type UpdateAddressRequest struct {
 	PostalCode string `json:"postalCode" binding:"required"`
 }
 
+type UpdateContactRequest struct {
+	Email   *string `json:"email" binding:"required,email,max=255"`
+	Phone   *string `json:"phone" binding:"required,phone"`
+	Website *string `json:"website" binding:"omitempty,url,max=255"`
+}
+
 type UpdateDeliveryRequest struct {
 	Pickup       bool            `json:"pickup"`
 	DeliveryType DeliveryType    `json:"deliveryType" binding:"required,oneof=own external none"`
