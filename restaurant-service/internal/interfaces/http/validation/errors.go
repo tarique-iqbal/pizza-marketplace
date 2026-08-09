@@ -27,6 +27,8 @@ func getErrorMsg(fe validator.FieldError) string {
 		return "Must be less than or equal to: " + fe.Param()
 	case "oneof":
 		return "Must be one of: " + fe.Param()
+	case "url":
+		return "Must be a valid URL."
 	case "iban":
 		return "Must be a valid IBAN."
 	case "bic":
