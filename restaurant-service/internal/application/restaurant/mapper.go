@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 	"gorm.io/datatypes"
 
 	"restaurant-service/internal/domain/restaurant"
@@ -53,6 +55,56 @@ func toPayoutResponse(pd *restaurant.PayoutDetails) PayoutResponse {
 		BIC:           pd.BIC,
 		BankName:      pd.BankName,
 		Status:        pd.Status,
+	}
+}
+
+func ToPizzaResponse(
+	pizza *restaurant.Pizza,
+	prices []restaurant.PizzaPrice,
+	sizeByID map[uuid.UUID]restaurant.PizzaSize,
+	toppingIDs []uuid.UUID,
+	toppingByID map[uuid.UUID]restaurant.Topping,
+	priceByToppingID map[uuid.UUID]decimal.Decimal,
+) PizzaResponse {
+	priceResponses := make([]PizzaPriceResponse, 0, len(prices))
+	for _, p := range prices {
+		size := sizeByID[p.SizeID]
+		priceResponses = append(priceResponses, PizzaPriceResponse{
+			SizeID:     p.SizeID,
+			DiameterCm: size.DiameterCm,
+			Price:      Money(p.Price),
+			IsActive:   p.IsActive,
+		})
+	}
+
+	toppingResponses := make([]ToppingResponse, 0, len(toppingIDs))
+	for _, toppingID := range toppingIDs {
+		topping := toppingByID[toppingID]
+
+		var extraPrice *Money
+		if price, ok := priceByToppingID[toppingID]; ok {
+			m := Money(price)
+			extraPrice = &m
+		}
+
+		toppingResponses = append(toppingResponses, ToppingResponse{
+			ToppingID:  toppingID,
+			Name:       topping.Name,
+			ExtraPrice: extraPrice,
+		})
+	}
+
+	return PizzaResponse{
+		ID:           pizza.ID,
+		Name:         pizza.Name,
+		Image:        pizza.Image,
+		IsVegetarian: pizza.IsVegetarian,
+		Status:       pizza.Status,
+		SortOrder:    pizza.SortOrder,
+		Prices:       priceResponses,
+		Toppings:     toppingResponses,
+		CreatedAt:    pizza.CreatedAt,
+		UpdatedAt:    pizza.UpdatedAt,
 	}
 }
 

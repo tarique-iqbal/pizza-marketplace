@@ -14,6 +14,7 @@ type DeliveryType = restaurant.DeliveryType
 type RestaurantStatus = restaurant.RestaurantStatus
 type PayoutStatus = restaurant.PayoutStatus
 type OpeningHoursResponse = restaurant.OpeningHours
+type PizzaStatus = restaurant.PizzaStatus
 
 type UpdateAddressRequest struct {
 	House      string `json:"house" binding:"required,max=64"`
@@ -58,6 +59,15 @@ type UpdateOpeningHoursRequest struct {
 	Friday    []DayRangeRequest `json:"friday" binding:"dive"`
 	Saturday  []DayRangeRequest `json:"saturday" binding:"dive"`
 	Sunday    []DayRangeRequest `json:"sunday" binding:"dive"`
+}
+
+type CreatePizzaRequest struct {
+	Name         string      `json:"name" binding:"required,max=255"`
+	Image        *string     `json:"image" binding:"omitempty,max=255"`
+	IsVegetarian *bool       `json:"isVegetarian" binding:"omitempty"`
+	Status       *string     `json:"status" binding:"omitempty,oneof=available unavailable archived"`
+	SortOrder    int         `json:"sortOrder" binding:"gte=0"`
+	ToppingIDs   []uuid.UUID `json:"toppingIds"`
 }
 
 type ToppingPriceInput struct {
@@ -110,6 +120,32 @@ type PayoutResponse struct {
 	BIC           string       `json:"bic"`
 	BankName      string       `json:"bankName"`
 	Status        PayoutStatus `json:"status,omitempty"`
+}
+
+type PizzaResponse struct {
+	ID           uuid.UUID            `json:"id"`
+	Name         string               `json:"name"`
+	Image        *string              `json:"image,omitempty"`
+	IsVegetarian bool                 `json:"isVegetarian"`
+	Status       PizzaStatus          `json:"status"`
+	SortOrder    int                  `json:"sortOrder"`
+	Prices       []PizzaPriceResponse `json:"prices"`
+	Toppings     []ToppingResponse    `json:"toppings"`
+	CreatedAt    time.Time            `json:"createdAt"`
+	UpdatedAt    *time.Time           `json:"updatedAt,omitempty"`
+}
+
+type PizzaPriceResponse struct {
+	SizeID     uuid.UUID `json:"sizeId"`
+	DiameterCm int16     `json:"diameterCm"`
+	Price      Money     `json:"price"`
+	IsActive   bool      `json:"isActive"`
+}
+
+type ToppingResponse struct {
+	ToppingID  uuid.UUID `json:"toppingId"`
+	Name       string    `json:"name"`
+	ExtraPrice *Money    `json:"extraPrice,omitempty"`
 }
 
 type ToppingPriceResponse struct {
