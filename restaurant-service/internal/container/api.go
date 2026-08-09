@@ -20,6 +20,7 @@ type APIContainer struct {
 	DeliveryHandler     *handlers.DeliveryHandler
 	PayoutHandler       *handlers.PayoutHandler
 	OpeningHoursHandler *handlers.OpeningHoursHandler
+	ToppingPriceHandler *handlers.ToppingPriceHandler
 }
 
 func NewAPIContainer() (*APIContainer, error) {
@@ -56,6 +57,12 @@ func NewAPIContainer() (*APIContainer, error) {
 	updateOpeningHours := commands.NewUpdateOpeningHours(restaurantRepo)
 	openingHoursHandler := handlers.NewOpeningHoursHandler(updateOpeningHours)
 
+	toppingRepo := persistence.NewToppingRepository(base.DB)
+	toppingPriceRepo := persistence.NewToppingPriceRepository(base.DB)
+
+	setToppingPrices := commands.NewSetToppingPrices(restaurantRepo, toppingRepo, toppingPriceRepo)
+	toppingPriceHandler := handlers.NewToppingPriceHandler(setToppingPrices)
+
 	return &APIContainer{
 		Shared:              base,
 		Middleware:          middleware,
@@ -65,6 +72,7 @@ func NewAPIContainer() (*APIContainer, error) {
 		DeliveryHandler:     deliveryHandler,
 		PayoutHandler:       payoutHandler,
 		OpeningHoursHandler: openingHoursHandler,
+		ToppingPriceHandler: toppingPriceHandler,
 	}, nil
 }
 
