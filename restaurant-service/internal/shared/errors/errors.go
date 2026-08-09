@@ -7,4 +7,5 @@ var (
 	ErrForbidden    = errors.New("forbidden")
 	ErrNotFound     = errors.New("resource not found")
 	ErrConflict     = errors.New("conflict")
+	ErrInvalid      = errors.New("invalid input")
 )

@@ -56,6 +56,14 @@ func toPayoutResponse(pd *restaurant.PayoutDetails) PayoutResponse {
 	}
 }
 
+func ToToppingPriceResponse(price restaurant.ToppingPrice, toppingName string) ToppingPriceResponse {
+	return ToppingPriceResponse{
+		ToppingID:  price.ToppingID,
+		Name:       toppingName,
+		ExtraPrice: Money(price.ExtraPrice),
+	}
+}
+
 func formatAddress(a Address) string {
 	return fmt.Sprintf(
 		"%s %s, %s %s",

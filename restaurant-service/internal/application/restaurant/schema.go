@@ -60,6 +60,15 @@ type UpdateOpeningHoursRequest struct {
 	Sunday    []DayRangeRequest `json:"sunday" binding:"dive"`
 }
 
+type ToppingPriceInput struct {
+	ToppingID  uuid.UUID       `json:"toppingId" binding:"required"`
+	ExtraPrice decimal.Decimal `json:"extraPrice"`
+}
+
+type SetToppingPricesRequest struct {
+	Prices []ToppingPriceInput `json:"prices" binding:"required,min=1,dive"`
+}
+
 type RestaurantResponse struct {
 	ID             uuid.UUID            `json:"id"`
 	Name           string               `json:"name"`
@@ -101,4 +110,10 @@ type PayoutResponse struct {
 	BIC           string       `json:"bic"`
 	BankName      string       `json:"bankName"`
 	Status        PayoutStatus `json:"status,omitempty"`
+}
+
+type ToppingPriceResponse struct {
+	ToppingID  uuid.UUID `json:"toppingId"`
+	Name       string    `json:"name"`
+	ExtraPrice Money     `json:"extraPrice"`
 }
