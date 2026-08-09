@@ -61,3 +61,12 @@ func SetupToppingPriceRoutes(router *gin.Engine, h *handlers.ToppingPriceHandler
 
 	protected.PUT("/:id/topping-prices", h.SetToppingPrices)
 }
+
+func SetupPizzaRoutes(router *gin.Engine, h *handlers.PizzaHandler, m *middleware.Middleware) {
+	restaurants := router.Group("/restaurants")
+
+	protected := restaurants.Group("")
+	protected.Use(m.Auth, m.EnsureOwner)
+
+	protected.POST("/:id/pizzas", h.CreatePizza)
+}
