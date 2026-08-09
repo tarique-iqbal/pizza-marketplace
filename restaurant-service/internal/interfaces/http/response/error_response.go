@@ -21,6 +21,9 @@ func HandleError(ctx *gin.Context, err error) {
 	case errors.Is(err, apperr.ErrNotFound):
 		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 
+	case errors.Is(err, apperr.ErrInvalid):
+		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+
 	case errors.Is(err, restaurant.ErrNoPendingPayout):
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "no pending payout submission to update"})
 

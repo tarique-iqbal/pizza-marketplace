@@ -52,3 +52,12 @@ func SetupOpeningHoursRoutes(router *gin.Engine, h *handlers.OpeningHoursHandler
 
 	protected.PATCH("/:id/opening-hours", h.UpdateOpeningHours)
 }
+
+func SetupToppingPriceRoutes(router *gin.Engine, h *handlers.ToppingPriceHandler, m *middleware.Middleware) {
+	restaurants := router.Group("/restaurants")
+
+	protected := restaurants.Group("")
+	protected.Use(m.Auth, m.EnsureOwner)
+
+	protected.PUT("/:id/topping-prices", h.SetToppingPrices)
+}
