@@ -14,13 +14,16 @@ import (
 
 type PizzaHandler struct {
 	createPizza *commands.CreatePizza
+	updatePizza *commands.UpdatePizza
 }
 
 func NewPizzaHandler(
 	createPizza *commands.CreatePizza,
+	updatePizza *commands.UpdatePizza,
 ) *PizzaHandler {
 	return &PizzaHandler{
 		createPizza: createPizza,
+		updatePizza: updatePizza,
 	}
 }
 
@@ -63,4 +66,53 @@ func (h *PizzaHandler) CreatePizza(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusCreated, res)
+}
+
+func (h *PizzaHandler) UpdatePizza(ctx *gin.Context) {
+	reqCtx := ctx.Request.Context()
+
+	var input resapp.UpdatePizzaRequest
+
+	restaurantID, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid restaurant id",
+		})
+		return
+	}
+
+	pizzaID, err := uuid.Parse(ctx.Param("pizzaId"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid pizza id",
+		})
+		return
+	}
+
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		validationErrors := validation.ExtractValidationErrors(err)
+
+		ctx.JSON(http.StatusUnprocessableEntity, gin.H{
+			"errors": validationErrors,
+		})
+		return
+	}
+
+	userID := ctx.MustGet("userID").(string)
+
+	ownerID, err := uuid.Parse(userID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid owner id",
+		})
+		return
+	}
+
+	res, err := h.updatePizza.Execute(reqCtx, restaurantID, pizzaID, ownerID, input)
+	if err != nil {
+		response.HandleError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, res)
 }

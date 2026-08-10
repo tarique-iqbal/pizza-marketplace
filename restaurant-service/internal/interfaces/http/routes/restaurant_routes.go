@@ -69,4 +69,5 @@ func SetupPizzaRoutes(router *gin.Engine, h *handlers.PizzaHandler, m *middlewar
 	protected.Use(m.Auth, m.EnsureOwner)
 
 	protected.POST("/:id/pizzas", h.CreatePizza)
+	protected.PUT("/:id/pizzas/:pizzaId", h.UpdatePizza)
 }
