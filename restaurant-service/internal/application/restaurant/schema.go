@@ -70,6 +70,8 @@ type CreatePizzaRequest struct {
 	ToppingIDs   []uuid.UUID `json:"toppingIds"`
 }
 
+type UpdatePizzaRequest = CreatePizzaRequest
+
 type ToppingPriceInput struct {
 	ToppingID  uuid.UUID       `json:"toppingId" binding:"required"`
 	ExtraPrice decimal.Decimal `json:"extraPrice"`
