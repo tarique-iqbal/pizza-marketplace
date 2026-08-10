@@ -72,6 +72,15 @@ type CreatePizzaRequest struct {
 
 type UpdatePizzaRequest = CreatePizzaRequest
 
+type PizzaPriceInput struct {
+	SizeID uuid.UUID       `json:"sizeId" binding:"required"`
+	Price  decimal.Decimal `json:"price"`
+}
+
+type SetPizzaPricesRequest struct {
+	Prices []PizzaPriceInput `json:"prices" binding:"required,min=1,dive"`
+}
+
 type ToppingPriceInput struct {
 	ToppingID  uuid.UUID       `json:"toppingId" binding:"required"`
 	ExtraPrice decimal.Decimal `json:"extraPrice"`
