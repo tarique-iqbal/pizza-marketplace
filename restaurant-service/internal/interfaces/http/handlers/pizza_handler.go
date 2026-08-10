@@ -8,6 +8,7 @@ import (
 
 	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/application/restaurant/commands"
+	"restaurant-service/internal/application/restaurant/queries"
 	"restaurant-service/internal/interfaces/http/response"
 	"restaurant-service/internal/interfaces/http/validation"
 )
@@ -16,18 +17,51 @@ type PizzaHandler struct {
 	createPizza    *commands.CreatePizza
 	updatePizza    *commands.UpdatePizza
 	setPizzaPrices *commands.SetPizzaPrices
+	listPizzas     *queries.ListPizzas
 }
 
 func NewPizzaHandler(
 	createPizza *commands.CreatePizza,
 	updatePizza *commands.UpdatePizza,
 	setPizzaPrices *commands.SetPizzaPrices,
+	listPizzas *queries.ListPizzas,
 ) *PizzaHandler {
 	return &PizzaHandler{
 		createPizza:    createPizza,
 		updatePizza:    updatePizza,
 		setPizzaPrices: setPizzaPrices,
+		listPizzas:     listPizzas,
 	}
+}
+
+func (h *PizzaHandler) ListPizzas(ctx *gin.Context) {
+	reqCtx := ctx.Request.Context()
+
+	restaurantID, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid restaurant id",
+		})
+		return
+	}
+
+	userID := ctx.MustGet("userID").(string)
+
+	ownerID, err := uuid.Parse(userID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid owner id",
+		})
+		return
+	}
+
+	res, err := h.listPizzas.Execute(reqCtx, restaurantID, ownerID)
+	if err != nil {
+		response.HandleError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, res)
 }
 
 func (h *PizzaHandler) CreatePizza(ctx *gin.Context) {

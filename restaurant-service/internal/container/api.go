@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"restaurant-service/internal/application/restaurant/commands"
+	"restaurant-service/internal/application/restaurant/queries"
 	"restaurant-service/internal/infrastructure/geocoder"
 	"restaurant-service/internal/infrastructure/messaging"
 	"restaurant-service/internal/infrastructure/persistence"
@@ -71,7 +72,8 @@ func NewAPIContainer() (*APIContainer, error) {
 	createPizza := commands.NewCreatePizza(restaurantRepo, pizzaRepo, toppingRepo)
 	updatePizza := commands.NewUpdatePizza(restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo)
 	setPizzaPrices := commands.NewSetPizzaPrices(restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo)
-	pizzaHandler := handlers.NewPizzaHandler(createPizza, updatePizza, setPizzaPrices)
+	listPizzas := queries.NewListPizzas(restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo)
+	pizzaHandler := handlers.NewPizzaHandler(createPizza, updatePizza, setPizzaPrices, listPizzas)
 
 	return &APIContainer{
 		Shared:              base,

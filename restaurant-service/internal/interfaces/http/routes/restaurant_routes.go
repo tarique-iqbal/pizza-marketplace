@@ -68,6 +68,7 @@ func SetupPizzaRoutes(router *gin.Engine, h *handlers.PizzaHandler, m *middlewar
 	protected := restaurants.Group("")
 	protected.Use(m.Auth, m.EnsureOwner)
 
+	protected.GET("/:id/pizzas", h.ListPizzas)
 	protected.POST("/:id/pizzas", h.CreatePizza)
 	protected.PUT("/:id/pizzas/:pizzaId", h.UpdatePizza)
 	protected.PUT("/:id/pizzas/:pizzaId/prices", h.SetPizzaPrices)

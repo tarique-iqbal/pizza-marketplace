@@ -14,6 +14,7 @@ import (
 
 	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/application/restaurant/commands"
+	"restaurant-service/internal/application/restaurant/queries"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/infrastructure/persistence"
 	"restaurant-service/internal/interfaces/http/handlers"
@@ -39,11 +40,13 @@ func setupPizzaHandler(t *testing.T) pizzaHandlerSetup {
 	pizzaPriceRepo := persistence.NewPizzaPriceRepository(db.DB)
 	pizzaSizeRepo := persistence.NewPizzaSizeRepository(db.DB)
 	toppingRepo := persistence.NewToppingRepository(db.DB)
+	toppingPriceRepo := persistence.NewToppingPriceRepository(db.DB)
 
 	handler := handlers.NewPizzaHandler(
 		commands.NewCreatePizza(restaurantRepo, pizzaRepo, toppingRepo),
 		commands.NewUpdatePizza(restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo),
 		commands.NewSetPizzaPrices(restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo),
+		queries.NewListPizzas(restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo),
 	)
 
 	return pizzaHandlerSetup{DB: db.DB, Handler: handler}
@@ -53,6 +56,7 @@ func pizzaRouter(h *handlers.PizzaHandler, ownerID, role string) *gin.Engine {
 	router := gin.Default()
 	router.Use(MockAuthMiddleware(ownerID, role), middleware.RequireRole("owner"))
 
+	router.GET("/restaurants/:id/pizzas", h.ListPizzas)
 	router.POST("/restaurants/:id/pizzas", h.CreatePizza)
 	router.PUT("/restaurants/:id/pizzas/:pizzaId", h.UpdatePizza)
 	router.PUT("/restaurants/:id/pizzas/:pizzaId/prices", h.SetPizzaPrices)
@@ -118,6 +122,26 @@ func TestPizzaHandler_CreatePizza_ValidationError_MissingName(t *testing.T) {
 
 	assert.Equal(t, http.StatusUnprocessableEntity, recorder.Code)
 	assert.Contains(t, recorder.Body.String(), "errors")
+}
+
+func TestPizzaHandler_ListPizzas_Success(t *testing.T) {
+	h := setupPizzaHandler(t)
+
+	var res restaurant.Restaurant
+	require.NoError(t, h.DB.Where("slug = ?", "anatolische-kueche").Take(&res).Error)
+
+	router := pizzaRouter(h.Handler, res.OwnerID.String(), "owner")
+
+	req, _ := http.NewRequest(http.MethodGet, "/restaurants/"+res.ID.String()+"/pizzas", nil)
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+
+	var response []resapp.PizzaResponse
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
+	assert.Len(t, response, 2)
 }
 
 func TestPizzaHandler_UpdatePizza_Success(t *testing.T) {
@@ -229,11 +253,9 @@ func TestPizzaHandler_Unauthorized(t *testing.T) {
 	router := gin.Default()
 	router.Use(middleware.AuthMiddleware())
 	router.Use(middleware.RequireRole("owner"))
-	router.POST("/restaurants/:id/pizzas", h.Handler.CreatePizza)
+	router.GET("/restaurants/:id/pizzas", h.Handler.ListPizzas)
 
-	body, _ := json.Marshal(map[string]any{"name": "Diavola"})
-	req, _ := http.NewRequest(http.MethodPost, "/restaurants/"+res.ID.String()+"/pizzas", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
+	req, _ := http.NewRequest(http.MethodGet, "/restaurants/"+res.ID.String()+"/pizzas", nil)
 
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, req)
@@ -249,9 +271,7 @@ func TestPizzaHandler_Forbidden_WrongRole(t *testing.T) {
 
 	router := pizzaRouter(h.Handler, res.OwnerID.String(), "customer")
 
-	body, _ := json.Marshal(map[string]any{"name": "Diavola"})
-	req, _ := http.NewRequest(http.MethodPost, "/restaurants/"+res.ID.String()+"/pizzas", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
+	req, _ := http.NewRequest(http.MethodGet, "/restaurants/"+res.ID.String()+"/pizzas", nil)
 
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, req)
