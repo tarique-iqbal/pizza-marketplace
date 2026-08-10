@@ -43,6 +43,7 @@ func setupPizzaHandler(t *testing.T) pizzaHandlerSetup {
 	handler := handlers.NewPizzaHandler(
 		commands.NewCreatePizza(restaurantRepo, pizzaRepo, toppingRepo),
 		commands.NewUpdatePizza(restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo),
+		commands.NewSetPizzaPrices(restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo),
 	)
 
 	return pizzaHandlerSetup{DB: db.DB, Handler: handler}
@@ -54,6 +55,7 @@ func pizzaRouter(h *handlers.PizzaHandler, ownerID, role string) *gin.Engine {
 
 	router.POST("/restaurants/:id/pizzas", h.CreatePizza)
 	router.PUT("/restaurants/:id/pizzas/:pizzaId", h.UpdatePizza)
+	router.PUT("/restaurants/:id/pizzas/:pizzaId/prices", h.SetPizzaPrices)
 
 	return router
 }
@@ -145,6 +147,41 @@ func TestPizzaHandler_UpdatePizza_Success(t *testing.T) {
 	var response resapp.PizzaResponse
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
 	assert.Equal(t, "Renamed Pizza", response.Name)
+}
+
+func TestPizzaHandler_SetPizzaPrices_Success(t *testing.T) {
+	h := setupPizzaHandler(t)
+
+	var pizza restaurant.Pizza
+	require.NoError(t, h.DB.Order("sort_order").First(&pizza).Error)
+
+	var res restaurant.Restaurant
+	require.NoError(t, h.DB.Take(&res, "id = ?", pizza.RestaurantID).Error)
+
+	var size restaurant.PizzaSize
+	require.NoError(t, h.DB.Order("diameter_cm").Take(&size).Error)
+
+	router := pizzaRouter(h.Handler, res.OwnerID.String(), "owner")
+
+	body, _ := json.Marshal(map[string]any{
+		"prices": []map[string]any{{"sizeId": size.ID.String(), "price": "9.99"}},
+	})
+	req, _ := http.NewRequest(
+		http.MethodPut,
+		"/restaurants/"+res.ID.String()+"/pizzas/"+pizza.ID.String()+"/prices",
+		bytes.NewBuffer(body),
+	)
+	req.Header.Set("Content-Type", "application/json")
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+
+	var response resapp.PizzaResponse
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
+	require.Len(t, response.Prices, 1)
+	assert.True(t, response.Prices[0].IsActive)
 }
 
 func TestPizzaHandler_UpdatePizza_SetsToppings_NoPriceRequired(t *testing.T) {

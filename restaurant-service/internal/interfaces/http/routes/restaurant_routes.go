@@ -70,4 +70,5 @@ func SetupPizzaRoutes(router *gin.Engine, h *handlers.PizzaHandler, m *middlewar
 
 	protected.POST("/:id/pizzas", h.CreatePizza)
 	protected.PUT("/:id/pizzas/:pizzaId", h.UpdatePizza)
+	protected.PUT("/:id/pizzas/:pizzaId/prices", h.SetPizzaPrices)
 }

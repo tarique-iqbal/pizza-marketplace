@@ -70,7 +70,8 @@ func NewAPIContainer() (*APIContainer, error) {
 
 	createPizza := commands.NewCreatePizza(restaurantRepo, pizzaRepo, toppingRepo)
 	updatePizza := commands.NewUpdatePizza(restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo)
-	pizzaHandler := handlers.NewPizzaHandler(createPizza, updatePizza)
+	setPizzaPrices := commands.NewSetPizzaPrices(restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo)
+	pizzaHandler := handlers.NewPizzaHandler(createPizza, updatePizza, setPizzaPrices)
 
 	return &APIContainer{
 		Shared:              base,
