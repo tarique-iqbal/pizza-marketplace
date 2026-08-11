@@ -70,9 +70,15 @@ func NewAPIContainer() (*APIContainer, error) {
 	pizzaSizeRepo := persistence.NewPizzaSizeRepository(base.DB)
 
 	createPizza := commands.NewCreatePizza(restaurantRepo, pizzaRepo, toppingRepo)
-	updatePizza := commands.NewUpdatePizza(restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo)
-	setPizzaPrices := commands.NewSetPizzaPrices(restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo)
-	listPizzas := queries.NewListPizzas(restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo)
+	updatePizza := commands.NewUpdatePizza(
+		restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo,
+	)
+	setPizzaPrices := commands.NewSetPizzaPrices(
+		restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo,
+	)
+	listPizzas := queries.NewListPizzas(
+		restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo,
+	)
 	pizzaHandler := handlers.NewPizzaHandler(createPizza, updatePizza, setPizzaPrices, listPizzas)
 
 	return &APIContainer{

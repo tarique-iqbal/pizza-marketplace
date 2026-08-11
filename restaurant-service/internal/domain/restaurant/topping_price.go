@@ -20,7 +20,11 @@ func (ToppingPrice) TableName() string {
 	return "topping_prices"
 }
 
-func NewToppingPrice(restaurantID uuid.UUID, toppingID uuid.UUID, extraPrice decimal.Decimal) (*ToppingPrice, error) {
+func NewToppingPrice(
+	restaurantID uuid.UUID,
+	toppingID uuid.UUID,
+	extraPrice decimal.Decimal,
+) (*ToppingPrice, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return nil, err

@@ -83,7 +83,8 @@ func (uc *SetToppingPrices) Execute(
 		}
 		seen[priceInput.ToppingID] = true
 
-		if priceInput.ExtraPrice.LessThan(minToppingExtraPrice) || priceInput.ExtraPrice.GreaterThan(maxToppingExtraPrice) {
+		if priceInput.ExtraPrice.LessThan(minToppingExtraPrice) ||
+			priceInput.ExtraPrice.GreaterThan(maxToppingExtraPrice) {
 			return nil, fmt.Errorf(
 				"topping %s extra price must be between %s and %s: %w",
 				priceInput.ToppingID,

@@ -109,7 +109,9 @@ func (uc *ListPizzas) Execute(
 			return nil, fmt.Errorf("failed to parse toppings for pizza %s: %w", pizza.ID, err)
 		}
 
-		responses = append(responses, resapp.ToPizzaResponse(&pizza, prices, sizeByID, toppingIDs, toppingByID, priceByToppingID))
+		responses = append(responses, resapp.ToPizzaResponse(
+			&pizza, prices, sizeByID, toppingIDs, toppingByID, priceByToppingID,
+		))
 	}
 
 	return responses, nil
