@@ -61,6 +61,7 @@ type Restaurant struct {
 	CreatedAt     time.Time        `gorm:"type:timestamptz;autoCreateTime"`
 	UpdatedAt     *time.Time       `gorm:"type:timestamptz;autoUpdateTime;default:null"`
 	LastSyncAt    *time.Time       `gorm:"type:timestamptz"`
+	events        []DomainEvent
 }
 
 func (Restaurant) TableName() string {
@@ -124,4 +125,24 @@ func (r *Restaurant) WithDelivery(
 func (r *Restaurant) WithOpeningHours(openingHours OpeningHours) *Restaurant {
 	r.OpeningHours = openingHours
 	return r
+}
+
+func (r *Restaurant) CompleteChecklistItem(item ChecklistItem) {
+	r.Checklist.Complete(item)
+
+	if r.Status == StatusDraft && r.Checklist.IsCompleted() {
+		r.Status = StatusReview
+
+		r.events = append(r.events, RestaurantReadyForReview{
+			RestaurantID:   r.ID,
+			RestaurantName: r.Name,
+			ReadyAt:        time.Now().UTC(),
+		})
+	}
+}
+
+func (r *Restaurant) PullEvents() []DomainEvent {
+	events := r.events
+	r.events = nil
+	return events
 }
