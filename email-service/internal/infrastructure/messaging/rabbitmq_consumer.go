@@ -23,6 +23,9 @@ var Exchanges = map[string][]string{
 		"email.verification_created",
 		"user.registered",
 	},
+	"restaurant.events": {
+		"restaurant.ready_for_review",
+	},
 }
 
 type RabbitMQConsumer struct {
