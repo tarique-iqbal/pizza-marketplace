@@ -35,7 +35,7 @@ func setupPayoutHandler(t *testing.T) payoutHandlerSetup {
 
 	restaurantRepo := persistence.NewRestaurantRepository(db.DB)
 	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(db.DB)
-	createPayout := commands.NewCreatePayout(restaurantRepo, payoutDetailsRepo)
+	createPayout := commands.NewCreatePayout(restaurantRepo, payoutDetailsRepo, testutil.NoopPublisher{})
 	updatePayout := commands.NewUpdatePayout(restaurantRepo, payoutDetailsRepo)
 	handler := handlers.NewPayoutHandler(createPayout, updatePayout)
 

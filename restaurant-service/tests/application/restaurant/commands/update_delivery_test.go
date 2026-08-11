@@ -31,7 +31,7 @@ func setupUpdateDelivery(t *testing.T) updateDeliverySetup {
 	_ = fixtures.LoadRestaurantFixtures(t, db.DB)
 
 	restaurantRepo := persistence.NewRestaurantRepository(db.DB)
-	updateDelivery := commands.NewUpdateDelivery(restaurantRepo)
+	updateDelivery := commands.NewUpdateDelivery(restaurantRepo, testutil.NoopPublisher{})
 
 	return updateDeliverySetup{
 		DB:             db.DB,

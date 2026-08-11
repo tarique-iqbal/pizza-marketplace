@@ -10,20 +10,24 @@ import (
 	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/domain/restaurant"
 	apperr "restaurant-service/internal/shared/errors"
+	"restaurant-service/internal/shared/event"
 )
 
 type UpdateAddress struct {
 	geocoder       restaurant.Geocoder
 	restaurantRepo restaurant.RestaurantRepository
+	publisher      event.EventPublisher
 }
 
 func NewUpdateAddress(
 	geocoder restaurant.Geocoder,
 	restaurantRepo restaurant.RestaurantRepository,
+	publisher event.EventPublisher,
 ) *UpdateAddress {
 	return &UpdateAddress{
 		geocoder:       geocoder,
 		restaurantRepo: restaurantRepo,
+		publisher:      publisher,
 	}
 }
 
@@ -67,7 +71,7 @@ func (uc *UpdateAddress) Execute(
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	res.Checklist.Complete(restaurant.ChecklistAddress)
+	res.CompleteChecklistItem(restaurant.ChecklistAddress)
 
 	res.WithSlug(slug).
 		WithAddress(addr).
@@ -76,6 +80,8 @@ func (uc *UpdateAddress) Execute(
 	if err := uc.restaurantRepo.Update(ctx, res); err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to update restaurant: %w", err)
 	}
+
+	resapp.DispatchEvents(ctx, uc.publisher, res)
 
 	return resapp.ToRestaurantResponse(res), nil
 }

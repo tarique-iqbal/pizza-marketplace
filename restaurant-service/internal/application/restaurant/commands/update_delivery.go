@@ -9,17 +9,21 @@ import (
 	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/domain/restaurant"
 	apperr "restaurant-service/internal/shared/errors"
+	"restaurant-service/internal/shared/event"
 )
 
 type UpdateDelivery struct {
 	restaurantRepo restaurant.RestaurantRepository
+	publisher      event.EventPublisher
 }
 
 func NewUpdateDelivery(
 	restaurantRepo restaurant.RestaurantRepository,
+	publisher event.EventPublisher,
 ) *UpdateDelivery {
 	return &UpdateDelivery{
 		restaurantRepo: restaurantRepo,
+		publisher:      publisher,
 	}
 }
 
@@ -40,7 +44,7 @@ func (uc *UpdateDelivery) Execute(
 		)
 	}
 
-	res.Checklist.Complete(restaurant.ChecklistDelivery)
+	res.CompleteChecklistItem(restaurant.ChecklistDelivery)
 
 	res.WithDelivery(
 		input.Pickup,
@@ -53,6 +57,8 @@ func (uc *UpdateDelivery) Execute(
 	if err := uc.restaurantRepo.Update(ctx, res); err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to update restaurant: %w", err)
 	}
+
+	resapp.DispatchEvents(ctx, uc.publisher, res)
 
 	return resapp.ToRestaurantResponse(res), nil
 }

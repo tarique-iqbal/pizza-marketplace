@@ -9,20 +9,24 @@ import (
 	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/domain/restaurant"
 	apperr "restaurant-service/internal/shared/errors"
+	"restaurant-service/internal/shared/event"
 )
 
 type CreatePayout struct {
 	restaurantRepo    restaurant.RestaurantRepository
 	payoutDetailsRepo restaurant.PayoutDetailsRepository
+	publisher         event.EventPublisher
 }
 
 func NewCreatePayout(
 	restaurantRepo restaurant.RestaurantRepository,
 	payoutDetailsRepo restaurant.PayoutDetailsRepository,
+	publisher event.EventPublisher,
 ) *CreatePayout {
 	return &CreatePayout{
 		restaurantRepo:    restaurantRepo,
 		payoutDetailsRepo: payoutDetailsRepo,
+		publisher:         publisher,
 	}
 }
 
@@ -58,12 +62,14 @@ func (uc *CreatePayout) Execute(
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to create payout details: %w", err)
 	}
 
-	res.Checklist.Complete(restaurant.ChecklistPayment)
+	res.CompleteChecklistItem(restaurant.ChecklistPayment)
 	res.PayoutDetails = pd
 
 	if err := uc.restaurantRepo.Update(ctx, res); err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to update restaurant: %w", err)
 	}
+
+	resapp.DispatchEvents(ctx, uc.publisher, res)
 
 	return resapp.ToRestaurantResponse(res), nil
 }

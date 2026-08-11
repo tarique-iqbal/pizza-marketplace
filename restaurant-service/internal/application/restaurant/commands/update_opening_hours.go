@@ -9,17 +9,21 @@ import (
 	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/domain/restaurant"
 	apperr "restaurant-service/internal/shared/errors"
+	"restaurant-service/internal/shared/event"
 )
 
 type UpdateOpeningHours struct {
 	restaurantRepo restaurant.RestaurantRepository
+	publisher      event.EventPublisher
 }
 
 func NewUpdateOpeningHours(
 	restaurantRepo restaurant.RestaurantRepository,
+	publisher event.EventPublisher,
 ) *UpdateOpeningHours {
 	return &UpdateOpeningHours{
 		restaurantRepo: restaurantRepo,
+		publisher:      publisher,
 	}
 }
 
@@ -40,13 +44,15 @@ func (uc *UpdateOpeningHours) Execute(
 		)
 	}
 
-	res.Checklist.Complete(restaurant.ChecklistOpeningHours)
+	res.CompleteChecklistItem(restaurant.ChecklistOpeningHours)
 
 	res.WithOpeningHours(toDomainOpeningHours(input))
 
 	if err := uc.restaurantRepo.Update(ctx, res); err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to update restaurant: %w", err)
 	}
+
+	resapp.DispatchEvents(ctx, uc.publisher, res)
 
 	return resapp.ToRestaurantResponse(res), nil
 }

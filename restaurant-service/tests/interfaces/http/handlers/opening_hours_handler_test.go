@@ -34,7 +34,7 @@ func setupOpeningHoursHandler(t *testing.T) openingHoursHandlerSetup {
 	_ = fixtures.LoadRestaurantFixtures(t, db.DB)
 
 	repo := persistence.NewRestaurantRepository(db.DB)
-	updateOpeningHours := commands.NewUpdateOpeningHours(repo)
+	updateOpeningHours := commands.NewUpdateOpeningHours(repo, testutil.NoopPublisher{})
 	handler := handlers.NewOpeningHoursHandler(updateOpeningHours)
 
 	return openingHoursHandlerSetup{
