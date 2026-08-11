@@ -2,19 +2,19 @@ package email
 
 import (
 	"bytes"
-	"html/template"
 	"path/filepath"
+	"text/template"
 )
 
-type HTMLTemplateLoader struct {
+type TextTemplateLoader struct {
 	basePath string
 }
 
-func NewHTMLTemplateLoader(basePath string) *HTMLTemplateLoader {
-	return &HTMLTemplateLoader{basePath: basePath}
+func NewTextTemplateLoader(basePath string) *TextTemplateLoader {
+	return &TextTemplateLoader{basePath: basePath}
 }
 
-func (f *HTMLTemplateLoader) Render(name string, data any) (string, error) {
+func (f *TextTemplateLoader) Render(name string, data any) (string, error) {
 	templatePath := filepath.Join(f.basePath, name)
 	tmpl, err := template.ParseFiles(templatePath)
 	if err != nil {
