@@ -16,13 +16,13 @@ test-down:
 	docker compose -f compose.test.yaml down -v
 
 test-identity:
-	docker compose -f compose.test.yaml exec -T identity-test sh -c "cd /app && go test -p 1 -count=1 ./..."
+	docker compose -f compose.test.yaml exec -T identity-test sh -c "cd /app && go test -p 1 -count=1 ./tests/..."
 
 test-restaurant:
-	docker compose -f compose.test.yaml exec -T restaurant-test sh -c "cd /app && go test -p 1 -count=1 ./..."
+	docker compose -f compose.test.yaml exec -T restaurant-test sh -c "cd /app && go test -p 1 -count=1 ./tests/..."
 
 test-email:
-	cd email-service && go test ./...
+	cd email-service && go test ./tests/...
 
 test: test-up test-identity test-restaurant test-email
 
