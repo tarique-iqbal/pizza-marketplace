@@ -93,7 +93,7 @@ jobs:
         run: docker compose -f compose.test.yaml --profile test up migrate-identity-test
 
       - name: Run tests
-        run: docker compose -f compose.test.yaml exec -T identity-test sh -c "cd /app && go test -p 1 -count=1 ./..."
+        run: docker compose -f compose.test.yaml exec -T identity-test sh -c "cd /app && go test -p 1 -count=1 ./tests/..."
 
       - name: Tear down
         if: always()
@@ -147,7 +147,7 @@ jobs:
         run: docker compose -f compose.test.yaml --profile test up migrate-restaurant-test
 
       - name: Run tests
-        run: docker compose -f compose.test.yaml exec -T restaurant-test sh -c "cd /app && go test -p 1 -count=1 ./..."
+        run: docker compose -f compose.test.yaml exec -T restaurant-test sh -c "cd /app && go test -p 1 -count=1 ./tests/..."
 
       - name: Tear down
         if: always()
@@ -180,4 +180,4 @@ jobs:
         run: cd email-service && go vet ./...
 
       - name: Run tests
-        run: cd email-service && go test ./...
+        run: cd email-service && go test ./tests/...
