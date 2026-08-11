@@ -71,8 +71,7 @@ func (uc *UpdateAddress) Execute(
 
 	res.WithSlug(slug).
 		WithAddress(addr).
-		WithCoordinates(lat, lon).
-		WithUpdated()
+		WithCoordinates(lat, lon)
 
 	if err := uc.restaurantRepo.Update(ctx, res); err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to update restaurant: %w", err)

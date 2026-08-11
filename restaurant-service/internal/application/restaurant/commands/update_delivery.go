@@ -48,7 +48,7 @@ func (uc *UpdateDelivery) Execute(
 		input.DeliveryKm,
 		input.DeliveryFee,
 		input.MinimumOrder,
-	).WithUpdated()
+	)
 
 	if err := uc.restaurantRepo.Update(ctx, res); err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to update restaurant: %w", err)

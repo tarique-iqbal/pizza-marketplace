@@ -22,8 +22,8 @@ type PayoutDetails struct {
 	BIC           string       `gorm:"column:bic;size:11;not null"`
 	BankName      string       `gorm:"column:bank_name;size:100;not null"`
 	Status        PayoutStatus `gorm:"type:payout_details_status_enum;not null;default:'pending'"`
-	CreatedAt     time.Time    `gorm:"type:timestamptz;not null;default:CURRENT_TIMESTAMP"`
-	UpdatedAt     *time.Time   `gorm:"type:timestamptz"`
+	CreatedAt     time.Time    `gorm:"type:timestamptz;autoCreateTime"`
+	UpdatedAt     *time.Time   `gorm:"type:timestamptz;autoUpdateTime;default:null"`
 }
 
 func (PayoutDetails) TableName() string {
@@ -50,6 +50,5 @@ func NewPayoutDetails(
 		BIC:           bic,
 		BankName:      bankName,
 		Status:        PayoutPending,
-		CreatedAt:     time.Now().UTC(),
 	}, nil
 }

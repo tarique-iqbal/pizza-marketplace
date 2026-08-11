@@ -42,7 +42,7 @@ func (uc *UpdateOpeningHours) Execute(
 
 	res.Checklist.Complete(restaurant.ChecklistOpeningHours)
 
-	res.WithOpeningHours(toDomainOpeningHours(input)).WithUpdated()
+	res.WithOpeningHours(toDomainOpeningHours(input))
 
 	if err := uc.restaurantRepo.Update(ctx, res); err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to update restaurant: %w", err)

@@ -42,7 +42,7 @@ func (uc *UpdateContact) Execute(
 
 	res.Checklist.Complete(restaurant.ChecklistContact)
 
-	res.WithContact(input.Email, input.Phone, input.Website).WithUpdated()
+	res.WithContact(input.Email, input.Phone, input.Website)
 
 	if err := uc.restaurantRepo.Update(ctx, res); err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to update restaurant: %w", err)

@@ -58,8 +58,8 @@ type Restaurant struct {
 	MinimumOrder  decimal.Decimal  `gorm:"type:numeric(6,2);not null;default:0"`
 	Rating        float64          `gorm:"type:numeric(2,1);not null;default:0;check:rating BETWEEN 0 AND 5"`
 	TotalReviews  int32            `gorm:"not null;default:0;check:total_reviews >= 0"`
-	CreatedAt     time.Time        `gorm:"type:timestamptz;not null;default:CURRENT_TIMESTAMP"`
-	UpdatedAt     *time.Time       `gorm:"type:timestamptz"`
+	CreatedAt     time.Time        `gorm:"type:timestamptz;autoCreateTime"`
+	UpdatedAt     *time.Time       `gorm:"type:timestamptz;autoUpdateTime;default:null"`
 	LastSyncAt    *time.Time       `gorm:"type:timestamptz"`
 }
 
@@ -80,7 +80,6 @@ func NewRestaurant(
 		Name:      name,
 		VATNumber: vatNumber,
 		Checklist: checklist,
-		CreatedAt: time.Now().UTC(),
 	}
 }
 
@@ -124,11 +123,5 @@ func (r *Restaurant) WithDelivery(
 
 func (r *Restaurant) WithOpeningHours(openingHours OpeningHours) *Restaurant {
 	r.OpeningHours = openingHours
-	return r
-}
-
-func (r *Restaurant) WithUpdated() *Restaurant {
-	now := time.Now().UTC()
-	r.UpdatedAt = &now
 	return r
 }
