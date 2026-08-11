@@ -25,14 +25,16 @@ func NewContainer() (*Container, error) {
 	senderEmail := os.Getenv("SENDER_EMAIL")
 
 	smtpSender := emailinfra.NewSMTPSender(smtpHost, smtpPort, smtpUser, smtpPass, senderEmail)
-	template := emailinfra.NewHTMLTemplateLoader(emailTemplatePath)
+	template := emailinfra.NewTextTemplateLoader(emailTemplatePath)
 
 	userRegistered := emailapp.NewUserRegistered(smtpSender, template)
 	emailVerificationCreated := emailapp.NewEmailVerificationCreated(smtpSender, template)
+	restaurantReadyForReview := emailapp.NewRestaurantReadyForReview(smtpSender, template)
 
 	dispatcher := emailapp.NewEventDispatcher()
 	dispatcher.Register(messaging.Exchanges["identity.events"][1], userRegistered)
 	dispatcher.Register(messaging.Exchanges["identity.events"][0], emailVerificationCreated)
+	dispatcher.Register(messaging.Exchanges["restaurant.events"][0], restaurantReadyForReview)
 
 	consumer, err := messaging.NewRabbitMQConsumer(amqpURL)
 
