@@ -28,8 +28,8 @@ func ToRestaurantResponse(r *restaurant.Restaurant) RestaurantResponse {
 		Delivery: DeliveryResponse{
 			Type:         r.DeliveryType,
 			RadiusKm:     r.DeliveryKm,
-			Fee:          r.DeliveryFee,
-			MinimumOrder: r.MinimumOrder,
+			Fee:          Money(r.DeliveryFee),
+			MinimumOrder: Money(r.MinimumOrder),
 		},
 		Payout:       toPayoutResponse(r.PayoutDetails),
 		Pickup:       r.Pickup,

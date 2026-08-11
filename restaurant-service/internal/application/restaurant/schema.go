@@ -119,10 +119,10 @@ type ContactResponse struct {
 }
 
 type DeliveryResponse struct {
-	Type         DeliveryType    `json:"type"`
-	RadiusKm     *int16          `json:"radiusKm,omitempty"`
-	Fee          decimal.Decimal `json:"fee"`
-	MinimumOrder decimal.Decimal `json:"minimumOrder"`
+	Type         DeliveryType `json:"type"`
+	RadiusKm     *int16       `json:"radiusKm,omitempty"`
+	Fee          Money        `json:"fee"`
+	MinimumOrder Money        `json:"minimumOrder"`
 }
 
 type PayoutResponse struct {

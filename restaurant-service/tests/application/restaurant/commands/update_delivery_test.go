@@ -68,8 +68,8 @@ func TestUpdateDelivery_Success(t *testing.T) {
 	assert.True(t, output.Pickup)
 	assert.Equal(t, restaurant.DeliveryOwn, output.Delivery.Type)
 	assert.Equal(t, int16(5), *output.Delivery.RadiusKm)
-	assert.True(t, decimal.NewFromFloat(2.50).Equal(output.Delivery.Fee))
-	assert.True(t, decimal.NewFromFloat(15.00).Equal(output.Delivery.MinimumOrder))
+	assert.True(t, decimal.NewFromFloat(2.50).Equal(decimal.Decimal(output.Delivery.Fee)))
+	assert.True(t, decimal.NewFromFloat(15.00).Equal(decimal.Decimal(output.Delivery.MinimumOrder)))
 
 	var updated restaurant.Restaurant
 
