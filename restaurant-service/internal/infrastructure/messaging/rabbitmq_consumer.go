@@ -80,6 +80,16 @@ func (c *RabbitMQConsumer) connect() error {
 		}
 	}
 
+	// DLQ: messages that exhausted retries, held for inspection or replay.
+	dlq, err := ch.QueueDeclare(QueueName+".dlq", true, false, false, false, nil)
+	if err != nil {
+		return fmt.Errorf("DLQ declaration failed: %w", err)
+	}
+
+	if err := ch.QueueBind(dlq.Name, QueueName+".retry", DLXName, false, nil); err != nil {
+		return fmt.Errorf("DLQ bind failed: %w", err)
+	}
+
 	if err := ch.Qos(1, 0, false); err != nil {
 		return fmt.Errorf("QoS setup failed: %w", err)
 	}
@@ -149,14 +159,22 @@ func (c *RabbitMQConsumer) Run(ctx context.Context, dispatcher restaurant.EventD
 						"retry_count", retryCount,
 					)
 
-					_ = msg.Nack(false, false) // discard
+					_ = msg.Nack(false, false) // routes to the DLX-bound DLQ for inspection
 
 					continue
 				}
 
 				time.Sleep(time.Second * time.Duration(retryCount+1))
 
-				_ = msg.Nack(false, true) // requeue
+				if err := c.republishWithRetry(ctx, msg, retryCount+1); err != nil {
+					logobs.FromContext(ctx).Warn("failed to republish for retry", "error", err)
+
+					_ = msg.Nack(false, true) // fall back to plain requeue to avoid message loss
+
+					continue
+				}
+
+				_ = msg.Ack(false) // superseded by the republished copy with an incremented retry count
 
 				continue
 			}
@@ -164,6 +182,24 @@ func (c *RabbitMQConsumer) Run(ctx context.Context, dispatcher restaurant.EventD
 			_ = msg.Ack(false)
 		}
 	}
+}
+
+// republishWithRetry requeues msg via the default exchange with an incremented
+// x-retry-count, which getRetryCount reads on the next delivery.
+func (c *RabbitMQConsumer) republishWithRetry(ctx context.Context, msg amqp.Delivery, retryCount int) error {
+	headers := amqp.Table{}
+	for k, v := range msg.Headers {
+		headers[k] = v
+	}
+	headers["x-retry-count"] = int32(retryCount)
+
+	return c.channel.PublishWithContext(ctx, "", QueueName, false, false, amqp.Publishing{
+		ContentType:  msg.ContentType,
+		Body:         msg.Body,
+		Headers:      headers,
+		DeliveryMode: amqp.Persistent,
+		MessageId:    msg.MessageId,
+	})
 }
 
 func getRetryCount(headers amqp.Table) int {
