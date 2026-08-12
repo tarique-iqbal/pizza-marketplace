@@ -3,30 +3,46 @@ package messaging
 import (
 	"context"
 	"encoding/json"
-	"identity-service/internal/shared/event"
+	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
+
+	"identity-service/internal/shared/event"
 )
 
 const exchangeName = "identity.events"
 
 type RabbitMQPublisher struct {
+	amqpURL string
+
+	mu      sync.Mutex
 	conn    *amqp.Connection
 	channel *amqp.Channel
 }
 
 func NewRabbitMQPublisher(amqpURL string) *RabbitMQPublisher {
-	conn, err := amqp.Dial(amqpURL)
-	if err != nil {
+	p := &RabbitMQPublisher{amqpURL: amqpURL}
+
+	if err := p.connect(); err != nil {
 		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
+	}
+
+	return p
+}
+
+func (p *RabbitMQPublisher) connect() error {
+	conn, err := amqp.Dial(p.amqpURL)
+	if err != nil {
+		return fmt.Errorf("connect to rabbitmq: %w", err)
 	}
 
 	ch, err := conn.Channel()
 	if err != nil {
-		log.Fatalf("Failed to open a channel: %v", err)
+		return fmt.Errorf("open channel: %w", err)
 	}
 
 	err = ch.ExchangeDeclare(
@@ -39,15 +55,29 @@ func NewRabbitMQPublisher(amqpURL string) *RabbitMQPublisher {
 		nil,          // Arguments
 	)
 	if err != nil {
-		log.Fatalf("Failed to declare exchange: %v", err)
+		return fmt.Errorf("declare exchange: %w", err)
 	}
 
-	return &RabbitMQPublisher{conn: conn, channel: ch}
+	p.conn = conn
+	p.channel = ch
+
+	return nil
+}
+
+func (p *RabbitMQPublisher) ensureConnected() error {
+	if p.conn != nil && !p.conn.IsClosed() {
+		return nil
+	}
+
+	log.Println("reconnecting to RabbitMQ...")
+
+	return p.connect()
 }
 
 func (p *RabbitMQPublisher) PublishEvent(ctx context.Context, event event.Event) error {
 	body, err := json.Marshal(event)
 	if err != nil {
+		log.Printf("failed to marshal event %s: %v", event.GetEventName(), err)
 		return err
 	}
 
@@ -73,10 +103,18 @@ func (p *RabbitMQPublisher) publish(
 	default:
 	}
 
+	p.mu.Lock()
+	if err := p.ensureConnected(); err != nil {
+		p.mu.Unlock()
+		return fmt.Errorf("ensure rabbitmq connection: %w", err)
+	}
+	channel := p.channel
+	p.mu.Unlock()
+
 	errCh := make(chan error, 1)
 
 	go func() {
-		err := p.channel.Publish(
+		err := channel.Publish(
 			exchangeName,
 			routingKey,
 			false,
@@ -117,6 +155,9 @@ func (p *RabbitMQPublisher) publish(
 }
 
 func (p *RabbitMQPublisher) Ping(ctx context.Context) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	if p.conn == nil || p.conn.IsClosed() {
 		return amqp.ErrClosed
 	}
@@ -131,6 +172,9 @@ func (p *RabbitMQPublisher) Ping(ctx context.Context) error {
 }
 
 func (p *RabbitMQPublisher) Close() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	p.channel.Close()
 	p.conn.Close()
 }
