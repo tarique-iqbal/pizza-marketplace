@@ -30,7 +30,8 @@ func setupUpdateContact(t *testing.T) updateContactSetup {
 	_ = fixtures.LoadRestaurantFixtures(t, db.DB)
 
 	restaurantRepo := persistence.NewRestaurantRepository(db.DB)
-	updateContact := commands.NewUpdateContact(restaurantRepo, testutil.NoopPublisher{})
+	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(db.DB)
+	updateContact := commands.NewUpdateContact(restaurantRepo, payoutDetailsRepo, testutil.NoopPublisher{})
 
 	return updateContactSetup{
 		DB:            db.DB,

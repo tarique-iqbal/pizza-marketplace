@@ -54,7 +54,7 @@ func (uc *UpdatePayout) Execute(
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to update payout details: %w", err)
 	}
 
-	res.PayoutDetails = &restaurant.PayoutDetails{
+	pd := &restaurant.PayoutDetails{
 		AccountHolder: input.AccountHolder,
 		IBAN:          input.IBAN,
 		BIC:           input.BIC,
@@ -62,5 +62,5 @@ func (uc *UpdatePayout) Execute(
 		Status:        restaurant.PayoutPending,
 	}
 
-	return resapp.ToRestaurantResponse(res), nil
+	return resapp.ToRestaurantResponse(res, pd), nil
 }

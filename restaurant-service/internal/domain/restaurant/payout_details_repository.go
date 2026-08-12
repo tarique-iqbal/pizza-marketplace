@@ -18,4 +18,5 @@ type PayoutDetailsRepository interface {
 		bic string,
 		bankName string,
 	) error
+	FindActiveByRestaurant(ctx context.Context, restaurantID uuid.UUID) (*PayoutDetails, error)
 }

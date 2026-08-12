@@ -11,7 +11,7 @@ import (
 	"restaurant-service/internal/domain/restaurant"
 )
 
-func ToRestaurantResponse(r *restaurant.Restaurant) RestaurantResponse {
+func ToRestaurantResponse(r *restaurant.Restaurant, pd *restaurant.PayoutDetails) RestaurantResponse {
 	return RestaurantResponse{
 		ID:   r.ID,
 		Name: r.Name,
@@ -31,7 +31,7 @@ func ToRestaurantResponse(r *restaurant.Restaurant) RestaurantResponse {
 			Fee:          Money(r.DeliveryFee),
 			MinimumOrder: Money(r.MinimumOrder),
 		},
-		Payout:       toPayoutResponse(r.PayoutDetails),
+		Payout:       toPayoutResponse(pd),
 		Pickup:       r.Pickup,
 		Currency:     r.Currency,
 		Rating:       r.Rating,

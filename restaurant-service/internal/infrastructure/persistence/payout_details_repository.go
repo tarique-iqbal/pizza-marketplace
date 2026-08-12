@@ -68,3 +68,20 @@ func (repo *PayoutDetailsRepository) UpdatePending(
 
 	return nil
 }
+
+func (repo *PayoutDetailsRepository) FindActiveByRestaurant(
+	ctx context.Context,
+	restaurantID uuid.UUID,
+) (*restaurant.PayoutDetails, error) {
+	var pd restaurant.PayoutDetails
+
+	err := repo.db.WithContext(ctx).
+		Where("restaurant_id = ? AND status = ?", restaurantID, restaurant.PayoutActive).
+		Take(&pd).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+
+	return &pd, err
+}

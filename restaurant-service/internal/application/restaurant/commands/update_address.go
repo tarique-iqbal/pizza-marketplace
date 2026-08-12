@@ -14,20 +14,23 @@ import (
 )
 
 type UpdateAddress struct {
-	geocoder       restaurant.Geocoder
-	restaurantRepo restaurant.RestaurantRepository
-	publisher      event.EventPublisher
+	geocoder          restaurant.Geocoder
+	restaurantRepo    restaurant.RestaurantRepository
+	payoutDetailsRepo restaurant.PayoutDetailsRepository
+	publisher         event.EventPublisher
 }
 
 func NewUpdateAddress(
 	geocoder restaurant.Geocoder,
 	restaurantRepo restaurant.RestaurantRepository,
+	payoutDetailsRepo restaurant.PayoutDetailsRepository,
 	publisher event.EventPublisher,
 ) *UpdateAddress {
 	return &UpdateAddress{
-		geocoder:       geocoder,
-		restaurantRepo: restaurantRepo,
-		publisher:      publisher,
+		geocoder:          geocoder,
+		restaurantRepo:    restaurantRepo,
+		payoutDetailsRepo: payoutDetailsRepo,
+		publisher:         publisher,
 	}
 }
 
@@ -83,7 +86,12 @@ func (uc *UpdateAddress) Execute(
 
 	resapp.DispatchEvents(ctx, uc.publisher, res)
 
-	return resapp.ToRestaurantResponse(res), nil
+	pd, err := uc.payoutDetailsRepo.FindActiveByRestaurant(ctx, res.ID)
+	if err != nil {
+		return resapp.RestaurantResponse{}, fmt.Errorf("failed to fetch payout details: %w", err)
+	}
+
+	return resapp.ToRestaurantResponse(res, pd), nil
 }
 
 func (uc *UpdateAddress) generateUniqueSlug(

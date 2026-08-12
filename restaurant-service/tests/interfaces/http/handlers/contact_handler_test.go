@@ -34,7 +34,8 @@ func setupContactHandler(t *testing.T) contactHandlerSetup {
 	_ = fixtures.LoadRestaurantFixtures(t, db.DB)
 
 	repo := persistence.NewRestaurantRepository(db.DB)
-	updateContact := commands.NewUpdateContact(repo, testutil.NoopPublisher{})
+	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(db.DB)
+	updateContact := commands.NewUpdateContact(repo, payoutDetailsRepo, testutil.NoopPublisher{})
 	handler := handlers.NewContactHandler(updateContact)
 
 	return contactHandlerSetup{

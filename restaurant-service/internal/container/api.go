@@ -40,23 +40,23 @@ func NewAPIContainer() (*APIContainer, error) {
 	}
 
 	restaurantRepo := persistence.NewRestaurantRepository(base.DB)
+	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(base.DB)
 
 	geocoder := geocoder.NewOpenCageGeocoder(opencageApiKey)
-	updateAddress := commands.NewUpdateAddress(geocoder, restaurantRepo, publisher)
+	updateAddress := commands.NewUpdateAddress(geocoder, restaurantRepo, payoutDetailsRepo, publisher)
 	addressHandler := handlers.NewAddressHandler(updateAddress)
 
-	updateContact := commands.NewUpdateContact(restaurantRepo, publisher)
+	updateContact := commands.NewUpdateContact(restaurantRepo, payoutDetailsRepo, publisher)
 	contactHandler := handlers.NewContactHandler(updateContact)
 
-	updateDelivery := commands.NewUpdateDelivery(restaurantRepo, publisher)
+	updateDelivery := commands.NewUpdateDelivery(restaurantRepo, payoutDetailsRepo, publisher)
 	deliveryHandler := handlers.NewDeliveryHandler(updateDelivery)
 
-	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(base.DB)
 	createPayout := commands.NewCreatePayout(restaurantRepo, payoutDetailsRepo, publisher)
 	updatePayout := commands.NewUpdatePayout(restaurantRepo, payoutDetailsRepo)
 	payoutHandler := handlers.NewPayoutHandler(createPayout, updatePayout)
 
-	updateOpeningHours := commands.NewUpdateOpeningHours(restaurantRepo, publisher)
+	updateOpeningHours := commands.NewUpdateOpeningHours(restaurantRepo, payoutDetailsRepo, publisher)
 	openingHoursHandler := handlers.NewOpeningHoursHandler(updateOpeningHours)
 
 	toppingRepo := persistence.NewToppingRepository(base.DB)

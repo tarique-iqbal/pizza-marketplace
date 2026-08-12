@@ -30,7 +30,8 @@ func setupUpdateOpeningHours(t *testing.T) updateOpeningHoursSetup {
 	_ = fixtures.LoadRestaurantFixtures(t, db.DB)
 
 	restaurantRepo := persistence.NewRestaurantRepository(db.DB)
-	updateOpeningHours := commands.NewUpdateOpeningHours(restaurantRepo, testutil.NoopPublisher{})
+	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(db.DB)
+	updateOpeningHours := commands.NewUpdateOpeningHours(restaurantRepo, payoutDetailsRepo, testutil.NoopPublisher{})
 
 	return updateOpeningHoursSetup{
 		DB:                 db.DB,

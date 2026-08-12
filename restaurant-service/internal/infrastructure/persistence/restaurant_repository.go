@@ -61,9 +61,6 @@ func (repo *RestaurantRepository) FindByIDAndOwner(
 	var r restaurant.Restaurant
 
 	err := repo.db.WithContext(ctx).
-		Preload("PayoutDetails", func(db *gorm.DB) *gorm.DB {
-			return db.Where("status = ?", restaurant.PayoutActive)
-		}).
 		Where("id = ? AND owner_id = ?", restaurantID, ownerID).
 		Take(&r).Error
 

@@ -13,17 +13,20 @@ import (
 )
 
 type UpdateOpeningHours struct {
-	restaurantRepo restaurant.RestaurantRepository
-	publisher      event.EventPublisher
+	restaurantRepo    restaurant.RestaurantRepository
+	payoutDetailsRepo restaurant.PayoutDetailsRepository
+	publisher         event.EventPublisher
 }
 
 func NewUpdateOpeningHours(
 	restaurantRepo restaurant.RestaurantRepository,
+	payoutDetailsRepo restaurant.PayoutDetailsRepository,
 	publisher event.EventPublisher,
 ) *UpdateOpeningHours {
 	return &UpdateOpeningHours{
-		restaurantRepo: restaurantRepo,
-		publisher:      publisher,
+		restaurantRepo:    restaurantRepo,
+		payoutDetailsRepo: payoutDetailsRepo,
+		publisher:         publisher,
 	}
 }
 
@@ -54,7 +57,12 @@ func (uc *UpdateOpeningHours) Execute(
 
 	resapp.DispatchEvents(ctx, uc.publisher, res)
 
-	return resapp.ToRestaurantResponse(res), nil
+	pd, err := uc.payoutDetailsRepo.FindActiveByRestaurant(ctx, res.ID)
+	if err != nil {
+		return resapp.RestaurantResponse{}, fmt.Errorf("failed to fetch payout details: %w", err)
+	}
+
+	return resapp.ToRestaurantResponse(res, pd), nil
 }
 
 func toDomainOpeningHours(input resapp.UpdateOpeningHoursRequest) restaurant.OpeningHours {

@@ -34,34 +34,33 @@ type Address struct {
 }
 
 type Restaurant struct {
-	ID            uuid.UUID        `gorm:"type:uuid;primaryKey"`
-	OwnerID       uuid.UUID        `gorm:"type:uuid;not null;index"`
-	PayoutDetails *PayoutDetails   `gorm:"foreignKey:RestaurantID;references:ID"`
-	Name          string           `gorm:"size:128;not null"`
-	VATNumber     string           `gorm:"column:vat_number;size:16;not null"`
-	Slug          *string          `gorm:"size:255"`
-	Email         *string          `gorm:"size:255"`
-	Phone         *string          `gorm:"size:32"`
-	Website       *string          `gorm:"size:255"`
-	Checklist     Checklist        `gorm:"type:jsonb;serializer:json;not null;default:'{}'"`
-	Status        RestaurantStatus `gorm:"type:restaurant_status_enum;not null;default:'draft'"`
-	Address       Address          `gorm:"type:jsonb;serializer:json;not null;default:'{}'"`
-	Lat           *float64         `gorm:"type:double precision;check:lat BETWEEN -90 AND 90"`
-	Lon           *float64         `gorm:"type:double precision;check:lon BETWEEN -180 AND 180"`
-	OpeningHours  OpeningHours     `gorm:"type:jsonb;serializer:json;not null;default:'{}'"`
-	Tags          datatypes.JSON   `gorm:"type:jsonb;not null;default:'[]'"`
-	Pickup        bool             `gorm:"not null;default:true"`
-	Currency      string           `gorm:"type:char(3);not null;default:'EUR';size:3"`
-	DeliveryKm    *int16           `gorm:"check:delivery_km BETWEEN 1 AND 25"`
-	DeliveryType  DeliveryType     `gorm:"type:restaurant_delivery_type_enum;not null;default:'none'"`
-	DeliveryFee   decimal.Decimal  `gorm:"type:numeric(5,2);not null;default:0"`
-	MinimumOrder  decimal.Decimal  `gorm:"type:numeric(6,2);not null;default:0"`
-	Rating        float64          `gorm:"type:numeric(2,1);not null;default:0;check:rating BETWEEN 0 AND 5"`
-	TotalReviews  int32            `gorm:"not null;default:0;check:total_reviews >= 0"`
-	CreatedAt     time.Time        `gorm:"type:timestamptz;autoCreateTime"`
-	UpdatedAt     *time.Time       `gorm:"type:timestamptz;autoUpdateTime;default:null"`
-	LastSyncAt    *time.Time       `gorm:"type:timestamptz"`
-	events        []DomainEvent
+	ID           uuid.UUID        `gorm:"type:uuid;primaryKey"`
+	OwnerID      uuid.UUID        `gorm:"type:uuid;not null;index"`
+	Name         string           `gorm:"size:128;not null"`
+	VATNumber    string           `gorm:"column:vat_number;size:16;not null"`
+	Slug         *string          `gorm:"size:255"`
+	Email        *string          `gorm:"size:255"`
+	Phone        *string          `gorm:"size:32"`
+	Website      *string          `gorm:"size:255"`
+	Checklist    Checklist        `gorm:"type:jsonb;serializer:json;not null;default:'{}'"`
+	Status       RestaurantStatus `gorm:"type:restaurant_status_enum;not null;default:'draft'"`
+	Address      Address          `gorm:"type:jsonb;serializer:json;not null;default:'{}'"`
+	Lat          *float64         `gorm:"type:double precision;check:lat BETWEEN -90 AND 90"`
+	Lon          *float64         `gorm:"type:double precision;check:lon BETWEEN -180 AND 180"`
+	OpeningHours OpeningHours     `gorm:"type:jsonb;serializer:json;not null;default:'{}'"`
+	Tags         datatypes.JSON   `gorm:"type:jsonb;not null;default:'[]'"`
+	Pickup       bool             `gorm:"not null;default:true"`
+	Currency     string           `gorm:"type:char(3);not null;default:'EUR';size:3"`
+	DeliveryKm   *int16           `gorm:"check:delivery_km BETWEEN 1 AND 25"`
+	DeliveryType DeliveryType     `gorm:"type:restaurant_delivery_type_enum;not null;default:'none'"`
+	DeliveryFee  decimal.Decimal  `gorm:"type:numeric(5,2);not null;default:0"`
+	MinimumOrder decimal.Decimal  `gorm:"type:numeric(6,2);not null;default:0"`
+	Rating       float64          `gorm:"type:numeric(2,1);not null;default:0;check:rating BETWEEN 0 AND 5"`
+	TotalReviews int32            `gorm:"not null;default:0;check:total_reviews >= 0"`
+	CreatedAt    time.Time        `gorm:"type:timestamptz;autoCreateTime"`
+	UpdatedAt    *time.Time       `gorm:"type:timestamptz;autoUpdateTime;default:null"`
+	LastSyncAt   *time.Time       `gorm:"type:timestamptz"`
+	events       []DomainEvent
 }
 
 func (Restaurant) TableName() string {

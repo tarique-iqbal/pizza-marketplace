@@ -13,17 +13,20 @@ import (
 )
 
 type UpdateDelivery struct {
-	restaurantRepo restaurant.RestaurantRepository
-	publisher      event.EventPublisher
+	restaurantRepo    restaurant.RestaurantRepository
+	payoutDetailsRepo restaurant.PayoutDetailsRepository
+	publisher         event.EventPublisher
 }
 
 func NewUpdateDelivery(
 	restaurantRepo restaurant.RestaurantRepository,
+	payoutDetailsRepo restaurant.PayoutDetailsRepository,
 	publisher event.EventPublisher,
 ) *UpdateDelivery {
 	return &UpdateDelivery{
-		restaurantRepo: restaurantRepo,
-		publisher:      publisher,
+		restaurantRepo:    restaurantRepo,
+		payoutDetailsRepo: payoutDetailsRepo,
+		publisher:         publisher,
 	}
 }
 
@@ -60,5 +63,10 @@ func (uc *UpdateDelivery) Execute(
 
 	resapp.DispatchEvents(ctx, uc.publisher, res)
 
-	return resapp.ToRestaurantResponse(res), nil
+	pd, err := uc.payoutDetailsRepo.FindActiveByRestaurant(ctx, res.ID)
+	if err != nil {
+		return resapp.RestaurantResponse{}, fmt.Errorf("failed to fetch payout details: %w", err)
+	}
+
+	return resapp.ToRestaurantResponse(res, pd), nil
 }

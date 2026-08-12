@@ -56,7 +56,8 @@ func setupUpdateAddress(
 	}
 
 	restaurantRepo := persistence.NewRestaurantRepository(db.DB)
-	updateAddress := commands.NewUpdateAddress(mockGeo, restaurantRepo, testutil.NoopPublisher{})
+	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(db.DB)
+	updateAddress := commands.NewUpdateAddress(mockGeo, restaurantRepo, payoutDetailsRepo, testutil.NoopPublisher{})
 
 	return updateAddressSetup{
 		DB:            db.DB,
