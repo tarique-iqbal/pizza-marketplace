@@ -6,7 +6,9 @@ import (
 
 	"github.com/google/uuid"
 
+	payoutapp "restaurant-service/internal/application/payout"
 	resapp "restaurant-service/internal/application/restaurant"
+	"restaurant-service/internal/domain/payout"
 	"restaurant-service/internal/domain/restaurant"
 	apperr "restaurant-service/internal/shared/errors"
 	"restaurant-service/internal/shared/event"
@@ -14,13 +16,13 @@ import (
 
 type CreatePayout struct {
 	restaurantRepo    restaurant.RestaurantRepository
-	payoutDetailsRepo restaurant.PayoutDetailsRepository
+	payoutDetailsRepo payout.PayoutDetailsRepository
 	publisher         event.EventPublisher
 }
 
 func NewCreatePayout(
 	restaurantRepo restaurant.RestaurantRepository,
-	payoutDetailsRepo restaurant.PayoutDetailsRepository,
+	payoutDetailsRepo payout.PayoutDetailsRepository,
 	publisher event.EventPublisher,
 ) *CreatePayout {
 	return &CreatePayout{
@@ -34,7 +36,7 @@ func (uc *CreatePayout) Execute(
 	ctx context.Context,
 	restaurantID uuid.UUID,
 	ownerID uuid.UUID,
-	input resapp.CreatePayoutRequest,
+	input payoutapp.CreatePayoutRequest,
 ) (resapp.RestaurantResponse, error) {
 	res, err := uc.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
 	if err != nil {
@@ -47,7 +49,7 @@ func (uc *CreatePayout) Execute(
 		)
 	}
 
-	pd, err := restaurant.NewPayoutDetails(
+	pd, err := payout.NewPayoutDetails(
 		res.ID,
 		input.AccountHolder,
 		input.IBAN,

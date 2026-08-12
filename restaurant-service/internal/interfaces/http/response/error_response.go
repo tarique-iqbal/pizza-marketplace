@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"restaurant-service/internal/domain/payout"
 	"restaurant-service/internal/domain/restaurant"
 	apperr "restaurant-service/internal/shared/errors"
 )
@@ -24,10 +25,10 @@ func HandleError(ctx *gin.Context, err error) {
 	case errors.Is(err, apperr.ErrInvalid):
 		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 
-	case errors.Is(err, restaurant.ErrNoPendingPayout):
+	case errors.Is(err, payout.ErrNoPendingPayout):
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "no pending payout submission to update"})
 
-	case errors.Is(err, restaurant.ErrPendingPayoutExists):
+	case errors.Is(err, payout.ErrPendingPayoutExists):
 		ctx.JSON(http.StatusConflict, gin.H{"error": "a payout submission is already pending review"})
 
 	case errors.Is(err, apperr.ErrConflict) ||

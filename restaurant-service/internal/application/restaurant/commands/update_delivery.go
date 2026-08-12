@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	resapp "restaurant-service/internal/application/restaurant"
+	"restaurant-service/internal/domain/payout"
 	"restaurant-service/internal/domain/restaurant"
 	apperr "restaurant-service/internal/shared/errors"
 	"restaurant-service/internal/shared/event"
@@ -14,13 +15,13 @@ import (
 
 type UpdateDelivery struct {
 	restaurantRepo    restaurant.RestaurantRepository
-	payoutDetailsRepo restaurant.PayoutDetailsRepository
+	payoutDetailsRepo payout.PayoutDetailsRepository
 	publisher         event.EventPublisher
 }
 
 func NewUpdateDelivery(
 	restaurantRepo restaurant.RestaurantRepository,
-	payoutDetailsRepo restaurant.PayoutDetailsRepository,
+	payoutDetailsRepo payout.PayoutDetailsRepository,
 	publisher event.EventPublisher,
 ) *UpdateDelivery {
 	return &UpdateDelivery{

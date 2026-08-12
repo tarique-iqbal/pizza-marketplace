@@ -8,10 +8,12 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/datatypes"
 
+	payoutapp "restaurant-service/internal/application/payout"
+	payoutdomain "restaurant-service/internal/domain/payout"
 	"restaurant-service/internal/domain/restaurant"
 )
 
-func ToRestaurantResponse(r *restaurant.Restaurant, pd *restaurant.PayoutDetails) RestaurantResponse {
+func ToRestaurantResponse(r *restaurant.Restaurant, pd *payoutdomain.PayoutDetails) RestaurantResponse {
 	return RestaurantResponse{
 		ID:   r.ID,
 		Name: r.Name,
@@ -31,7 +33,7 @@ func ToRestaurantResponse(r *restaurant.Restaurant, pd *restaurant.PayoutDetails
 			Fee:          Money(r.DeliveryFee),
 			MinimumOrder: Money(r.MinimumOrder),
 		},
-		Payout:       toPayoutResponse(pd),
+		Payout:       payoutapp.ToPayoutResponse(pd),
 		Pickup:       r.Pickup,
 		Currency:     r.Currency,
 		Rating:       r.Rating,
@@ -41,20 +43,6 @@ func ToRestaurantResponse(r *restaurant.Restaurant, pd *restaurant.PayoutDetails
 		Status:       r.Status,
 		CreatedAt:    r.CreatedAt,
 		UpdatedAt:    r.UpdatedAt,
-	}
-}
-
-func toPayoutResponse(pd *restaurant.PayoutDetails) PayoutResponse {
-	if pd == nil {
-		return PayoutResponse{}
-	}
-
-	return PayoutResponse{
-		AccountHolder: pd.AccountHolder,
-		IBAN:          pd.IBAN,
-		BIC:           pd.BIC,
-		BankName:      pd.BankName,
-		Status:        pd.Status,
 	}
 }
 

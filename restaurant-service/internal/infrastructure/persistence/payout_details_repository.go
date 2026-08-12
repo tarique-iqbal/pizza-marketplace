@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 
-	"restaurant-service/internal/domain/restaurant"
+	"restaurant-service/internal/domain/payout"
 )
 
 const pgUniqueViolation = "23505"
@@ -17,22 +17,22 @@ type PayoutDetailsRepository struct {
 	db *gorm.DB
 }
 
-func NewPayoutDetailsRepository(db *gorm.DB) restaurant.PayoutDetailsRepository {
+func NewPayoutDetailsRepository(db *gorm.DB) payout.PayoutDetailsRepository {
 	return &PayoutDetailsRepository{db: db}
 }
 
-func (r *PayoutDetailsRepository) WithTx(tx *gorm.DB) restaurant.PayoutDetailsRepository {
+func (r *PayoutDetailsRepository) WithTx(tx *gorm.DB) payout.PayoutDetailsRepository {
 	return &PayoutDetailsRepository{db: tx}
 }
 
 func (repo *PayoutDetailsRepository) Create(
 	ctx context.Context,
-	pd *restaurant.PayoutDetails,
+	pd *payout.PayoutDetails,
 ) error {
 	if err := repo.db.WithContext(ctx).Create(pd).Error; err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgUniqueViolation {
-			return restaurant.ErrPendingPayoutExists
+			return payout.ErrPendingPayoutExists
 		}
 		return err
 	}
@@ -49,8 +49,8 @@ func (repo *PayoutDetailsRepository) UpdatePending(
 	bankName string,
 ) error {
 	result := repo.db.WithContext(ctx).
-		Model(&restaurant.PayoutDetails{}).
-		Where("restaurant_id = ? AND status = ?", restaurantID, restaurant.PayoutPending).
+		Model(&payout.PayoutDetails{}).
+		Where("restaurant_id = ? AND status = ?", restaurantID, payout.PayoutPending).
 		Updates(map[string]any{
 			"account_holder": accountHolder,
 			"iban":           iban,
@@ -63,7 +63,7 @@ func (repo *PayoutDetailsRepository) UpdatePending(
 	}
 
 	if result.RowsAffected == 0 {
-		return restaurant.ErrNoPendingPayout
+		return payout.ErrNoPendingPayout
 	}
 
 	return nil
@@ -72,11 +72,11 @@ func (repo *PayoutDetailsRepository) UpdatePending(
 func (repo *PayoutDetailsRepository) FindActiveByRestaurant(
 	ctx context.Context,
 	restaurantID uuid.UUID,
-) (*restaurant.PayoutDetails, error) {
-	var pd restaurant.PayoutDetails
+) (*payout.PayoutDetails, error) {
+	var pd payout.PayoutDetails
 
 	err := repo.db.WithContext(ctx).
-		Where("restaurant_id = ? AND status = ?", restaurantID, restaurant.PayoutActive).
+		Where("restaurant_id = ? AND status = ?", restaurantID, payout.PayoutActive).
 		Take(&pd).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {

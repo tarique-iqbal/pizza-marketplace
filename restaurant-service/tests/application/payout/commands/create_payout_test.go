@@ -9,8 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	resapp "restaurant-service/internal/application/restaurant"
-	"restaurant-service/internal/application/restaurant/commands"
+	payoutapp "restaurant-service/internal/application/payout"
+	"restaurant-service/internal/application/payout/commands"
+	"restaurant-service/internal/domain/payout"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/infrastructure/persistence"
 	apperr "restaurant-service/internal/shared/errors"
@@ -39,8 +40,17 @@ func setupCreatePayout(t *testing.T) createPayoutSetup {
 	}
 }
 
-func validPayoutInput() resapp.CreatePayoutRequest {
-	return resapp.CreatePayoutRequest{
+func firstRestaurant(t *testing.T, db *gorm.DB) restaurant.Restaurant {
+	var res restaurant.Restaurant
+
+	err := db.First(&res).Error
+	require.NoError(t, err)
+
+	return res
+}
+
+func validPayoutInput() payoutapp.CreatePayoutRequest {
+	return payoutapp.CreatePayoutRequest{
 		AccountHolder: "Mehmet Yilmaz",
 		IBAN:          "DE89370400440532013000",
 		BIC:           "DEUTDEFF",
@@ -52,9 +62,9 @@ func findPayoutDetailsByStatus(
 	t *testing.T,
 	db *gorm.DB,
 	restaurantID uuid.UUID,
-	status restaurant.PayoutStatus,
-) restaurant.PayoutDetails {
-	var pd restaurant.PayoutDetails
+	status payout.PayoutStatus,
+) payout.PayoutDetails {
+	var pd payout.PayoutDetails
 
 	err := db.Take(&pd, "restaurant_id = ? AND status = ?", restaurantID, status).Error
 	require.NoError(t, err)
@@ -65,7 +75,7 @@ func findPayoutDetailsByStatus(
 func countPayoutDetails(t *testing.T, db *gorm.DB, restaurantID uuid.UUID) int64 {
 	var count int64
 
-	err := db.Model(&restaurant.PayoutDetails{}).
+	err := db.Model(&payout.PayoutDetails{}).
 		Where("restaurant_id = ?", restaurantID).
 		Count(&count).Error
 	require.NoError(t, err)
@@ -93,7 +103,7 @@ func TestCreatePayout_Success(t *testing.T) {
 	assert.Equal(t, "DE89370400440532013000", output.Payout.IBAN)
 	assert.Equal(t, "DEUTDEFF", output.Payout.BIC)
 	assert.Equal(t, "Deutsche Bank", output.Payout.BankName)
-	assert.Equal(t, restaurant.PayoutPending, output.Payout.Status)
+	assert.Equal(t, payout.PayoutPending, output.Payout.Status)
 
 	var updated restaurant.Restaurant
 
@@ -103,7 +113,7 @@ func TestCreatePayout_Success(t *testing.T) {
 	assert.True(t, updated.Checklist[restaurant.ChecklistPayment])
 	assert.False(t, updated.UpdatedAt.IsZero())
 
-	pd := findPayoutDetailsByStatus(t, env.DB, res.ID, restaurant.PayoutPending)
+	pd := findPayoutDetailsByStatus(t, env.DB, res.ID, payout.PayoutPending)
 
 	assert.Equal(t, "Mehmet Yilmaz", pd.AccountHolder)
 	assert.Equal(t, "DE89370400440532013000", pd.IBAN)
@@ -160,7 +170,7 @@ func TestCreatePayout_RejectsWhenPendingAlreadyExists(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	secondInput := resapp.CreatePayoutRequest{
+	secondInput := payoutapp.CreatePayoutRequest{
 		AccountHolder: "Ayse Yilmaz",
 		IBAN:          "GB29NWBK60161331926819",
 		BIC:           "NWBKGB2L",
@@ -175,11 +185,11 @@ func TestCreatePayout_RejectsWhenPendingAlreadyExists(t *testing.T) {
 	)
 
 	require.Error(t, err)
-	assert.ErrorIs(t, err, restaurant.ErrPendingPayoutExists)
+	assert.ErrorIs(t, err, payout.ErrPendingPayoutExists)
 
 	assert.Equal(t, int64(1), countPayoutDetails(t, env.DB, res.ID))
 
-	pd := findPayoutDetailsByStatus(t, env.DB, res.ID, restaurant.PayoutPending)
+	pd := findPayoutDetailsByStatus(t, env.DB, res.ID, payout.PayoutPending)
 	assert.Equal(t, "Mehmet Yilmaz", pd.AccountHolder)
 }
 
@@ -199,9 +209,9 @@ func TestCreatePayout_DoesNotTouchExistingActiveRecord(t *testing.T) {
 	}
 	require.NotEmpty(t, target.ID, "expected a fixture restaurant with an active payout record")
 
-	activeBefore := findPayoutDetailsByStatus(t, env.DB, target.ID, restaurant.PayoutActive)
+	activeBefore := findPayoutDetailsByStatus(t, env.DB, target.ID, payout.PayoutActive)
 
-	newSubmission := resapp.CreatePayoutRequest{
+	newSubmission := payoutapp.CreatePayoutRequest{
 		AccountHolder: "Ayse Yilmaz",
 		IBAN:          "GB29NWBK60161331926819",
 		BIC:           "NWBKGB2L",
@@ -216,11 +226,11 @@ func TestCreatePayout_DoesNotTouchExistingActiveRecord(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	activeAfter := findPayoutDetailsByStatus(t, env.DB, target.ID, restaurant.PayoutActive)
+	activeAfter := findPayoutDetailsByStatus(t, env.DB, target.ID, payout.PayoutActive)
 	assert.Equal(t, activeBefore.ID, activeAfter.ID)
 	assert.Equal(t, activeBefore.IBAN, activeAfter.IBAN)
 
-	pending := findPayoutDetailsByStatus(t, env.DB, target.ID, restaurant.PayoutPending)
+	pending := findPayoutDetailsByStatus(t, env.DB, target.ID, payout.PayoutPending)
 	assert.Equal(t, "Ayse Yilmaz", pending.AccountHolder)
 	assert.Equal(t, "GB29NWBK60161331926819", pending.IBAN)
 

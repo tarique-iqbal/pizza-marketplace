@@ -6,8 +6,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	resapp "restaurant-service/internal/application/restaurant"
-	"restaurant-service/internal/application/restaurant/commands"
+	payoutapp "restaurant-service/internal/application/payout"
+	"restaurant-service/internal/application/payout/commands"
 	"restaurant-service/internal/interfaces/http/response"
 	"restaurant-service/internal/interfaces/http/validation"
 )
@@ -30,7 +30,7 @@ func NewPayoutHandler(
 func (h *PayoutHandler) CreatePayout(ctx *gin.Context) {
 	reqCtx := ctx.Request.Context()
 
-	var input resapp.CreatePayoutRequest
+	var input payoutapp.CreatePayoutRequest
 
 	idParam := ctx.Param("id")
 	restaurantID, err := uuid.Parse(idParam)
@@ -72,7 +72,7 @@ func (h *PayoutHandler) CreatePayout(ctx *gin.Context) {
 func (h *PayoutHandler) UpdatePayout(ctx *gin.Context) {
 	reqCtx := ctx.Request.Context()
 
-	var input resapp.UpdatePayoutRequest
+	var input payoutapp.UpdatePayoutRequest
 
 	idParam := ctx.Param("id")
 	restaurantID, err := uuid.Parse(idParam)

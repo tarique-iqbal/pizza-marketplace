@@ -8,6 +8,7 @@ import (
 	goslug "github.com/gosimple/slug"
 
 	resapp "restaurant-service/internal/application/restaurant"
+	"restaurant-service/internal/domain/payout"
 	"restaurant-service/internal/domain/restaurant"
 	apperr "restaurant-service/internal/shared/errors"
 	"restaurant-service/internal/shared/event"
@@ -16,14 +17,14 @@ import (
 type UpdateAddress struct {
 	geocoder          restaurant.Geocoder
 	restaurantRepo    restaurant.RestaurantRepository
-	payoutDetailsRepo restaurant.PayoutDetailsRepository
+	payoutDetailsRepo payout.PayoutDetailsRepository
 	publisher         event.EventPublisher
 }
 
 func NewUpdateAddress(
 	geocoder restaurant.Geocoder,
 	restaurantRepo restaurant.RestaurantRepository,
-	payoutDetailsRepo restaurant.PayoutDetailsRepository,
+	payoutDetailsRepo payout.PayoutDetailsRepository,
 	publisher event.EventPublisher,
 ) *UpdateAddress {
 	return &UpdateAddress{

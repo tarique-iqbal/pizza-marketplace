@@ -9,6 +9,7 @@ import (
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
+	"restaurant-service/internal/domain/payout"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/tests/testutil"
 )
@@ -79,7 +80,7 @@ func LoadRestaurantFixtures(t *testing.T, db *gorm.DB) error {
 		require.NoError(t, err)
 
 		if r.Checklist[restaurant.ChecklistPayment] {
-			pd, err := restaurant.NewPayoutDetails(
+			pd, err := payout.NewPayoutDetails(
 				r.ID,
 				"Mehmet Yilmaz",
 				"DE89370400440532013000",
@@ -88,7 +89,7 @@ func LoadRestaurantFixtures(t *testing.T, db *gorm.DB) error {
 			)
 			require.NoError(t, err)
 
-			pd.Status = restaurant.PayoutActive
+			pd.Status = payout.PayoutActive
 
 			err = db.Create(pd).Error
 			require.NoError(t, err)

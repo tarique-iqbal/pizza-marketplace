@@ -9,8 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	resapp "restaurant-service/internal/application/restaurant"
-	"restaurant-service/internal/application/restaurant/commands"
+	payoutapp "restaurant-service/internal/application/payout"
+	"restaurant-service/internal/application/payout/commands"
+	"restaurant-service/internal/domain/payout"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/infrastructure/persistence"
 	apperr "restaurant-service/internal/shared/errors"
@@ -55,7 +56,7 @@ func TestUpdatePayout_Success(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	edited := resapp.UpdatePayoutRequest{
+	edited := payoutapp.UpdatePayoutRequest{
 		AccountHolder: "Ayse Yilmaz",
 		IBAN:          "GB29NWBK60161331926819",
 		BIC:           "NWBKGB2L",
@@ -75,9 +76,9 @@ func TestUpdatePayout_Success(t *testing.T) {
 	assert.Equal(t, "GB29NWBK60161331926819", output.Payout.IBAN)
 	assert.Equal(t, "NWBKGB2L", output.Payout.BIC)
 	assert.Equal(t, "NatWest", output.Payout.BankName)
-	assert.Equal(t, restaurant.PayoutPending, output.Payout.Status)
+	assert.Equal(t, payout.PayoutPending, output.Payout.Status)
 
-	pd := findPayoutDetailsByStatus(t, env.DB, res.ID, restaurant.PayoutPending)
+	pd := findPayoutDetailsByStatus(t, env.DB, res.ID, payout.PayoutPending)
 	assert.Equal(t, "Ayse Yilmaz", pd.AccountHolder)
 	assert.Equal(t, "GB29NWBK60161331926819", pd.IBAN)
 
@@ -105,7 +106,7 @@ func TestUpdatePayout_DoesNotTouchRestaurantRow(t *testing.T) {
 		context.Background(),
 		res.ID,
 		res.OwnerID,
-		resapp.UpdatePayoutRequest{
+		payoutapp.UpdatePayoutRequest{
 			AccountHolder: "Ayse Yilmaz",
 			IBAN:          "GB29NWBK60161331926819",
 			BIC:           "NWBKGB2L",
@@ -134,7 +135,7 @@ func TestUpdatePayout_Failure_NothingPending(t *testing.T) {
 	)
 
 	require.Error(t, err)
-	assert.ErrorIs(t, err, restaurant.ErrNoPendingPayout)
+	assert.ErrorIs(t, err, payout.ErrNoPendingPayout)
 }
 
 func TestUpdatePayout_Failure_OnlyActiveRecordExists(t *testing.T) {
@@ -161,7 +162,7 @@ func TestUpdatePayout_Failure_OnlyActiveRecordExists(t *testing.T) {
 	)
 
 	require.Error(t, err)
-	assert.ErrorIs(t, err, restaurant.ErrNoPendingPayout)
+	assert.ErrorIs(t, err, payout.ErrNoPendingPayout)
 }
 
 func TestUpdatePayout_RestaurantNotOwned(t *testing.T) {

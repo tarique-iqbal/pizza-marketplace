@@ -1,4 +1,4 @@
-package restaurant
+package payout
 
 import (
 	"time"

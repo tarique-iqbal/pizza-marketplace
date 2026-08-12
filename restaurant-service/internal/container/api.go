@@ -3,6 +3,7 @@ package container
 import (
 	"os"
 
+	payoutcommands "restaurant-service/internal/application/payout/commands"
 	"restaurant-service/internal/application/restaurant/commands"
 	"restaurant-service/internal/application/restaurant/queries"
 	"restaurant-service/internal/infrastructure/geocoder"
@@ -52,8 +53,8 @@ func NewAPIContainer() (*APIContainer, error) {
 	updateDelivery := commands.NewUpdateDelivery(restaurantRepo, payoutDetailsRepo, publisher)
 	deliveryHandler := handlers.NewDeliveryHandler(updateDelivery)
 
-	createPayout := commands.NewCreatePayout(restaurantRepo, payoutDetailsRepo, publisher)
-	updatePayout := commands.NewUpdatePayout(restaurantRepo, payoutDetailsRepo)
+	createPayout := payoutcommands.NewCreatePayout(restaurantRepo, payoutDetailsRepo, publisher)
+	updatePayout := payoutcommands.NewUpdatePayout(restaurantRepo, payoutDetailsRepo)
 	payoutHandler := handlers.NewPayoutHandler(createPayout, updatePayout)
 
 	updateOpeningHours := commands.NewUpdateOpeningHours(restaurantRepo, payoutDetailsRepo, publisher)

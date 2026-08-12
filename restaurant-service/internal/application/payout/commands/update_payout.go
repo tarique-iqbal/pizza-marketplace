@@ -6,19 +6,21 @@ import (
 
 	"github.com/google/uuid"
 
+	payoutapp "restaurant-service/internal/application/payout"
 	resapp "restaurant-service/internal/application/restaurant"
+	"restaurant-service/internal/domain/payout"
 	"restaurant-service/internal/domain/restaurant"
 	apperr "restaurant-service/internal/shared/errors"
 )
 
 type UpdatePayout struct {
 	restaurantRepo    restaurant.RestaurantRepository
-	payoutDetailsRepo restaurant.PayoutDetailsRepository
+	payoutDetailsRepo payout.PayoutDetailsRepository
 }
 
 func NewUpdatePayout(
 	restaurantRepo restaurant.RestaurantRepository,
-	payoutDetailsRepo restaurant.PayoutDetailsRepository,
+	payoutDetailsRepo payout.PayoutDetailsRepository,
 ) *UpdatePayout {
 	return &UpdatePayout{
 		restaurantRepo:    restaurantRepo,
@@ -30,7 +32,7 @@ func (uc *UpdatePayout) Execute(
 	ctx context.Context,
 	restaurantID uuid.UUID,
 	ownerID uuid.UUID,
-	input resapp.UpdatePayoutRequest,
+	input payoutapp.UpdatePayoutRequest,
 ) (resapp.RestaurantResponse, error) {
 	res, err := uc.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
 	if err != nil {
@@ -54,12 +56,12 @@ func (uc *UpdatePayout) Execute(
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to update payout details: %w", err)
 	}
 
-	pd := &restaurant.PayoutDetails{
+	pd := &payout.PayoutDetails{
 		AccountHolder: input.AccountHolder,
 		IBAN:          input.IBAN,
 		BIC:           input.BIC,
 		BankName:      input.BankName,
-		Status:        restaurant.PayoutPending,
+		Status:        payout.PayoutPending,
 	}
 
 	return resapp.ToRestaurantResponse(res, pd), nil
