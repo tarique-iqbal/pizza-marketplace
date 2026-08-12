@@ -1,7 +1,7 @@
 package container
 
 import (
-	eventsapp "restaurant-service/internal/application/restaurant/events"
+	"restaurant-service/internal/application/restaurant/inbound"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/infrastructure/messaging"
 	"restaurant-service/internal/infrastructure/persistence"
@@ -20,9 +20,9 @@ func NewWorkerContainer() (*WorkerContainer, error) {
 	}
 
 	restaurantRepo := persistence.NewRestaurantRepository(base.DB)
-	restaurantInitiated := eventsapp.NewRestaurantInitiated(restaurantRepo)
+	restaurantInitiated := inbound.NewRestaurantInitiated(restaurantRepo)
 
-	dispatcher := eventsapp.NewEventDispatcher()
+	dispatcher := inbound.NewEventDispatcher()
 	dispatcher.Register(messaging.Exchanges["identity.events"][0], restaurantInitiated)
 
 	consumer, err := messaging.NewRabbitMQConsumer(base.AMQPURL)

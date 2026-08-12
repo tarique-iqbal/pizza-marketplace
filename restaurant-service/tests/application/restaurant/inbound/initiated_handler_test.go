@@ -1,4 +1,4 @@
-package events_test
+package inbound_test
 
 import (
 	"context"
@@ -7,19 +7,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	eventsapp "restaurant-service/internal/application/restaurant/events"
+	"restaurant-service/internal/application/restaurant/inbound"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/infrastructure/persistence"
 	"restaurant-service/tests/testutil"
 )
 
-func setupRestaurantInitiatedHandler(t *testing.T) *eventsapp.RestaurantInitiated {
+func setupRestaurantInitiatedHandler(t *testing.T) *inbound.RestaurantInitiated {
 	db := testutil.DB(t)
 	db.TruncateTables(t, testutil.TableRestaurant)
 
 	repo := persistence.NewRestaurantRepository(db.DB)
 
-	return eventsapp.NewRestaurantInitiated(repo)
+	return inbound.NewRestaurantInitiated(repo)
 }
 
 func TestRestaurantInitiated_Handle_Success(t *testing.T) {

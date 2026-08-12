@@ -1,11 +1,11 @@
-package events_test
+package inbound_test
 
 import (
 	"context"
 	"errors"
 	"testing"
 
-	eventsapp "restaurant-service/internal/application/restaurant/events"
+	"restaurant-service/internal/application/restaurant/inbound"
 	"restaurant-service/internal/domain/restaurant"
 
 	"github.com/stretchr/testify/assert"
@@ -24,7 +24,7 @@ func (m *mockHandler) Handle(ctx context.Context, event restaurant.EventPayload)
 }
 
 func TestDispatch_CallsRegisteredHandler(t *testing.T) {
-	dispatcher := eventsapp.NewEventDispatcher()
+	dispatcher := inbound.NewEventDispatcher()
 	mock := &mockHandler{}
 
 	dispatcher.Register("restaurant.initiated", mock)
@@ -42,7 +42,7 @@ func TestDispatch_CallsRegisteredHandler(t *testing.T) {
 }
 
 func TestDispatch_NoHandler(t *testing.T) {
-	dispatcher := eventsapp.NewEventDispatcher()
+	dispatcher := inbound.NewEventDispatcher()
 
 	event := restaurant.EventPayload{
 		Name: "restaurant.unknown",
@@ -56,7 +56,7 @@ func TestDispatch_NoHandler(t *testing.T) {
 }
 
 func TestDispatch_HandlerReturnsError(t *testing.T) {
-	dispatcher := eventsapp.NewEventDispatcher()
+	dispatcher := inbound.NewEventDispatcher()
 	mock := &mockHandler{Err: errors.New("handler error")}
 
 	dispatcher.Register("restaurant.initiated", mock)
@@ -73,7 +73,7 @@ func TestDispatch_HandlerReturnsError(t *testing.T) {
 }
 
 func TestRegister_OverridesExistingHandler(t *testing.T) {
-	dispatcher := eventsapp.NewEventDispatcher()
+	dispatcher := inbound.NewEventDispatcher()
 
 	first := &mockHandler{}
 	second := &mockHandler{}

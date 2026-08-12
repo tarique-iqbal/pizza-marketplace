@@ -1,4 +1,4 @@
-package events
+package inbound
 
 import (
 	"context"
@@ -41,7 +41,7 @@ func (h *RestaurantInitiated) Handle(ctx context.Context, event restaurant.Event
 	checklist := restaurant.NewChecklist()
 	checklist.Complete(restaurant.ChecklistBasic)
 
-	restaurant := restaurant.NewRestaurant(
+	res := restaurant.NewRestaurant(
 		restaurantID,
 		ownerID,
 		payload.RestaurantName,
@@ -49,5 +49,5 @@ func (h *RestaurantInitiated) Handle(ctx context.Context, event restaurant.Event
 		checklist,
 	)
 
-	return h.repo.Create(ctx, restaurant)
+	return h.repo.Create(ctx, res)
 }
