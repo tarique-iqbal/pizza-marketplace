@@ -1,4 +1,4 @@
-package restaurant_test
+package money_test
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	resapp "restaurant-service/internal/application/restaurant"
+	"restaurant-service/internal/shared/money"
 )
 
 func TestMoney_MarshalJSON_KeepsTrailingZeros(t *testing.T) {
@@ -22,7 +22,7 @@ func TestMoney_MarshalJSON_KeepsTrailingZeros(t *testing.T) {
 	}
 
 	for input, want := range cases {
-		m := resapp.Money(decimal.RequireFromString(input))
+		m := money.Money(decimal.RequireFromString(input))
 
 		out, err := json.Marshal(m)
 		require.NoError(t, err)
@@ -31,7 +31,7 @@ func TestMoney_MarshalJSON_KeepsTrailingZeros(t *testing.T) {
 }
 
 func TestMoney_UnmarshalJSON_RoundTrips(t *testing.T) {
-	var m resapp.Money
+	var m money.Money
 	require.NoError(t, json.Unmarshal([]byte(`"1.50"`), &m))
 
 	out, err := json.Marshal(m)

@@ -11,6 +11,7 @@ import (
 	payoutapp "restaurant-service/internal/application/payout"
 	payoutdomain "restaurant-service/internal/domain/payout"
 	"restaurant-service/internal/domain/restaurant"
+	"restaurant-service/internal/shared/money"
 )
 
 func ToRestaurantResponse(r *restaurant.Restaurant, pd *payoutdomain.PayoutDetails) RestaurantResponse {
@@ -30,8 +31,8 @@ func ToRestaurantResponse(r *restaurant.Restaurant, pd *payoutdomain.PayoutDetai
 		Delivery: DeliveryResponse{
 			Type:         r.DeliveryType,
 			RadiusKm:     r.DeliveryKm,
-			Fee:          Money(r.DeliveryFee),
-			MinimumOrder: Money(r.MinimumOrder),
+			Fee:          money.Money(r.DeliveryFee),
+			MinimumOrder: money.Money(r.MinimumOrder),
 		},
 		Payout:       payoutapp.ToPayoutResponse(pd),
 		Pickup:       r.Pickup,
@@ -60,7 +61,7 @@ func ToPizzaResponse(
 		priceResponses = append(priceResponses, PizzaPriceResponse{
 			SizeID:     p.SizeID,
 			DiameterCm: size.DiameterCm,
-			Price:      Money(p.Price),
+			Price:      money.Money(p.Price),
 			IsActive:   p.IsActive,
 		})
 	}
@@ -69,9 +70,9 @@ func ToPizzaResponse(
 	for _, toppingID := range toppingIDs {
 		topping := toppingByID[toppingID]
 
-		var extraPrice *Money
+		var extraPrice *money.Money
 		if price, ok := priceByToppingID[toppingID]; ok {
-			m := Money(price)
+			m := money.Money(price)
 			extraPrice = &m
 		}
 
@@ -100,7 +101,7 @@ func ToToppingPriceResponse(price restaurant.ToppingPrice, toppingName string) T
 	return ToppingPriceResponse{
 		ToppingID:  price.ToppingID,
 		Name:       toppingName,
-		ExtraPrice: Money(price.ExtraPrice),
+		ExtraPrice: money.Money(price.ExtraPrice),
 	}
 }
 

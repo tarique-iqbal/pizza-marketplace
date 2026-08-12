@@ -1,4 +1,4 @@
-package restaurant
+package money
 
 import "github.com/shopspring/decimal"
 

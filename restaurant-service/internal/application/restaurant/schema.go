@@ -8,6 +8,7 @@ import (
 
 	payoutapp "restaurant-service/internal/application/payout"
 	"restaurant-service/internal/domain/restaurant"
+	"restaurant-service/internal/shared/money"
 )
 
 type Address = restaurant.Address
@@ -112,8 +113,8 @@ type ContactResponse struct {
 type DeliveryResponse struct {
 	Type         DeliveryType `json:"type"`
 	RadiusKm     *int16       `json:"radiusKm,omitempty"`
-	Fee          Money        `json:"fee"`
-	MinimumOrder Money        `json:"minimumOrder"`
+	Fee          money.Money  `json:"fee"`
+	MinimumOrder money.Money  `json:"minimumOrder"`
 }
 
 type PizzaResponse struct {
@@ -130,20 +131,20 @@ type PizzaResponse struct {
 }
 
 type PizzaPriceResponse struct {
-	SizeID     uuid.UUID `json:"sizeId"`
-	DiameterCm int16     `json:"diameterCm"`
-	Price      Money     `json:"price"`
-	IsActive   bool      `json:"isActive"`
+	SizeID     uuid.UUID   `json:"sizeId"`
+	DiameterCm int16       `json:"diameterCm"`
+	Price      money.Money `json:"price"`
+	IsActive   bool        `json:"isActive"`
 }
 
 type ToppingResponse struct {
-	ToppingID  uuid.UUID `json:"toppingId"`
-	Name       string    `json:"name"`
-	ExtraPrice *Money    `json:"extraPrice,omitempty"`
+	ToppingID  uuid.UUID    `json:"toppingId"`
+	Name       string       `json:"name"`
+	ExtraPrice *money.Money `json:"extraPrice,omitempty"`
 }
 
 type ToppingPriceResponse struct {
-	ToppingID  uuid.UUID `json:"toppingId"`
-	Name       string    `json:"name"`
-	ExtraPrice Money     `json:"extraPrice"`
+	ToppingID  uuid.UUID   `json:"toppingId"`
+	Name       string      `json:"name"`
+	ExtraPrice money.Money `json:"extraPrice"`
 }
