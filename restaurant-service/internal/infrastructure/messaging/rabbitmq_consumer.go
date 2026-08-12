@@ -129,7 +129,26 @@ func (c *RabbitMQConsumer) ensureConnected(ctx context.Context) error {
 	return nil
 }
 
+// Run consumes until ctx is cancelled; dropped connections trigger a reconnect via
+// GetMessages' ensureConnected, allowing consumption to resume without returning an error.
 func (c *RabbitMQConsumer) Run(ctx context.Context, dispatcher restaurant.EventDispatcher) error {
+	for {
+		err := c.runOnce(ctx, dispatcher)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		logobs.FromContext(ctx).Warn("consumer connection lost, reconnecting", "error", err)
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Second):
+		}
+	}
+}
+
+func (c *RabbitMQConsumer) runOnce(ctx context.Context, dispatcher restaurant.EventDispatcher) error {
 	msgs, err := c.GetMessages(ctx)
 	if err != nil {
 		return err
