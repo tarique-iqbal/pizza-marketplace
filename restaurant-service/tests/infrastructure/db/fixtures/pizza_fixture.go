@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
+	"restaurant-service/internal/domain/pizza"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/tests/testutil"
 )
@@ -17,13 +18,13 @@ func LoadPizzaFixtures(t *testing.T, db *gorm.DB) error {
 	err := db.Where("slug = ?", "anatolische-kueche").Take(&owner).Error
 	require.NoError(t, err)
 
-	pizzas := []restaurant.Pizza{
+	pizzas := []pizza.Pizza{
 		{
 			ID:           testutil.MustNewID(),
 			RestaurantID: owner.ID,
 			Name:         "Margherita",
 			IsVegetarian: true,
-			Status:       restaurant.PizzaAvailable,
+			Status:       pizza.PizzaAvailable,
 			SortOrder:    1,
 			CreatedAt:    time.Now().UTC(),
 		},
@@ -32,7 +33,7 @@ func LoadPizzaFixtures(t *testing.T, db *gorm.DB) error {
 			RestaurantID: owner.ID,
 			Name:         "Salami",
 			IsVegetarian: false,
-			Status:       restaurant.PizzaAvailable,
+			Status:       pizza.PizzaAvailable,
 			SortOrder:    2,
 			CreatedAt:    time.Now().UTC(),
 		},

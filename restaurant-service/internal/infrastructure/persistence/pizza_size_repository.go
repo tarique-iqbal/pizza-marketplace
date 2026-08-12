@@ -5,19 +5,19 @@ import (
 
 	"gorm.io/gorm"
 
-	"restaurant-service/internal/domain/restaurant"
+	"restaurant-service/internal/domain/pizza"
 )
 
 type PizzaSizeRepository struct {
 	db *gorm.DB
 }
 
-func NewPizzaSizeRepository(db *gorm.DB) restaurant.PizzaSizeRepository {
+func NewPizzaSizeRepository(db *gorm.DB) pizza.PizzaSizeRepository {
 	return &PizzaSizeRepository{db: db}
 }
 
-func (repo *PizzaSizeRepository) List(ctx context.Context) ([]restaurant.PizzaSize, error) {
-	var sizes []restaurant.PizzaSize
+func (repo *PizzaSizeRepository) List(ctx context.Context) ([]pizza.PizzaSize, error) {
+	var sizes []pizza.PizzaSize
 
 	err := repo.db.WithContext(ctx).
 		Order("diameter_cm").

@@ -12,9 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	resapp "restaurant-service/internal/application/restaurant"
-	"restaurant-service/internal/application/restaurant/commands"
-	"restaurant-service/internal/application/restaurant/queries"
+	pizzaapp "restaurant-service/internal/application/pizza"
+	"restaurant-service/internal/application/pizza/commands"
+	"restaurant-service/internal/application/pizza/queries"
+	"restaurant-service/internal/domain/pizza"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/domain/topping"
 	"restaurant-service/internal/infrastructure/persistence"
@@ -82,10 +83,10 @@ func TestPizzaHandler_CreatePizza_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, recorder.Code)
 
-	var response resapp.PizzaResponse
+	var response pizzaapp.PizzaResponse
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
 	assert.Equal(t, "Diavola", response.Name)
-	assert.Equal(t, restaurant.PizzaAvailable, response.Status)
+	assert.Equal(t, pizza.PizzaAvailable, response.Status)
 }
 
 func TestPizzaHandler_CreatePizza_ChecklistIncomplete(t *testing.T) {
@@ -140,7 +141,7 @@ func TestPizzaHandler_ListPizzas_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, recorder.Code)
 
-	var response []resapp.PizzaResponse
+	var response []pizzaapp.PizzaResponse
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
 	assert.Len(t, response, 2)
 }
@@ -148,18 +149,18 @@ func TestPizzaHandler_ListPizzas_Success(t *testing.T) {
 func TestPizzaHandler_UpdatePizza_Success(t *testing.T) {
 	h := setupPizzaHandler(t)
 
-	var pizza restaurant.Pizza
-	require.NoError(t, h.DB.Order("sort_order").First(&pizza).Error)
+	var p pizza.Pizza
+	require.NoError(t, h.DB.Order("sort_order").First(&p).Error)
 
 	var res restaurant.Restaurant
-	require.NoError(t, h.DB.Take(&res, "id = ?", pizza.RestaurantID).Error)
+	require.NoError(t, h.DB.Take(&res, "id = ?", p.RestaurantID).Error)
 
 	router := pizzaRouter(h.Handler, res.OwnerID.String(), "owner")
 
 	body, _ := json.Marshal(map[string]any{"name": "Renamed Pizza"})
 	req, _ := http.NewRequest(
 		http.MethodPut,
-		"/restaurants/"+res.ID.String()+"/pizzas/"+pizza.ID.String(),
+		"/restaurants/"+res.ID.String()+"/pizzas/"+p.ID.String(),
 		bytes.NewBuffer(body),
 	)
 	req.Header.Set("Content-Type", "application/json")
@@ -169,7 +170,7 @@ func TestPizzaHandler_UpdatePizza_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, recorder.Code)
 
-	var response resapp.PizzaResponse
+	var response pizzaapp.PizzaResponse
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
 	assert.Equal(t, "Renamed Pizza", response.Name)
 }
@@ -177,13 +178,13 @@ func TestPizzaHandler_UpdatePizza_Success(t *testing.T) {
 func TestPizzaHandler_SetPizzaPrices_Success(t *testing.T) {
 	h := setupPizzaHandler(t)
 
-	var pizza restaurant.Pizza
-	require.NoError(t, h.DB.Order("sort_order").First(&pizza).Error)
+	var p pizza.Pizza
+	require.NoError(t, h.DB.Order("sort_order").First(&p).Error)
 
 	var res restaurant.Restaurant
-	require.NoError(t, h.DB.Take(&res, "id = ?", pizza.RestaurantID).Error)
+	require.NoError(t, h.DB.Take(&res, "id = ?", p.RestaurantID).Error)
 
-	var size restaurant.PizzaSize
+	var size pizza.PizzaSize
 	require.NoError(t, h.DB.Order("diameter_cm").Take(&size).Error)
 
 	router := pizzaRouter(h.Handler, res.OwnerID.String(), "owner")
@@ -193,7 +194,7 @@ func TestPizzaHandler_SetPizzaPrices_Success(t *testing.T) {
 	})
 	req, _ := http.NewRequest(
 		http.MethodPut,
-		"/restaurants/"+res.ID.String()+"/pizzas/"+pizza.ID.String()+"/prices",
+		"/restaurants/"+res.ID.String()+"/pizzas/"+p.ID.String()+"/prices",
 		bytes.NewBuffer(body),
 	)
 	req.Header.Set("Content-Type", "application/json")
@@ -203,7 +204,7 @@ func TestPizzaHandler_SetPizzaPrices_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, recorder.Code)
 
-	var response resapp.PizzaResponse
+	var response pizzaapp.PizzaResponse
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
 	require.Len(t, response.Prices, 1)
 	assert.True(t, response.Prices[0].IsActive)
@@ -212,11 +213,11 @@ func TestPizzaHandler_SetPizzaPrices_Success(t *testing.T) {
 func TestPizzaHandler_UpdatePizza_SetsToppings_NoPriceRequired(t *testing.T) {
 	h := setupPizzaHandler(t)
 
-	var pizza restaurant.Pizza
-	require.NoError(t, h.DB.Order("sort_order").First(&pizza).Error)
+	var p pizza.Pizza
+	require.NoError(t, h.DB.Order("sort_order").First(&p).Error)
 
 	var res restaurant.Restaurant
-	require.NoError(t, h.DB.Take(&res, "id = ?", pizza.RestaurantID).Error)
+	require.NoError(t, h.DB.Take(&res, "id = ?", p.RestaurantID).Error)
 
 	var t1 topping.Topping
 	require.NoError(t, h.DB.Order("name").Take(&t1).Error)
@@ -224,12 +225,12 @@ func TestPizzaHandler_UpdatePizza_SetsToppings_NoPriceRequired(t *testing.T) {
 	router := pizzaRouter(h.Handler, res.OwnerID.String(), "owner")
 
 	body, _ := json.Marshal(map[string]any{
-		"name":       pizza.Name,
+		"name":       p.Name,
 		"toppingIds": []string{t1.ID.String()},
 	})
 	req, _ := http.NewRequest(
 		http.MethodPut,
-		"/restaurants/"+res.ID.String()+"/pizzas/"+pizza.ID.String(),
+		"/restaurants/"+res.ID.String()+"/pizzas/"+p.ID.String(),
 		bytes.NewBuffer(body),
 	)
 	req.Header.Set("Content-Type", "application/json")
@@ -239,7 +240,7 @@ func TestPizzaHandler_UpdatePizza_SetsToppings_NoPriceRequired(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, recorder.Code)
 
-	var response resapp.PizzaResponse
+	var response pizzaapp.PizzaResponse
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
 	require.Len(t, response.Toppings, 1)
 	assert.Equal(t, t1.ID, response.Toppings[0].ToppingID)

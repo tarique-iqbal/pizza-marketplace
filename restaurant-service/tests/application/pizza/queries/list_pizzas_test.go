@@ -10,9 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	resapp "restaurant-service/internal/application/restaurant"
-	"restaurant-service/internal/application/restaurant/queries"
+	pizzaapp "restaurant-service/internal/application/pizza"
+	"restaurant-service/internal/application/pizza/queries"
 	toppingapp "restaurant-service/internal/application/topping"
+	"restaurant-service/internal/domain/pizza"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/domain/topping"
 	"restaurant-service/internal/infrastructure/persistence"
@@ -48,8 +49,8 @@ func setupListPizzas(t *testing.T) listPizzasSetup {
 	}
 }
 
-func firstPizza(t *testing.T, db *gorm.DB) restaurant.Pizza {
-	var p restaurant.Pizza
+func firstPizza(t *testing.T, db *gorm.DB) pizza.Pizza {
+	var p pizza.Pizza
 
 	err := db.Order("sort_order").First(&p).Error
 	require.NoError(t, err)
@@ -69,10 +70,10 @@ func restaurantByID(t *testing.T, db *gorm.DB, id uuid.UUID) restaurant.Restaura
 func TestListPizzas_Success(t *testing.T) {
 	env := setupListPizzas(t)
 
-	pizza := firstPizza(t, env.DB)
-	owner := restaurantByID(t, env.DB, pizza.RestaurantID)
+	pz := firstPizza(t, env.DB)
+	owner := restaurantByID(t, env.DB, pz.RestaurantID)
 
-	output, err := env.ListPizzas.Execute(context.Background(), pizza.RestaurantID, owner.OwnerID)
+	output, err := env.ListPizzas.Execute(context.Background(), pz.RestaurantID, owner.OwnerID)
 	require.NoError(t, err)
 
 	assert.Len(t, output, 2, "both fixture pizzas are `available`")
@@ -81,44 +82,44 @@ func TestListPizzas_Success(t *testing.T) {
 func TestListPizzas_ExcludesArchived(t *testing.T) {
 	env := setupListPizzas(t)
 
-	pizza := firstPizza(t, env.DB)
-	owner := restaurantByID(t, env.DB, pizza.RestaurantID)
+	pz := firstPizza(t, env.DB)
+	owner := restaurantByID(t, env.DB, pz.RestaurantID)
 
-	require.NoError(t, env.DB.Model(&restaurant.Pizza{}).
-		Where("id = ?", pizza.ID).Update("status", restaurant.PizzaArchived).Error)
+	require.NoError(t, env.DB.Model(&pizza.Pizza{}).
+		Where("id = ?", pz.ID).Update("status", pizza.PizzaArchived).Error)
 
-	output, err := env.ListPizzas.Execute(context.Background(), pizza.RestaurantID, owner.OwnerID)
+	output, err := env.ListPizzas.Execute(context.Background(), pz.RestaurantID, owner.OwnerID)
 	require.NoError(t, err)
 
 	assert.Len(t, output, 1, "archived pizza must be filtered out")
 	for _, p := range output {
-		assert.NotEqual(t, pizza.ID, p.ID)
+		assert.NotEqual(t, pz.ID, p.ID)
 	}
 }
 
 func TestListPizzas_ToppingExtraPrice_OmittedWhenUnset_SetWhenPriced(t *testing.T) {
 	env := setupListPizzas(t)
 
-	pizza := firstPizza(t, env.DB)
-	owner := restaurantByID(t, env.DB, pizza.RestaurantID)
+	pz := firstPizza(t, env.DB)
+	owner := restaurantByID(t, env.DB, pz.RestaurantID)
 
 	var toppings []topping.Topping
 	require.NoError(t, env.DB.Order("name").Limit(2).Find(&toppings).Error)
 
-	require.NoError(t, pizza.SetToppingIDs([]uuid.UUID{toppings[0].ID, toppings[1].ID}))
-	require.NoError(t, env.DB.Save(&pizza).Error)
+	require.NoError(t, pz.SetToppingIDs([]uuid.UUID{toppings[0].ID, toppings[1].ID}))
+	require.NoError(t, env.DB.Save(&pz).Error)
 
 	toppingPriceRepo := persistence.NewToppingPriceRepository(env.DB)
-	price, err := topping.NewToppingPrice(pizza.RestaurantID, toppings[0].ID, decimal.RequireFromString("1.50"))
+	price, err := topping.NewToppingPrice(pz.RestaurantID, toppings[0].ID, decimal.RequireFromString("1.50"))
 	require.NoError(t, err)
-	require.NoError(t, toppingPriceRepo.UpsertPrices(context.Background(), pizza.RestaurantID, []topping.ToppingPrice{*price}))
+	require.NoError(t, toppingPriceRepo.UpsertPrices(context.Background(), pz.RestaurantID, []topping.ToppingPrice{*price}))
 
-	output, err := env.ListPizzas.Execute(context.Background(), pizza.RestaurantID, owner.OwnerID)
+	output, err := env.ListPizzas.Execute(context.Background(), pz.RestaurantID, owner.OwnerID)
 	require.NoError(t, err)
 
-	var found resapp.PizzaResponse
+	var found pizzaapp.PizzaResponse
 	for _, p := range output {
-		if p.ID == pizza.ID {
+		if p.ID == pz.ID {
 			found = p
 		}
 	}
@@ -137,9 +138,9 @@ func TestListPizzas_ToppingExtraPrice_OmittedWhenUnset_SetWhenPriced(t *testing.
 func TestListPizzas_RestaurantNotOwned(t *testing.T) {
 	env := setupListPizzas(t)
 
-	pizza := firstPizza(t, env.DB)
+	pz := firstPizza(t, env.DB)
 
-	_, err := env.ListPizzas.Execute(context.Background(), pizza.RestaurantID, uuid.New())
+	_, err := env.ListPizzas.Execute(context.Background(), pz.RestaurantID, uuid.New())
 	require.Error(t, err)
 
 	assert.ErrorIs(t, err, apperr.ErrForbidden)

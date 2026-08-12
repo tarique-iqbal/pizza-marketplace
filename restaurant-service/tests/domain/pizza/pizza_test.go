@@ -1,4 +1,4 @@
-package restaurant
+package pizza_test
 
 import (
 	"testing"
@@ -7,35 +7,35 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"restaurant-service/internal/domain/restaurant"
+	"restaurant-service/internal/domain/pizza"
 )
 
 func TestPizza_SetToppingIDs_RoundTrip(t *testing.T) {
-	pizza := restaurant.NewPizza(uuid.New(), uuid.New())
+	p := pizza.NewPizza(uuid.New(), uuid.New())
 
 	ids := []uuid.UUID{uuid.New(), uuid.New()}
-	require.NoError(t, pizza.SetToppingIDs(ids))
+	require.NoError(t, p.SetToppingIDs(ids))
 
-	stored, err := pizza.ToppingIDs()
+	stored, err := p.ToppingIDs()
 	require.NoError(t, err)
 	assert.Equal(t, ids, stored)
 }
 
 func TestPizza_SetToppingIDs_RejectsDuplicates(t *testing.T) {
-	pizza := restaurant.NewPizza(uuid.New(), uuid.New())
+	p := pizza.NewPizza(uuid.New(), uuid.New())
 
 	dup := uuid.New()
 
-	err := pizza.SetToppingIDs([]uuid.UUID{dup, dup})
+	err := p.SetToppingIDs([]uuid.UUID{dup, dup})
 	require.Error(t, err)
 
-	assert.ErrorIs(t, err, restaurant.ErrDuplicateTopping)
+	assert.ErrorIs(t, err, pizza.ErrDuplicateTopping)
 }
 
 func TestPizza_ToppingIDs_EmptyByDefault(t *testing.T) {
-	pizza := restaurant.NewPizza(uuid.New(), uuid.New())
+	p := pizza.NewPizza(uuid.New(), uuid.New())
 
-	ids, err := pizza.ToppingIDs()
+	ids, err := p.ToppingIDs()
 	require.NoError(t, err)
 	assert.Empty(t, ids)
 }

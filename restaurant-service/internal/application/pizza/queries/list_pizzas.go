@@ -7,7 +7,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
-	resapp "restaurant-service/internal/application/restaurant"
+	pizzaapp "restaurant-service/internal/application/pizza"
+	"restaurant-service/internal/domain/pizza"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/domain/topping"
 	apperr "restaurant-service/internal/shared/errors"
@@ -15,18 +16,18 @@ import (
 
 type ListPizzas struct {
 	restaurantRepo   restaurant.RestaurantRepository
-	pizzaRepo        restaurant.PizzaRepository
-	pizzaPriceRepo   restaurant.PizzaPriceRepository
-	pizzaSizeRepo    restaurant.PizzaSizeRepository
+	pizzaRepo        pizza.PizzaRepository
+	pizzaPriceRepo   pizza.PizzaPriceRepository
+	pizzaSizeRepo    pizza.PizzaSizeRepository
 	toppingRepo      topping.ToppingRepository
 	toppingPriceRepo topping.ToppingPriceRepository
 }
 
 func NewListPizzas(
 	restaurantRepo restaurant.RestaurantRepository,
-	pizzaRepo restaurant.PizzaRepository,
-	pizzaPriceRepo restaurant.PizzaPriceRepository,
-	pizzaSizeRepo restaurant.PizzaSizeRepository,
+	pizzaRepo pizza.PizzaRepository,
+	pizzaPriceRepo pizza.PizzaPriceRepository,
+	pizzaSizeRepo pizza.PizzaSizeRepository,
 	toppingRepo topping.ToppingRepository,
 	toppingPriceRepo topping.ToppingPriceRepository,
 ) *ListPizzas {
@@ -44,7 +45,7 @@ func (uc *ListPizzas) Execute(
 	ctx context.Context,
 	restaurantID uuid.UUID,
 	ownerID uuid.UUID,
-) ([]resapp.PizzaResponse, error) {
+) ([]pizzaapp.PizzaResponse, error) {
 	res, err := uc.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify ownership: %w", err)
@@ -66,7 +67,7 @@ func (uc *ListPizzas) Execute(
 		return nil, fmt.Errorf("failed to list pizza sizes: %w", err)
 	}
 
-	sizeByID := make(map[uuid.UUID]restaurant.PizzaSize, len(sizes))
+	sizeByID := make(map[uuid.UUID]pizza.PizzaSize, len(sizes))
 	for _, size := range sizes {
 		sizeByID[size.ID] = size
 	}
@@ -91,27 +92,27 @@ func (uc *ListPizzas) Execute(
 		priceByToppingID[price.ToppingID] = price.ExtraPrice
 	}
 
-	responses := make([]resapp.PizzaResponse, 0, len(pizzas))
+	responses := make([]pizzaapp.PizzaResponse, 0, len(pizzas))
 
 	for i := range pizzas {
-		pizza := pizzas[i]
+		p := pizzas[i]
 
-		if pizza.Status == restaurant.PizzaArchived {
+		if p.Status == pizza.PizzaArchived {
 			continue
 		}
 
-		prices, err := uc.pizzaPriceRepo.ListByPizza(ctx, pizza.ID)
+		prices, err := uc.pizzaPriceRepo.ListByPizza(ctx, p.ID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list prices for pizza %s: %w", pizza.ID, err)
+			return nil, fmt.Errorf("failed to list prices for pizza %s: %w", p.ID, err)
 		}
 
-		toppingIDs, err := pizza.ToppingIDs()
+		toppingIDs, err := p.ToppingIDs()
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse toppings for pizza %s: %w", pizza.ID, err)
+			return nil, fmt.Errorf("failed to parse toppings for pizza %s: %w", p.ID, err)
 		}
 
-		responses = append(responses, resapp.ToPizzaResponse(
-			&pizza, prices, sizeByID, toppingIDs, toppingByID, priceByToppingID,
+		responses = append(responses, pizzaapp.ToPizzaResponse(
+			&p, prices, sizeByID, toppingIDs, toppingByID, priceByToppingID,
 		))
 	}
 

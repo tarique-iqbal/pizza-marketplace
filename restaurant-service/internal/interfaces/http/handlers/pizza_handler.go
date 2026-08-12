@@ -6,9 +6,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	resapp "restaurant-service/internal/application/restaurant"
-	"restaurant-service/internal/application/restaurant/commands"
-	"restaurant-service/internal/application/restaurant/queries"
+	pizzaapp "restaurant-service/internal/application/pizza"
+	"restaurant-service/internal/application/pizza/commands"
+	"restaurant-service/internal/application/pizza/queries"
 	"restaurant-service/internal/interfaces/http/response"
 	"restaurant-service/internal/interfaces/http/validation"
 )
@@ -67,7 +67,7 @@ func (h *PizzaHandler) ListPizzas(ctx *gin.Context) {
 func (h *PizzaHandler) CreatePizza(ctx *gin.Context) {
 	reqCtx := ctx.Request.Context()
 
-	var input resapp.CreatePizzaRequest
+	var input pizzaapp.CreatePizzaRequest
 
 	restaurantID, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
@@ -108,7 +108,7 @@ func (h *PizzaHandler) CreatePizza(ctx *gin.Context) {
 func (h *PizzaHandler) UpdatePizza(ctx *gin.Context) {
 	reqCtx := ctx.Request.Context()
 
-	var input resapp.UpdatePizzaRequest
+	var input pizzaapp.UpdatePizzaRequest
 
 	restaurantID, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
@@ -157,7 +157,7 @@ func (h *PizzaHandler) UpdatePizza(ctx *gin.Context) {
 func (h *PizzaHandler) SetPizzaPrices(ctx *gin.Context) {
 	reqCtx := ctx.Request.Context()
 
-	var input resapp.SetPizzaPricesRequest
+	var input pizzaapp.SetPizzaPricesRequest
 
 	restaurantID, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {

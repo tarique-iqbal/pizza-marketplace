@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
+	"restaurant-service/internal/domain/pizza"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/infrastructure/persistence"
 	"restaurant-service/tests/infrastructure/db/fixtures"
@@ -16,7 +17,7 @@ import (
 
 type pizzaRepoSetup struct {
 	DB        *gorm.DB
-	PizzaRepo restaurant.PizzaRepository
+	PizzaRepo pizza.PizzaRepository
 }
 
 func setupPizzaRepo(t *testing.T) pizzaRepoSetup {
@@ -32,8 +33,8 @@ func setupPizzaRepo(t *testing.T) pizzaRepoSetup {
 	}
 }
 
-func firstPizza(t *testing.T, db *gorm.DB) restaurant.Pizza {
-	var p restaurant.Pizza
+func firstPizza(t *testing.T, db *gorm.DB) pizza.Pizza {
+	var p pizza.Pizza
 
 	err := db.Order("sort_order").First(&p).Error
 	require.NoError(t, err)
@@ -47,43 +48,43 @@ func TestPizzaRepository_Create(t *testing.T) {
 	var owner restaurant.Restaurant
 	require.NoError(t, setup.DB.Where("slug = ?", "anatolische-kueche").Take(&owner).Error)
 
-	pizza := restaurant.NewPizza(testutil.MustNewID(), owner.ID).WithDetails(
+	p := pizza.NewPizza(testutil.MustNewID(), owner.ID).WithDetails(
 		"Quattro Formaggi",
 		nil,
 		true,
-		restaurant.PizzaAvailable,
+		pizza.PizzaAvailable,
 		3,
 	)
 
-	err := setup.PizzaRepo.Create(context.Background(), pizza)
+	err := setup.PizzaRepo.Create(context.Background(), p)
 	require.NoError(t, err)
 
-	var stored restaurant.Pizza
-	require.NoError(t, setup.DB.Take(&stored, "id = ?", pizza.ID).Error)
+	var stored pizza.Pizza
+	require.NoError(t, setup.DB.Take(&stored, "id = ?", p.ID).Error)
 	assert.Equal(t, "Quattro Formaggi", stored.Name)
 	assert.Nil(t, stored.UpdatedAt)
-	assert.Equal(t, restaurant.PizzaAvailable, stored.Status)
+	assert.Equal(t, pizza.PizzaAvailable, stored.Status)
 }
 
 func TestPizzaRepository_Update(t *testing.T) {
 	setup := setupPizzaRepo(t)
 
-	pizza := firstPizza(t, setup.DB)
+	p := firstPizza(t, setup.DB)
 
-	pizza.WithDetails(
-		pizza.Name,
-		pizza.Image,
-		pizza.IsVegetarian,
-		restaurant.PizzaArchived,
-		pizza.SortOrder,
+	p.WithDetails(
+		p.Name,
+		p.Image,
+		p.IsVegetarian,
+		pizza.PizzaArchived,
+		p.SortOrder,
 	)
 
-	err := setup.PizzaRepo.Update(context.Background(), &pizza)
+	err := setup.PizzaRepo.Update(context.Background(), &p)
 	require.NoError(t, err)
 
-	var updated restaurant.Pizza
-	require.NoError(t, setup.DB.Take(&updated, "id = ?", pizza.ID).Error)
-	assert.Equal(t, restaurant.PizzaArchived, updated.Status)
+	var updated pizza.Pizza
+	require.NoError(t, setup.DB.Take(&updated, "id = ?", p.ID).Error)
+	assert.Equal(t, pizza.PizzaArchived, updated.Status)
 	assert.NotNil(t, updated.UpdatedAt)
 }
 

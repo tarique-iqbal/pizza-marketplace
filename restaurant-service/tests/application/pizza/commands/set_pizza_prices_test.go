@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	resapp "restaurant-service/internal/application/restaurant"
-	"restaurant-service/internal/application/restaurant/commands"
-	"restaurant-service/internal/domain/restaurant"
+	pizzaapp "restaurant-service/internal/application/pizza"
+	"restaurant-service/internal/application/pizza/commands"
+	"restaurant-service/internal/domain/pizza"
 	"restaurant-service/internal/domain/topping"
 	"restaurant-service/internal/infrastructure/persistence"
 	apperr "restaurant-service/internal/shared/errors"
@@ -47,20 +47,20 @@ func setupSetPizzaPrices(t *testing.T) setPizzaPricesSetup {
 func TestSetPizzaPrices_Success(t *testing.T) {
 	env := setupSetPizzaPrices(t)
 
-	pizza := firstPizza(t, env.DB)
-	owner := restaurantByID(t, env.DB, pizza.RestaurantID)
+	pz := firstPizza(t, env.DB)
+	owner := restaurantByID(t, env.DB, pz.RestaurantID)
 
-	var sizes []restaurant.PizzaSize
+	var sizes []pizza.PizzaSize
 	require.NoError(t, env.DB.Order("diameter_cm").Limit(2).Find(&sizes).Error)
 
-	input := resapp.SetPizzaPricesRequest{
-		Prices: []resapp.PizzaPriceInput{
+	input := pizzaapp.SetPizzaPricesRequest{
+		Prices: []pizzaapp.PizzaPriceInput{
 			{SizeID: sizes[0].ID, Price: decimal.RequireFromString("9.50")},
 			{SizeID: sizes[1].ID, Price: decimal.RequireFromString("12.00")},
 		},
 	}
 
-	output, err := env.SetPizzaPrices.Execute(context.Background(), pizza.RestaurantID, pizza.ID, owner.OwnerID, input)
+	output, err := env.SetPizzaPrices.Execute(context.Background(), pz.RestaurantID, pz.ID, owner.OwnerID, input)
 	require.NoError(t, err)
 
 	require.Len(t, output.Prices, 2)
@@ -73,22 +73,22 @@ func TestSetPizzaPrices_Success(t *testing.T) {
 func TestSetPizzaPrices_ReportsExistingToppings(t *testing.T) {
 	env := setupSetPizzaPrices(t)
 
-	pizza := firstPizza(t, env.DB)
-	owner := restaurantByID(t, env.DB, pizza.RestaurantID)
+	pz := firstPizza(t, env.DB)
+	owner := restaurantByID(t, env.DB, pz.RestaurantID)
 
 	var t1 topping.Topping
 	require.NoError(t, env.DB.Order("name").Take(&t1).Error)
-	require.NoError(t, pizza.SetToppingIDs([]uuid.UUID{t1.ID}))
-	require.NoError(t, env.DB.Save(&pizza).Error)
+	require.NoError(t, pz.SetToppingIDs([]uuid.UUID{t1.ID}))
+	require.NoError(t, env.DB.Save(&pz).Error)
 
-	var size restaurant.PizzaSize
+	var size pizza.PizzaSize
 	require.NoError(t, env.DB.Order("diameter_cm").Take(&size).Error)
 
-	input := resapp.SetPizzaPricesRequest{
-		Prices: []resapp.PizzaPriceInput{{SizeID: size.ID, Price: decimal.RequireFromString("9.50")}},
+	input := pizzaapp.SetPizzaPricesRequest{
+		Prices: []pizzaapp.PizzaPriceInput{{SizeID: size.ID, Price: decimal.RequireFromString("9.50")}},
 	}
 
-	output, err := env.SetPizzaPrices.Execute(context.Background(), pizza.RestaurantID, pizza.ID, owner.OwnerID, input)
+	output, err := env.SetPizzaPrices.Execute(context.Background(), pz.RestaurantID, pz.ID, owner.OwnerID, input)
 	require.NoError(t, err)
 
 	require.Len(t, output.Toppings, 1, "must report the pizza's real toppings, not fake them as empty")
@@ -98,20 +98,20 @@ func TestSetPizzaPrices_ReportsExistingToppings(t *testing.T) {
 func TestSetPizzaPrices_DuplicateSizeInRequest(t *testing.T) {
 	env := setupSetPizzaPrices(t)
 
-	pizza := firstPizza(t, env.DB)
-	owner := restaurantByID(t, env.DB, pizza.RestaurantID)
+	pz := firstPizza(t, env.DB)
+	owner := restaurantByID(t, env.DB, pz.RestaurantID)
 
-	var size restaurant.PizzaSize
+	var size pizza.PizzaSize
 	require.NoError(t, env.DB.Order("diameter_cm").Take(&size).Error)
 
-	input := resapp.SetPizzaPricesRequest{
-		Prices: []resapp.PizzaPriceInput{
+	input := pizzaapp.SetPizzaPricesRequest{
+		Prices: []pizzaapp.PizzaPriceInput{
 			{SizeID: size.ID, Price: decimal.RequireFromString("9.50")},
 			{SizeID: size.ID, Price: decimal.RequireFromString("10.00")},
 		},
 	}
 
-	_, err := env.SetPizzaPrices.Execute(context.Background(), pizza.RestaurantID, pizza.ID, owner.OwnerID, input)
+	_, err := env.SetPizzaPrices.Execute(context.Background(), pz.RestaurantID, pz.ID, owner.OwnerID, input)
 	require.Error(t, err)
 
 	assert.ErrorIs(t, err, apperr.ErrConflict)
@@ -120,16 +120,16 @@ func TestSetPizzaPrices_DuplicateSizeInRequest(t *testing.T) {
 func TestSetPizzaPrices_SizeDoesNotExist(t *testing.T) {
 	env := setupSetPizzaPrices(t)
 
-	pizza := firstPizza(t, env.DB)
-	owner := restaurantByID(t, env.DB, pizza.RestaurantID)
+	pz := firstPizza(t, env.DB)
+	owner := restaurantByID(t, env.DB, pz.RestaurantID)
 
-	input := resapp.SetPizzaPricesRequest{
-		Prices: []resapp.PizzaPriceInput{
+	input := pizzaapp.SetPizzaPricesRequest{
+		Prices: []pizzaapp.PizzaPriceInput{
 			{SizeID: uuid.New(), Price: decimal.RequireFromString("9.50")},
 		},
 	}
 
-	_, err := env.SetPizzaPrices.Execute(context.Background(), pizza.RestaurantID, pizza.ID, owner.OwnerID, input)
+	_, err := env.SetPizzaPrices.Execute(context.Background(), pz.RestaurantID, pz.ID, owner.OwnerID, input)
 	require.Error(t, err)
 
 	assert.ErrorIs(t, err, apperr.ErrNotFound)
@@ -138,17 +138,17 @@ func TestSetPizzaPrices_SizeDoesNotExist(t *testing.T) {
 func TestSetPizzaPrices_PizzaNotFound(t *testing.T) {
 	env := setupSetPizzaPrices(t)
 
-	pizza := firstPizza(t, env.DB)
-	owner := restaurantByID(t, env.DB, pizza.RestaurantID)
+	pz := firstPizza(t, env.DB)
+	owner := restaurantByID(t, env.DB, pz.RestaurantID)
 
-	var size restaurant.PizzaSize
+	var size pizza.PizzaSize
 	require.NoError(t, env.DB.Order("diameter_cm").Take(&size).Error)
 
-	input := resapp.SetPizzaPricesRequest{
-		Prices: []resapp.PizzaPriceInput{{SizeID: size.ID, Price: decimal.RequireFromString("9.50")}},
+	input := pizzaapp.SetPizzaPricesRequest{
+		Prices: []pizzaapp.PizzaPriceInput{{SizeID: size.ID, Price: decimal.RequireFromString("9.50")}},
 	}
 
-	_, err := env.SetPizzaPrices.Execute(context.Background(), pizza.RestaurantID, uuid.New(), owner.OwnerID, input)
+	_, err := env.SetPizzaPrices.Execute(context.Background(), pz.RestaurantID, uuid.New(), owner.OwnerID, input)
 	require.Error(t, err)
 
 	assert.ErrorIs(t, err, apperr.ErrNotFound)

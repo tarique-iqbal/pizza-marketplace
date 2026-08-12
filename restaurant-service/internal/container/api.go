@@ -4,8 +4,9 @@ import (
 	"os"
 
 	payoutcmd "restaurant-service/internal/application/payout/commands"
+	pizzacmd "restaurant-service/internal/application/pizza/commands"
+	pizzaqueries "restaurant-service/internal/application/pizza/queries"
 	"restaurant-service/internal/application/restaurant/commands"
-	"restaurant-service/internal/application/restaurant/queries"
 	toppingcmd "restaurant-service/internal/application/topping/commands"
 	"restaurant-service/internal/infrastructure/geocoder"
 	"restaurant-service/internal/infrastructure/messaging"
@@ -71,14 +72,14 @@ func NewAPIContainer() (*APIContainer, error) {
 	pizzaPriceRepo := persistence.NewPizzaPriceRepository(base.DB)
 	pizzaSizeRepo := persistence.NewPizzaSizeRepository(base.DB)
 
-	createPizza := commands.NewCreatePizza(restaurantRepo, pizzaRepo, toppingRepo)
-	updatePizza := commands.NewUpdatePizza(
+	createPizza := pizzacmd.NewCreatePizza(restaurantRepo, pizzaRepo, toppingRepo)
+	updatePizza := pizzacmd.NewUpdatePizza(
 		restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo,
 	)
-	setPizzaPrices := commands.NewSetPizzaPrices(
+	setPizzaPrices := pizzacmd.NewSetPizzaPrices(
 		restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo,
 	)
-	listPizzas := queries.NewListPizzas(
+	listPizzas := pizzaqueries.NewListPizzas(
 		restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo,
 	)
 	pizzaHandler := handlers.NewPizzaHandler(createPizza, updatePizza, setPizzaPrices, listPizzas)

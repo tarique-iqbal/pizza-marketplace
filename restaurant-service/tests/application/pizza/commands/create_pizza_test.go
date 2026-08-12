@@ -9,8 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	resapp "restaurant-service/internal/application/restaurant"
-	"restaurant-service/internal/application/restaurant/commands"
+	pizzaapp "restaurant-service/internal/application/pizza"
+	"restaurant-service/internal/application/pizza/commands"
+	"restaurant-service/internal/domain/pizza"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/domain/topping"
 	"restaurant-service/internal/infrastructure/persistence"
@@ -49,8 +50,8 @@ func restaurantByName(t *testing.T, db *gorm.DB, name string) restaurant.Restaur
 	return r
 }
 
-func validCreatePizzaInput() resapp.CreatePizzaRequest {
-	return resapp.CreatePizzaRequest{
+func validCreatePizzaInput() pizzaapp.CreatePizzaRequest {
+	return pizzaapp.CreatePizzaRequest{
 		Name: "Margherita",
 	}
 }
@@ -64,12 +65,12 @@ func TestCreatePizza_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "Margherita", output.Name)
-	assert.Equal(t, restaurant.PizzaAvailable, output.Status)
+	assert.Equal(t, pizza.PizzaAvailable, output.Status)
 	assert.False(t, output.IsVegetarian)
 	assert.Empty(t, output.Prices)
 	assert.Empty(t, output.Toppings)
 
-	var stored restaurant.Pizza
+	var stored pizza.Pizza
 	require.NoError(t, env.DB.Take(&stored, "id = ?", output.ID).Error)
 	assert.Equal(t, res.ID, stored.RestaurantID)
 }
@@ -123,7 +124,7 @@ func TestCreatePizza_WithToppings_NoPriceRequired_Success(t *testing.T) {
 	require.Len(t, output.Toppings, 1)
 	assert.Equal(t, t1.ID, output.Toppings[0].ToppingID)
 
-	var stored restaurant.Pizza
+	var stored pizza.Pizza
 	require.NoError(t, env.DB.Take(&stored, "id = ?", output.ID).Error)
 	storedIDs, err := stored.ToppingIDs()
 	require.NoError(t, err)
@@ -159,5 +160,5 @@ func TestCreatePizza_DuplicateTopping(t *testing.T) {
 	require.Error(t, err)
 
 	assert.ErrorIs(t, err, apperr.ErrConflict)
-	assert.ErrorIs(t, err, restaurant.ErrDuplicateTopping)
+	assert.ErrorIs(t, err, pizza.ErrDuplicateTopping)
 }

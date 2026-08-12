@@ -8,21 +8,21 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"restaurant-service/internal/domain/restaurant"
+	"restaurant-service/internal/domain/pizza"
 )
 
 type PizzaPriceRepository struct {
 	db *gorm.DB
 }
 
-func NewPizzaPriceRepository(db *gorm.DB) restaurant.PizzaPriceRepository {
+func NewPizzaPriceRepository(db *gorm.DB) pizza.PizzaPriceRepository {
 	return &PizzaPriceRepository{db: db}
 }
 
 func (repo *PizzaPriceRepository) ReplacePrices(
 	ctx context.Context,
 	pizzaID uuid.UUID,
-	prices []restaurant.PizzaPrice,
+	prices []pizza.PizzaPrice,
 ) error {
 	return repo.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// GORM's autoUpdateTime doesn't populate this on bulk upserts, so set it explicitly.
@@ -43,7 +43,7 @@ func (repo *PizzaPriceRepository) ReplacePrices(
 			}
 		}
 
-		deactivate := tx.Model(&restaurant.PizzaPrice{}).
+		deactivate := tx.Model(&pizza.PizzaPrice{}).
 			Where("pizza_id = ?", pizzaID)
 
 		if len(sizeIDs) > 0 {
@@ -57,8 +57,8 @@ func (repo *PizzaPriceRepository) ReplacePrices(
 func (repo *PizzaPriceRepository) ListByPizza(
 	ctx context.Context,
 	pizzaID uuid.UUID,
-) ([]restaurant.PizzaPrice, error) {
-	var prices []restaurant.PizzaPrice
+) ([]pizza.PizzaPrice, error) {
+	var prices []pizza.PizzaPrice
 
 	err := repo.db.WithContext(ctx).
 		Where("pizza_id = ?", pizzaID).
