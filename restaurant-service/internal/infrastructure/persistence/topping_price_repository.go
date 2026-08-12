@@ -8,21 +8,21 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"restaurant-service/internal/domain/restaurant"
+	"restaurant-service/internal/domain/topping"
 )
 
 type ToppingPriceRepository struct {
 	db *gorm.DB
 }
 
-func NewToppingPriceRepository(db *gorm.DB) restaurant.ToppingPriceRepository {
+func NewToppingPriceRepository(db *gorm.DB) topping.ToppingPriceRepository {
 	return &ToppingPriceRepository{db: db}
 }
 
 func (repo *ToppingPriceRepository) UpsertPrices(
 	ctx context.Context,
 	restaurantID uuid.UUID,
-	prices []restaurant.ToppingPrice,
+	prices []topping.ToppingPrice,
 ) error {
 	if len(prices) == 0 {
 		return nil
@@ -42,8 +42,8 @@ func (repo *ToppingPriceRepository) UpsertPrices(
 func (repo *ToppingPriceRepository) ListByRestaurant(
 	ctx context.Context,
 	restaurantID uuid.UUID,
-) ([]restaurant.ToppingPrice, error) {
-	var prices []restaurant.ToppingPrice
+) ([]topping.ToppingPrice, error) {
+	var prices []topping.ToppingPrice
 
 	err := repo.db.WithContext(ctx).
 		Where("restaurant_id = ?", restaurantID).

@@ -6,8 +6,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	resapp "restaurant-service/internal/application/restaurant"
-	"restaurant-service/internal/application/restaurant/commands"
+	toppingapp "restaurant-service/internal/application/topping"
+	"restaurant-service/internal/application/topping/commands"
 	"restaurant-service/internal/interfaces/http/response"
 	"restaurant-service/internal/interfaces/http/validation"
 )
@@ -25,7 +25,7 @@ func NewToppingPriceHandler(setToppingPrices *commands.SetToppingPrices) *Toppin
 func (h *ToppingPriceHandler) SetToppingPrices(ctx *gin.Context) {
 	reqCtx := ctx.Request.Context()
 
-	var input resapp.SetToppingPricesRequest
+	var input toppingapp.SetToppingPricesRequest
 
 	restaurantID, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {

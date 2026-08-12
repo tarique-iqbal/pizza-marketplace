@@ -13,6 +13,7 @@ import (
 	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/application/restaurant/commands"
 	"restaurant-service/internal/domain/restaurant"
+	"restaurant-service/internal/domain/topping"
 	"restaurant-service/internal/infrastructure/persistence"
 	apperr "restaurant-service/internal/shared/errors"
 	"restaurant-service/tests/infrastructure/db/fixtures"
@@ -75,9 +76,9 @@ func TestSetPizzaPrices_ReportsExistingToppings(t *testing.T) {
 	pizza := firstPizza(t, env.DB)
 	owner := restaurantByID(t, env.DB, pizza.RestaurantID)
 
-	var topping restaurant.Topping
-	require.NoError(t, env.DB.Order("name").Take(&topping).Error)
-	require.NoError(t, pizza.SetToppingIDs([]uuid.UUID{topping.ID}))
+	var t1 topping.Topping
+	require.NoError(t, env.DB.Order("name").Take(&t1).Error)
+	require.NoError(t, pizza.SetToppingIDs([]uuid.UUID{t1.ID}))
 	require.NoError(t, env.DB.Save(&pizza).Error)
 
 	var size restaurant.PizzaSize
@@ -91,7 +92,7 @@ func TestSetPizzaPrices_ReportsExistingToppings(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, output.Toppings, 1, "must report the pizza's real toppings, not fake them as empty")
-	assert.Equal(t, topping.ID, output.Toppings[0].ToppingID)
+	assert.Equal(t, t1.ID, output.Toppings[0].ToppingID)
 }
 
 func TestSetPizzaPrices_DuplicateSizeInRequest(t *testing.T) {

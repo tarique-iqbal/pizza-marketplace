@@ -16,6 +16,7 @@ import (
 	"restaurant-service/internal/application/restaurant/commands"
 	"restaurant-service/internal/application/restaurant/queries"
 	"restaurant-service/internal/domain/restaurant"
+	"restaurant-service/internal/domain/topping"
 	"restaurant-service/internal/infrastructure/persistence"
 	"restaurant-service/internal/interfaces/http/handlers"
 	"restaurant-service/internal/interfaces/http/middleware"
@@ -217,14 +218,14 @@ func TestPizzaHandler_UpdatePizza_SetsToppings_NoPriceRequired(t *testing.T) {
 	var res restaurant.Restaurant
 	require.NoError(t, h.DB.Take(&res, "id = ?", pizza.RestaurantID).Error)
 
-	var topping restaurant.Topping
-	require.NoError(t, h.DB.Order("name").Take(&topping).Error)
+	var t1 topping.Topping
+	require.NoError(t, h.DB.Order("name").Take(&t1).Error)
 
 	router := pizzaRouter(h.Handler, res.OwnerID.String(), "owner")
 
 	body, _ := json.Marshal(map[string]any{
 		"name":       pizza.Name,
-		"toppingIds": []string{topping.ID.String()},
+		"toppingIds": []string{t1.ID.String()},
 	})
 	req, _ := http.NewRequest(
 		http.MethodPut,
@@ -241,7 +242,7 @@ func TestPizzaHandler_UpdatePizza_SetsToppings_NoPriceRequired(t *testing.T) {
 	var response resapp.PizzaResponse
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
 	require.Len(t, response.Toppings, 1)
-	assert.Equal(t, topping.ID, response.Toppings[0].ToppingID)
+	assert.Equal(t, t1.ID, response.Toppings[0].ToppingID)
 }
 
 func TestPizzaHandler_Unauthorized(t *testing.T) {

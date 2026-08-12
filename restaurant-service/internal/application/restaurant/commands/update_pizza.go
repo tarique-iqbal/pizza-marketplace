@@ -9,6 +9,7 @@ import (
 
 	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/domain/restaurant"
+	"restaurant-service/internal/domain/topping"
 	apperr "restaurant-service/internal/shared/errors"
 )
 
@@ -17,7 +18,7 @@ type UpdatePizza struct {
 	pizzaRepo      restaurant.PizzaRepository
 	pizzaPriceRepo restaurant.PizzaPriceRepository
 	pizzaSizeRepo  restaurant.PizzaSizeRepository
-	toppingRepo    restaurant.ToppingRepository
+	toppingRepo    topping.ToppingRepository
 }
 
 func NewUpdatePizza(
@@ -25,7 +26,7 @@ func NewUpdatePizza(
 	pizzaRepo restaurant.PizzaRepository,
 	pizzaPriceRepo restaurant.PizzaPriceRepository,
 	pizzaSizeRepo restaurant.PizzaSizeRepository,
-	toppingRepo restaurant.ToppingRepository,
+	toppingRepo topping.ToppingRepository,
 ) *UpdatePizza {
 	return &UpdatePizza{
 		restaurantRepo: restaurantRepo,
@@ -85,9 +86,9 @@ func (uc *UpdatePizza) Execute(
 		return resapp.PizzaResponse{}, fmt.Errorf("failed to list pizza toppings: %w", err)
 	}
 
-	toppingByID := make(map[uuid.UUID]restaurant.Topping, len(toppings))
-	for _, topping := range toppings {
-		toppingByID[topping.ID] = topping
+	toppingByID := make(map[uuid.UUID]topping.Topping, len(toppings))
+	for _, t := range toppings {
+		toppingByID[t.ID] = t
 	}
 
 	if input.ToppingIDs != nil {

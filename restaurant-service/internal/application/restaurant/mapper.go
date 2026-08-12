@@ -9,8 +9,10 @@ import (
 	"gorm.io/datatypes"
 
 	payoutapp "restaurant-service/internal/application/payout"
+	toppingapp "restaurant-service/internal/application/topping"
 	payoutdomain "restaurant-service/internal/domain/payout"
 	"restaurant-service/internal/domain/restaurant"
+	toppingdomain "restaurant-service/internal/domain/topping"
 	"restaurant-service/internal/shared/money"
 )
 
@@ -52,7 +54,7 @@ func ToPizzaResponse(
 	prices []restaurant.PizzaPrice,
 	sizeByID map[uuid.UUID]restaurant.PizzaSize,
 	toppingIDs []uuid.UUID,
-	toppingByID map[uuid.UUID]restaurant.Topping,
+	toppingByID map[uuid.UUID]toppingdomain.Topping,
 	priceByToppingID map[uuid.UUID]decimal.Decimal,
 ) PizzaResponse {
 	priceResponses := make([]PizzaPriceResponse, 0, len(prices))
@@ -66,9 +68,9 @@ func ToPizzaResponse(
 		})
 	}
 
-	toppingResponses := make([]ToppingResponse, 0, len(toppingIDs))
+	toppingResponses := make([]toppingapp.ToppingResponse, 0, len(toppingIDs))
 	for _, toppingID := range toppingIDs {
-		topping := toppingByID[toppingID]
+		t := toppingByID[toppingID]
 
 		var extraPrice *money.Money
 		if price, ok := priceByToppingID[toppingID]; ok {
@@ -76,9 +78,9 @@ func ToPizzaResponse(
 			extraPrice = &m
 		}
 
-		toppingResponses = append(toppingResponses, ToppingResponse{
+		toppingResponses = append(toppingResponses, toppingapp.ToppingResponse{
 			ToppingID:  toppingID,
-			Name:       topping.Name,
+			Name:       t.Name,
 			ExtraPrice: extraPrice,
 		})
 	}
@@ -94,14 +96,6 @@ func ToPizzaResponse(
 		Toppings:     toppingResponses,
 		CreatedAt:    pizza.CreatedAt,
 		UpdatedAt:    pizza.UpdatedAt,
-	}
-}
-
-func ToToppingPriceResponse(price restaurant.ToppingPrice, toppingName string) ToppingPriceResponse {
-	return ToppingPriceResponse{
-		ToppingID:  price.ToppingID,
-		Name:       toppingName,
-		ExtraPrice: money.Money(price.ExtraPrice),
 	}
 }
 

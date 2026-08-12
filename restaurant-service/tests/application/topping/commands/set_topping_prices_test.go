@@ -10,9 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	resapp "restaurant-service/internal/application/restaurant"
-	"restaurant-service/internal/application/restaurant/commands"
+	toppingapp "restaurant-service/internal/application/topping"
+	"restaurant-service/internal/application/topping/commands"
 	"restaurant-service/internal/domain/restaurant"
+	"restaurant-service/internal/domain/topping"
 	"restaurant-service/internal/infrastructure/persistence"
 	apperr "restaurant-service/internal/shared/errors"
 	"restaurant-service/tests/infrastructure/db/fixtures"
@@ -48,11 +49,11 @@ func TestSetToppingPrices_Success(t *testing.T) {
 	var res restaurant.Restaurant
 	require.NoError(t, env.DB.Where("slug = ?", "anatolische-kueche").Take(&res).Error)
 
-	var toppings []restaurant.Topping
+	var toppings []topping.Topping
 	require.NoError(t, env.DB.Order("name").Limit(2).Find(&toppings).Error)
 
-	input := resapp.SetToppingPricesRequest{
-		Prices: []resapp.ToppingPriceInput{
+	input := toppingapp.SetToppingPricesRequest{
+		Prices: []toppingapp.ToppingPriceInput{
 			{ToppingID: toppings[0].ID, ExtraPrice: decimal.RequireFromString("1.00")},
 			{ToppingID: toppings[1].ID, ExtraPrice: decimal.RequireFromString("1.50")},
 		},
@@ -73,8 +74,8 @@ func TestSetToppingPrices_ToppingDoesNotExist(t *testing.T) {
 	var res restaurant.Restaurant
 	require.NoError(t, env.DB.Where("slug = ?", "anatolische-kueche").Take(&res).Error)
 
-	input := resapp.SetToppingPricesRequest{
-		Prices: []resapp.ToppingPriceInput{
+	input := toppingapp.SetToppingPricesRequest{
+		Prices: []toppingapp.ToppingPriceInput{
 			{ToppingID: uuid.New(), ExtraPrice: decimal.RequireFromString("1.00")},
 		},
 	}
@@ -91,13 +92,13 @@ func TestSetToppingPrices_DuplicateToppingInRequest(t *testing.T) {
 	var res restaurant.Restaurant
 	require.NoError(t, env.DB.Where("slug = ?", "anatolische-kueche").Take(&res).Error)
 
-	var topping restaurant.Topping
-	require.NoError(t, env.DB.Order("name").Take(&topping).Error)
+	var t1 topping.Topping
+	require.NoError(t, env.DB.Order("name").Take(&t1).Error)
 
-	input := resapp.SetToppingPricesRequest{
-		Prices: []resapp.ToppingPriceInput{
-			{ToppingID: topping.ID, ExtraPrice: decimal.RequireFromString("1.00")},
-			{ToppingID: topping.ID, ExtraPrice: decimal.RequireFromString("2.00")},
+	input := toppingapp.SetToppingPricesRequest{
+		Prices: []toppingapp.ToppingPriceInput{
+			{ToppingID: t1.ID, ExtraPrice: decimal.RequireFromString("1.00")},
+			{ToppingID: t1.ID, ExtraPrice: decimal.RequireFromString("2.00")},
 		},
 	}
 
@@ -113,12 +114,12 @@ func TestSetToppingPrices_ExtraPriceTooLow(t *testing.T) {
 	var res restaurant.Restaurant
 	require.NoError(t, env.DB.Where("slug = ?", "anatolische-kueche").Take(&res).Error)
 
-	var topping restaurant.Topping
-	require.NoError(t, env.DB.Order("name").Take(&topping).Error)
+	var t1 topping.Topping
+	require.NoError(t, env.DB.Order("name").Take(&t1).Error)
 
-	input := resapp.SetToppingPricesRequest{
-		Prices: []resapp.ToppingPriceInput{
-			{ToppingID: topping.ID, ExtraPrice: decimal.RequireFromString("0.50")},
+	input := toppingapp.SetToppingPricesRequest{
+		Prices: []toppingapp.ToppingPriceInput{
+			{ToppingID: t1.ID, ExtraPrice: decimal.RequireFromString("0.50")},
 		},
 	}
 
@@ -134,12 +135,12 @@ func TestSetToppingPrices_ExtraPriceTooHigh(t *testing.T) {
 	var res restaurant.Restaurant
 	require.NoError(t, env.DB.Where("slug = ?", "anatolische-kueche").Take(&res).Error)
 
-	var topping restaurant.Topping
-	require.NoError(t, env.DB.Order("name").Take(&topping).Error)
+	var t1 topping.Topping
+	require.NoError(t, env.DB.Order("name").Take(&t1).Error)
 
-	input := resapp.SetToppingPricesRequest{
-		Prices: []resapp.ToppingPriceInput{
-			{ToppingID: topping.ID, ExtraPrice: decimal.RequireFromString("3.01")},
+	input := toppingapp.SetToppingPricesRequest{
+		Prices: []toppingapp.ToppingPriceInput{
+			{ToppingID: t1.ID, ExtraPrice: decimal.RequireFromString("3.01")},
 		},
 	}
 
@@ -155,11 +156,11 @@ func TestSetToppingPrices_ExtraPriceBoundsInclusive(t *testing.T) {
 	var res restaurant.Restaurant
 	require.NoError(t, env.DB.Where("slug = ?", "anatolische-kueche").Take(&res).Error)
 
-	var toppings []restaurant.Topping
+	var toppings []topping.Topping
 	require.NoError(t, env.DB.Order("name").Limit(2).Find(&toppings).Error)
 
-	input := resapp.SetToppingPricesRequest{
-		Prices: []resapp.ToppingPriceInput{
+	input := toppingapp.SetToppingPricesRequest{
+		Prices: []toppingapp.ToppingPriceInput{
 			{ToppingID: toppings[0].ID, ExtraPrice: decimal.RequireFromString("1.00")},
 			{ToppingID: toppings[1].ID, ExtraPrice: decimal.RequireFromString("3.00")},
 		},
@@ -175,12 +176,12 @@ func TestSetToppingPrices_RestaurantNotOwned(t *testing.T) {
 	var res restaurant.Restaurant
 	require.NoError(t, env.DB.Where("slug = ?", "anatolische-kueche").Take(&res).Error)
 
-	var topping restaurant.Topping
-	require.NoError(t, env.DB.Order("name").Take(&topping).Error)
+	var t1 topping.Topping
+	require.NoError(t, env.DB.Order("name").Take(&t1).Error)
 
-	input := resapp.SetToppingPricesRequest{
-		Prices: []resapp.ToppingPriceInput{
-			{ToppingID: topping.ID, ExtraPrice: decimal.RequireFromString("1.00")},
+	input := toppingapp.SetToppingPricesRequest{
+		Prices: []toppingapp.ToppingPriceInput{
+			{ToppingID: t1.ID, ExtraPrice: decimal.RequireFromString("1.00")},
 		},
 	}
 

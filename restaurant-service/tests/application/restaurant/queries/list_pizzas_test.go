@@ -12,7 +12,9 @@ import (
 
 	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/application/restaurant/queries"
+	toppingapp "restaurant-service/internal/application/topping"
 	"restaurant-service/internal/domain/restaurant"
+	"restaurant-service/internal/domain/topping"
 	"restaurant-service/internal/infrastructure/persistence"
 	apperr "restaurant-service/internal/shared/errors"
 	"restaurant-service/tests/infrastructure/db/fixtures"
@@ -100,16 +102,16 @@ func TestListPizzas_ToppingExtraPrice_OmittedWhenUnset_SetWhenPriced(t *testing.
 	pizza := firstPizza(t, env.DB)
 	owner := restaurantByID(t, env.DB, pizza.RestaurantID)
 
-	var toppings []restaurant.Topping
+	var toppings []topping.Topping
 	require.NoError(t, env.DB.Order("name").Limit(2).Find(&toppings).Error)
 
 	require.NoError(t, pizza.SetToppingIDs([]uuid.UUID{toppings[0].ID, toppings[1].ID}))
 	require.NoError(t, env.DB.Save(&pizza).Error)
 
 	toppingPriceRepo := persistence.NewToppingPriceRepository(env.DB)
-	price, err := restaurant.NewToppingPrice(pizza.RestaurantID, toppings[0].ID, decimal.RequireFromString("1.50"))
+	price, err := topping.NewToppingPrice(pizza.RestaurantID, toppings[0].ID, decimal.RequireFromString("1.50"))
 	require.NoError(t, err)
-	require.NoError(t, toppingPriceRepo.UpsertPrices(context.Background(), pizza.RestaurantID, []restaurant.ToppingPrice{*price}))
+	require.NoError(t, toppingPriceRepo.UpsertPrices(context.Background(), pizza.RestaurantID, []topping.ToppingPrice{*price}))
 
 	output, err := env.ListPizzas.Execute(context.Background(), pizza.RestaurantID, owner.OwnerID)
 	require.NoError(t, err)
@@ -122,7 +124,7 @@ func TestListPizzas_ToppingExtraPrice_OmittedWhenUnset_SetWhenPriced(t *testing.
 	}
 	require.Len(t, found.Toppings, 2)
 
-	byID := make(map[uuid.UUID]resapp.ToppingResponse, len(found.Toppings))
+	byID := make(map[uuid.UUID]toppingapp.ToppingResponse, len(found.Toppings))
 	for _, tr := range found.Toppings {
 		byID[tr.ToppingID] = tr
 	}

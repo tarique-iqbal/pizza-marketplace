@@ -7,19 +7,19 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"restaurant-service/internal/domain/restaurant"
+	"restaurant-service/internal/domain/topping"
 )
 
 type ToppingRepository struct {
 	db *gorm.DB
 }
 
-func NewToppingRepository(db *gorm.DB) restaurant.ToppingRepository {
+func NewToppingRepository(db *gorm.DB) topping.ToppingRepository {
 	return &ToppingRepository{db: db}
 }
 
-func (repo *ToppingRepository) List(ctx context.Context) ([]restaurant.Topping, error) {
-	var toppings []restaurant.Topping
+func (repo *ToppingRepository) List(ctx context.Context) ([]topping.Topping, error) {
+	var toppings []topping.Topping
 
 	err := repo.db.WithContext(ctx).
 		Order("name").
@@ -31,8 +31,8 @@ func (repo *ToppingRepository) List(ctx context.Context) ([]restaurant.Topping, 
 func (repo *ToppingRepository) FindByID(
 	ctx context.Context,
 	toppingID uuid.UUID,
-) (*restaurant.Topping, error) {
-	var t restaurant.Topping
+) (*topping.Topping, error) {
+	var t topping.Topping
 
 	err := repo.db.WithContext(ctx).
 		Where("id = ?", toppingID).

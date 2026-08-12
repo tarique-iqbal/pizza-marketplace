@@ -7,6 +7,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	payoutapp "restaurant-service/internal/application/payout"
+	toppingapp "restaurant-service/internal/application/topping"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/shared/money"
 )
@@ -73,15 +74,6 @@ type SetPizzaPricesRequest struct {
 	Prices []PizzaPriceInput `json:"prices" binding:"required,min=1,dive"`
 }
 
-type ToppingPriceInput struct {
-	ToppingID  uuid.UUID       `json:"toppingId" binding:"required"`
-	ExtraPrice decimal.Decimal `json:"extraPrice"`
-}
-
-type SetToppingPricesRequest struct {
-	Prices []ToppingPriceInput `json:"prices" binding:"required,min=1,dive"`
-}
-
 type RestaurantResponse struct {
 	ID             uuid.UUID                `json:"id"`
 	Name           string                   `json:"name"`
@@ -118,16 +110,16 @@ type DeliveryResponse struct {
 }
 
 type PizzaResponse struct {
-	ID           uuid.UUID            `json:"id"`
-	Name         string               `json:"name"`
-	Image        *string              `json:"image,omitempty"`
-	IsVegetarian bool                 `json:"isVegetarian"`
-	Status       PizzaStatus          `json:"status"`
-	SortOrder    int                  `json:"sortOrder"`
-	Prices       []PizzaPriceResponse `json:"prices"`
-	Toppings     []ToppingResponse    `json:"toppings"`
-	CreatedAt    time.Time            `json:"createdAt"`
-	UpdatedAt    *time.Time           `json:"updatedAt,omitempty"`
+	ID           uuid.UUID                    `json:"id"`
+	Name         string                       `json:"name"`
+	Image        *string                      `json:"image,omitempty"`
+	IsVegetarian bool                         `json:"isVegetarian"`
+	Status       PizzaStatus                  `json:"status"`
+	SortOrder    int                          `json:"sortOrder"`
+	Prices       []PizzaPriceResponse         `json:"prices"`
+	Toppings     []toppingapp.ToppingResponse `json:"toppings"`
+	CreatedAt    time.Time                    `json:"createdAt"`
+	UpdatedAt    *time.Time                   `json:"updatedAt,omitempty"`
 }
 
 type PizzaPriceResponse struct {
@@ -135,16 +127,4 @@ type PizzaPriceResponse struct {
 	DiameterCm int16       `json:"diameterCm"`
 	Price      money.Money `json:"price"`
 	IsActive   bool        `json:"isActive"`
-}
-
-type ToppingResponse struct {
-	ToppingID  uuid.UUID    `json:"toppingId"`
-	Name       string       `json:"name"`
-	ExtraPrice *money.Money `json:"extraPrice,omitempty"`
-}
-
-type ToppingPriceResponse struct {
-	ToppingID  uuid.UUID   `json:"toppingId"`
-	Name       string      `json:"name"`
-	ExtraPrice money.Money `json:"extraPrice"`
 }

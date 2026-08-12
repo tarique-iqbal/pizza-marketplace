@@ -3,9 +3,10 @@ package container
 import (
 	"os"
 
-	payoutcommands "restaurant-service/internal/application/payout/commands"
+	payoutcmd "restaurant-service/internal/application/payout/commands"
 	"restaurant-service/internal/application/restaurant/commands"
 	"restaurant-service/internal/application/restaurant/queries"
+	toppingcmd "restaurant-service/internal/application/topping/commands"
 	"restaurant-service/internal/infrastructure/geocoder"
 	"restaurant-service/internal/infrastructure/messaging"
 	"restaurant-service/internal/infrastructure/persistence"
@@ -53,8 +54,8 @@ func NewAPIContainer() (*APIContainer, error) {
 	updateDelivery := commands.NewUpdateDelivery(restaurantRepo, payoutDetailsRepo, publisher)
 	deliveryHandler := handlers.NewDeliveryHandler(updateDelivery)
 
-	createPayout := payoutcommands.NewCreatePayout(restaurantRepo, payoutDetailsRepo, publisher)
-	updatePayout := payoutcommands.NewUpdatePayout(restaurantRepo, payoutDetailsRepo)
+	createPayout := payoutcmd.NewCreatePayout(restaurantRepo, payoutDetailsRepo, publisher)
+	updatePayout := payoutcmd.NewUpdatePayout(restaurantRepo, payoutDetailsRepo)
 	payoutHandler := handlers.NewPayoutHandler(createPayout, updatePayout)
 
 	updateOpeningHours := commands.NewUpdateOpeningHours(restaurantRepo, payoutDetailsRepo, publisher)
@@ -63,7 +64,7 @@ func NewAPIContainer() (*APIContainer, error) {
 	toppingRepo := persistence.NewToppingRepository(base.DB)
 	toppingPriceRepo := persistence.NewToppingPriceRepository(base.DB)
 
-	setToppingPrices := commands.NewSetToppingPrices(restaurantRepo, toppingRepo, toppingPriceRepo)
+	setToppingPrices := toppingcmd.NewSetToppingPrices(restaurantRepo, toppingRepo, toppingPriceRepo)
 	toppingPriceHandler := handlers.NewToppingPriceHandler(setToppingPrices)
 
 	pizzaRepo := persistence.NewPizzaRepository(base.DB)

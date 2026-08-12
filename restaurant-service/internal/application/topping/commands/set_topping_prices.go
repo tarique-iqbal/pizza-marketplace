@@ -7,8 +7,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
-	resapp "restaurant-service/internal/application/restaurant"
+	toppingapp "restaurant-service/internal/application/topping"
 	"restaurant-service/internal/domain/restaurant"
+	"restaurant-service/internal/domain/topping"
 	apperr "restaurant-service/internal/shared/errors"
 )
 
@@ -19,14 +20,14 @@ var (
 
 type SetToppingPrices struct {
 	restaurantRepo   restaurant.RestaurantRepository
-	toppingRepo      restaurant.ToppingRepository
-	toppingPriceRepo restaurant.ToppingPriceRepository
+	toppingRepo      topping.ToppingRepository
+	toppingPriceRepo topping.ToppingPriceRepository
 }
 
 func NewSetToppingPrices(
 	restaurantRepo restaurant.RestaurantRepository,
-	toppingRepo restaurant.ToppingRepository,
-	toppingPriceRepo restaurant.ToppingPriceRepository,
+	toppingRepo topping.ToppingRepository,
+	toppingPriceRepo topping.ToppingPriceRepository,
 ) *SetToppingPrices {
 	return &SetToppingPrices{
 		restaurantRepo:   restaurantRepo,
@@ -39,8 +40,8 @@ func (uc *SetToppingPrices) Execute(
 	ctx context.Context,
 	restaurantID uuid.UUID,
 	ownerID uuid.UUID,
-	input resapp.SetToppingPricesRequest,
-) ([]resapp.ToppingPriceResponse, error) {
+	input toppingapp.SetToppingPricesRequest,
+) ([]toppingapp.ToppingPriceResponse, error) {
 	res, err := uc.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify ownership: %w", err)
@@ -57,13 +58,13 @@ func (uc *SetToppingPrices) Execute(
 		return nil, fmt.Errorf("failed to list pizza toppings: %w", err)
 	}
 
-	toppingByID := make(map[uuid.UUID]restaurant.Topping, len(toppings))
-	for _, topping := range toppings {
-		toppingByID[topping.ID] = topping
+	toppingByID := make(map[uuid.UUID]topping.Topping, len(toppings))
+	for _, t := range toppings {
+		toppingByID[t.ID] = t
 	}
 
 	seen := make(map[uuid.UUID]bool, len(input.Prices))
-	prices := make([]restaurant.ToppingPrice, 0, len(input.Prices))
+	prices := make([]topping.ToppingPrice, 0, len(input.Prices))
 
 	for _, priceInput := range input.Prices {
 		if _, ok := toppingByID[priceInput.ToppingID]; !ok {
@@ -94,7 +95,7 @@ func (uc *SetToppingPrices) Execute(
 			)
 		}
 
-		price, err := restaurant.NewToppingPrice(restaurantID, priceInput.ToppingID, priceInput.ExtraPrice)
+		price, err := topping.NewToppingPrice(restaurantID, priceInput.ToppingID, priceInput.ExtraPrice)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate topping price id: %w", err)
 		}
@@ -111,9 +112,12 @@ func (uc *SetToppingPrices) Execute(
 		return nil, fmt.Errorf("failed to list topping prices: %w", err)
 	}
 
-	responses := make([]resapp.ToppingPriceResponse, 0, len(updated))
+	responses := make([]toppingapp.ToppingPriceResponse, 0, len(updated))
 	for _, price := range updated {
-		responses = append(responses, resapp.ToToppingPriceResponse(price, toppingByID[price.ToppingID].Name))
+		responses = append(
+			responses,
+			toppingapp.ToToppingPriceResponse(price, toppingByID[price.ToppingID].Name),
+		)
 	}
 
 	return responses, nil

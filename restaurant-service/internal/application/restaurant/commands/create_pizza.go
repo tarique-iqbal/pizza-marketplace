@@ -9,19 +9,20 @@ import (
 
 	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/domain/restaurant"
+	"restaurant-service/internal/domain/topping"
 	apperr "restaurant-service/internal/shared/errors"
 )
 
 type CreatePizza struct {
 	restaurantRepo restaurant.RestaurantRepository
 	pizzaRepo      restaurant.PizzaRepository
-	toppingRepo    restaurant.ToppingRepository
+	toppingRepo    topping.ToppingRepository
 }
 
 func NewCreatePizza(
 	restaurantRepo restaurant.RestaurantRepository,
 	pizzaRepo restaurant.PizzaRepository,
-	toppingRepo restaurant.ToppingRepository,
+	toppingRepo topping.ToppingRepository,
 ) *CreatePizza {
 	return &CreatePizza{
 		restaurantRepo: restaurantRepo,
@@ -79,7 +80,7 @@ func (uc *CreatePizza) Execute(
 	)
 
 	var toppingIDs []uuid.UUID
-	var toppingByID map[uuid.UUID]restaurant.Topping
+	var toppingByID map[uuid.UUID]topping.Topping
 
 	if len(input.ToppingIDs) > 0 {
 		toppings, err := uc.toppingRepo.List(ctx)
@@ -87,9 +88,9 @@ func (uc *CreatePizza) Execute(
 			return resapp.PizzaResponse{}, fmt.Errorf("failed to list pizza toppings: %w", err)
 		}
 
-		toppingByID = make(map[uuid.UUID]restaurant.Topping, len(toppings))
-		for _, topping := range toppings {
-			toppingByID[topping.ID] = topping
+		toppingByID = make(map[uuid.UUID]topping.Topping, len(toppings))
+		for _, t := range toppings {
+			toppingByID[t.ID] = t
 		}
 
 		if err := resapp.ValidateToppingSelections(input.ToppingIDs, toppingByID); err != nil {

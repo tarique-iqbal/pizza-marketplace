@@ -1,4 +1,4 @@
-package restaurant
+package topping
 
 import (
 	"time"

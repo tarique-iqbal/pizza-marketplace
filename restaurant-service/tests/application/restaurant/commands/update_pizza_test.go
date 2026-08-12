@@ -13,6 +13,7 @@ import (
 	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/application/restaurant/commands"
 	"restaurant-service/internal/domain/restaurant"
+	"restaurant-service/internal/domain/topping"
 	"restaurant-service/internal/infrastructure/persistence"
 	apperr "restaurant-service/internal/shared/errors"
 	"restaurant-service/tests/infrastructure/db/fixtures"
@@ -114,22 +115,22 @@ func TestUpdatePizza_ToppingIDsNil_LeavesToppingsUntouched(t *testing.T) {
 	pizza := firstPizza(t, env.DB)
 	owner := restaurantByID(t, env.DB, pizza.RestaurantID)
 
-	var topping restaurant.Topping
-	require.NoError(t, env.DB.Order("name").Take(&topping).Error)
-	require.NoError(t, pizza.SetToppingIDs([]uuid.UUID{topping.ID}))
+	var t1 topping.Topping
+	require.NoError(t, env.DB.Order("name").Take(&t1).Error)
+	require.NoError(t, pizza.SetToppingIDs([]uuid.UUID{t1.ID}))
 	require.NoError(t, env.DB.Save(&pizza).Error)
 
 	output, err := env.UpdatePizza.Execute(context.Background(), pizza.RestaurantID, pizza.ID, owner.OwnerID, resapp.UpdatePizzaRequest{Name: "Renamed"})
 	require.NoError(t, err)
 
 	require.Len(t, output.Toppings, 1, "response must report the pizza's real toppings, not fake them as empty")
-	assert.Equal(t, topping.ID, output.Toppings[0].ToppingID)
+	assert.Equal(t, t1.ID, output.Toppings[0].ToppingID)
 
 	var stored restaurant.Pizza
 	require.NoError(t, env.DB.Take(&stored, "id = ?", pizza.ID).Error)
 	storedIDs, err := stored.ToppingIDs()
 	require.NoError(t, err)
-	assert.Equal(t, []uuid.UUID{topping.ID}, storedIDs, "omitted toppingIds must not touch existing toppings")
+	assert.Equal(t, []uuid.UUID{t1.ID}, storedIDs, "omitted toppingIds must not touch existing toppings")
 }
 
 func TestUpdatePizza_ReportsExistingPrices(t *testing.T) {
@@ -159,9 +160,9 @@ func TestUpdatePizza_ToppingIDsEmpty_ClearsToppings(t *testing.T) {
 	pizza := firstPizza(t, env.DB)
 	owner := restaurantByID(t, env.DB, pizza.RestaurantID)
 
-	var topping restaurant.Topping
-	require.NoError(t, env.DB.Order("name").Take(&topping).Error)
-	require.NoError(t, pizza.SetToppingIDs([]uuid.UUID{topping.ID}))
+	var t1 topping.Topping
+	require.NoError(t, env.DB.Order("name").Take(&t1).Error)
+	require.NoError(t, pizza.SetToppingIDs([]uuid.UUID{t1.ID}))
 	require.NoError(t, env.DB.Save(&pizza).Error)
 
 	output, err := env.UpdatePizza.Execute(context.Background(), pizza.RestaurantID, pizza.ID, owner.OwnerID, resapp.UpdatePizzaRequest{
@@ -179,17 +180,17 @@ func TestUpdatePizza_ToppingIDs_SetsDefaults_NoPriceRequired(t *testing.T) {
 	pizza := firstPizza(t, env.DB)
 	owner := restaurantByID(t, env.DB, pizza.RestaurantID)
 
-	var topping restaurant.Topping
-	require.NoError(t, env.DB.Order("name").Take(&topping).Error)
+	var t1 topping.Topping
+	require.NoError(t, env.DB.Order("name").Take(&t1).Error)
 
 	output, err := env.UpdatePizza.Execute(context.Background(), pizza.RestaurantID, pizza.ID, owner.OwnerID, resapp.UpdatePizzaRequest{
 		Name:       "Renamed",
-		ToppingIDs: []uuid.UUID{topping.ID},
+		ToppingIDs: []uuid.UUID{t1.ID},
 	})
 	require.NoError(t, err, "a default topping must not require topping_prices to already exist")
 
 	require.Len(t, output.Toppings, 1)
-	assert.Equal(t, topping.ID, output.Toppings[0].ToppingID)
+	assert.Equal(t, t1.ID, output.Toppings[0].ToppingID)
 }
 
 func TestUpdatePizza_ToppingIDs_ToppingDoesNotExist(t *testing.T) {
@@ -213,12 +214,12 @@ func TestUpdatePizza_ToppingIDs_Duplicate(t *testing.T) {
 	pizza := firstPizza(t, env.DB)
 	owner := restaurantByID(t, env.DB, pizza.RestaurantID)
 
-	var topping restaurant.Topping
-	require.NoError(t, env.DB.Order("name").Take(&topping).Error)
+	var t1 topping.Topping
+	require.NoError(t, env.DB.Order("name").Take(&t1).Error)
 
 	_, err := env.UpdatePizza.Execute(context.Background(), pizza.RestaurantID, pizza.ID, owner.OwnerID, resapp.UpdatePizzaRequest{
 		Name:       "Renamed",
-		ToppingIDs: []uuid.UUID{topping.ID, topping.ID},
+		ToppingIDs: []uuid.UUID{t1.ID, t1.ID},
 	})
 	require.Error(t, err)
 

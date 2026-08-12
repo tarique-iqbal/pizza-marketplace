@@ -12,9 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	resapp "restaurant-service/internal/application/restaurant"
-	"restaurant-service/internal/application/restaurant/commands"
+	toppingapp "restaurant-service/internal/application/topping"
+	"restaurant-service/internal/application/topping/commands"
 	"restaurant-service/internal/domain/restaurant"
+	"restaurant-service/internal/domain/topping"
 	"restaurant-service/internal/infrastructure/persistence"
 	"restaurant-service/internal/interfaces/http/handlers"
 	"restaurant-service/internal/interfaces/http/middleware"
@@ -59,13 +60,13 @@ func TestToppingPriceHandler_SetToppingPrices_Success(t *testing.T) {
 	var res restaurant.Restaurant
 	require.NoError(t, h.DB.Where("slug = ?", "anatolische-kueche").Take(&res).Error)
 
-	var topping restaurant.Topping
-	require.NoError(t, h.DB.Order("name").Take(&topping).Error)
+	var t1 topping.Topping
+	require.NoError(t, h.DB.Order("name").Take(&t1).Error)
 
 	router := toppingPriceRouter(h.Handler, res.OwnerID.String(), "owner")
 
 	body, _ := json.Marshal(map[string]any{
-		"prices": []map[string]any{{"toppingId": topping.ID.String(), "extraPrice": "1.50"}},
+		"prices": []map[string]any{{"toppingId": t1.ID.String(), "extraPrice": "1.50"}},
 	})
 	req, _ := http.NewRequest(
 		http.MethodPut,
@@ -79,10 +80,10 @@ func TestToppingPriceHandler_SetToppingPrices_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, recorder.Code)
 
-	var response []resapp.ToppingPriceResponse
+	var response []toppingapp.ToppingPriceResponse
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
 	require.Len(t, response, 1)
-	assert.Equal(t, topping.ID, response[0].ToppingID)
+	assert.Equal(t, t1.ID, response[0].ToppingID)
 }
 
 func TestToppingPriceHandler_SetToppingPrices_ValidationError_EmptyPrices(t *testing.T) {

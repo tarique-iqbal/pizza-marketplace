@@ -12,6 +12,7 @@ import (
 	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/application/restaurant/commands"
 	"restaurant-service/internal/domain/restaurant"
+	"restaurant-service/internal/domain/topping"
 	"restaurant-service/internal/infrastructure/persistence"
 	apperr "restaurant-service/internal/shared/errors"
 	"restaurant-service/tests/infrastructure/db/fixtures"
@@ -110,23 +111,23 @@ func TestCreatePizza_WithToppings_NoPriceRequired_Success(t *testing.T) {
 
 	res := restaurantByName(t, env.DB, "Anatolische Küche")
 
-	var topping restaurant.Topping
-	require.NoError(t, env.DB.Order("name").Take(&topping).Error)
+	var t1 topping.Topping
+	require.NoError(t, env.DB.Order("name").Take(&t1).Error)
 
 	input := validCreatePizzaInput()
-	input.ToppingIDs = []uuid.UUID{topping.ID}
+	input.ToppingIDs = []uuid.UUID{t1.ID}
 
 	output, err := env.CreatePizza.Execute(context.Background(), res.ID, res.OwnerID, input)
 	require.NoError(t, err, "a default topping must not require topping_prices to already exist")
 
 	require.Len(t, output.Toppings, 1)
-	assert.Equal(t, topping.ID, output.Toppings[0].ToppingID)
+	assert.Equal(t, t1.ID, output.Toppings[0].ToppingID)
 
 	var stored restaurant.Pizza
 	require.NoError(t, env.DB.Take(&stored, "id = ?", output.ID).Error)
 	storedIDs, err := stored.ToppingIDs()
 	require.NoError(t, err)
-	assert.Equal(t, []uuid.UUID{topping.ID}, storedIDs)
+	assert.Equal(t, []uuid.UUID{t1.ID}, storedIDs)
 }
 
 func TestCreatePizza_ToppingDoesNotExist(t *testing.T) {
@@ -148,11 +149,11 @@ func TestCreatePizza_DuplicateTopping(t *testing.T) {
 
 	res := restaurantByName(t, env.DB, "Anatolische Küche")
 
-	var topping restaurant.Topping
-	require.NoError(t, env.DB.Order("name").Take(&topping).Error)
+	var t1 topping.Topping
+	require.NoError(t, env.DB.Order("name").Take(&t1).Error)
 
 	input := validCreatePizzaInput()
-	input.ToppingIDs = []uuid.UUID{topping.ID, topping.ID}
+	input.ToppingIDs = []uuid.UUID{t1.ID, t1.ID}
 
 	_, err := env.CreatePizza.Execute(context.Background(), res.ID, res.OwnerID, input)
 	require.Error(t, err)

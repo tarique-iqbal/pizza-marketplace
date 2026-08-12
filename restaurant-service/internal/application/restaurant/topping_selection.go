@@ -5,13 +5,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"restaurant-service/internal/domain/restaurant"
+	"restaurant-service/internal/domain/topping"
 	apperr "restaurant-service/internal/shared/errors"
 )
 
 func ValidateToppingSelections(
 	toppingIDs []uuid.UUID,
-	toppingByID map[uuid.UUID]restaurant.Topping,
+	toppingByID map[uuid.UUID]topping.Topping,
 ) error {
 	for _, toppingID := range toppingIDs {
 		if _, ok := toppingByID[toppingID]; !ok {

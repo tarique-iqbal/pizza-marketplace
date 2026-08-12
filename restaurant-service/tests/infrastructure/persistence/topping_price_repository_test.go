@@ -11,12 +11,13 @@ import (
 	"gorm.io/gorm"
 
 	"restaurant-service/internal/domain/restaurant"
+	"restaurant-service/internal/domain/topping"
 	"restaurant-service/internal/infrastructure/persistence"
 	"restaurant-service/tests/infrastructure/db/fixtures"
 	"restaurant-service/tests/testutil"
 )
 
-func setupToppingPriceRepo(t *testing.T) (*gorm.DB, restaurant.ToppingPriceRepository, restaurant.Restaurant, []restaurant.Topping) {
+func setupToppingPriceRepo(t *testing.T) (*gorm.DB, topping.ToppingPriceRepository, restaurant.Restaurant, []topping.Topping) {
 	db := testutil.DB(t)
 	db.TruncateTables(t, testutil.TableRestaurant)
 
@@ -25,17 +26,17 @@ func setupToppingPriceRepo(t *testing.T) (*gorm.DB, restaurant.ToppingPriceRepos
 	var res restaurant.Restaurant
 	require.NoError(t, db.DB.Where("slug = ?", "anatolische-kueche").Take(&res).Error)
 
-	var toppings []restaurant.Topping
+	var toppings []topping.Topping
 	require.NoError(t, db.DB.Order("name").Limit(2).Find(&toppings).Error)
 	require.Len(t, toppings, 2)
 
 	return db.DB, persistence.NewToppingPriceRepository(db.DB), res, toppings
 }
 
-func mustNewToppingPrice(t *testing.T, restaurantID, toppingID uuid.UUID, price string) restaurant.ToppingPrice {
+func mustNewToppingPrice(t *testing.T, restaurantID, toppingID uuid.UUID, price string) topping.ToppingPrice {
 	t.Helper()
 
-	p, err := restaurant.NewToppingPrice(restaurantID, toppingID, decimal.RequireFromString(price))
+	p, err := topping.NewToppingPrice(restaurantID, toppingID, decimal.RequireFromString(price))
 	require.NoError(t, err)
 
 	return *p
@@ -44,7 +45,7 @@ func mustNewToppingPrice(t *testing.T, restaurantID, toppingID uuid.UUID, price 
 func TestToppingPriceRepository_UpsertPrices_InsertsAndUpdates(t *testing.T) {
 	_, repo, res, toppings := setupToppingPriceRepo(t)
 
-	first := []restaurant.ToppingPrice{
+	first := []topping.ToppingPrice{
 		mustNewToppingPrice(t, res.ID, toppings[0].ID, "1.00"),
 		mustNewToppingPrice(t, res.ID, toppings[1].ID, "1.50"),
 	}
@@ -58,7 +59,7 @@ func TestToppingPriceRepository_UpsertPrices_InsertsAndUpdates(t *testing.T) {
 	}
 
 	// re-upsert only toppings[0] at a new price — toppings[1] must be untouched (additive, not a replace)
-	second := []restaurant.ToppingPrice{
+	second := []topping.ToppingPrice{
 		mustNewToppingPrice(t, res.ID, toppings[0].ID, "2.00"),
 	}
 	require.NoError(t, repo.UpsertPrices(context.Background(), res.ID, second))
@@ -67,7 +68,7 @@ func TestToppingPriceRepository_UpsertPrices_InsertsAndUpdates(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, all, 2, "upsert-only: nothing gets removed")
 
-	byToppingID := make(map[uuid.UUID]restaurant.ToppingPrice, len(all))
+	byToppingID := make(map[uuid.UUID]topping.ToppingPrice, len(all))
 	for _, p := range all {
 		byToppingID[p.ToppingID] = p
 	}
@@ -79,7 +80,7 @@ func TestToppingPriceRepository_UpsertPrices_InsertsAndUpdates(t *testing.T) {
 func TestToppingPriceRepository_UpsertPrices_EmptyIsNoop(t *testing.T) {
 	_, repo, res, toppings := setupToppingPriceRepo(t)
 
-	initial := []restaurant.ToppingPrice{
+	initial := []topping.ToppingPrice{
 		mustNewToppingPrice(t, res.ID, toppings[0].ID, "1.00"),
 	}
 	require.NoError(t, repo.UpsertPrices(context.Background(), res.ID, initial))
@@ -97,10 +98,10 @@ func TestToppingPriceRepository_ListByRestaurant_ScopedPerRestaurant(t *testing.
 	var other restaurant.Restaurant
 	require.NoError(t, db.Where("name = ?", "Pizza Paradise").Take(&other).Error)
 
-	require.NoError(t, repo.UpsertPrices(context.Background(), res.ID, []restaurant.ToppingPrice{
+	require.NoError(t, repo.UpsertPrices(context.Background(), res.ID, []topping.ToppingPrice{
 		mustNewToppingPrice(t, res.ID, toppings[0].ID, "1.00"),
 	}))
-	require.NoError(t, repo.UpsertPrices(context.Background(), other.ID, []restaurant.ToppingPrice{
+	require.NoError(t, repo.UpsertPrices(context.Background(), other.ID, []topping.ToppingPrice{
 		mustNewToppingPrice(t, other.ID, toppings[0].ID, "9.00"),
 	}))
 
