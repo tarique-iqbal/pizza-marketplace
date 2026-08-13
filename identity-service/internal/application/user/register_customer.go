@@ -4,8 +4,8 @@ import (
 	"context"
 	"identity-service/internal/domain/auth"
 	"identity-service/internal/domain/user"
+	logobs "identity-service/internal/infrastructure/observability/logger"
 	"identity-service/internal/shared/event"
-	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -70,7 +70,7 @@ func (uc *RegisterCustomer) Execute(ctx context.Context, input RegisterCustomerR
 	event.EventName = event.GetEventName()
 
 	if err := uc.publisher.PublishEvent(ctx, event); err != nil {
-		log.Println("Failed to publish user.registered event:", err)
+		logobs.FromContext(ctx).Warn("failed to publish user.registered event", "error", err)
 	}
 
 	return MapToResponse(&newUser), nil
