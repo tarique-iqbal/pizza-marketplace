@@ -28,6 +28,8 @@ func main() {
 	)
 	defer stop()
 
+	ctx = logobs.WithContext(ctx, logger)
+
 	var wg sync.WaitGroup
 
 	logger.Info("starting outbox worker...")

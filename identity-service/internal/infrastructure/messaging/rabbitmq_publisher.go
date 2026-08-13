@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
 
+	logobs "identity-service/internal/infrastructure/observability/logger"
 	"identity-service/internal/shared/event"
 )
 
@@ -68,12 +68,12 @@ func (p *RabbitMQPublisher) connect() error {
 	return nil
 }
 
-func (p *RabbitMQPublisher) ensureConnected() error {
+func (p *RabbitMQPublisher) ensureConnected(ctx context.Context) error {
 	if p.conn != nil && !p.conn.IsClosed() {
 		return nil
 	}
 
-	log.Println("reconnecting to RabbitMQ...")
+	logobs.FromContext(ctx).Warn("reconnecting to RabbitMQ...")
 
 	return p.connect()
 }
@@ -81,7 +81,11 @@ func (p *RabbitMQPublisher) ensureConnected() error {
 func (p *RabbitMQPublisher) PublishEvent(ctx context.Context, evt event.Event) error {
 	body, err := json.Marshal(evt)
 	if err != nil {
-		log.Printf("failed to marshal event %s: %v", evt.GetEventName(), err)
+		logobs.FromContext(ctx).Warn(
+			"failed to marshal event",
+			"error", err,
+			"event", evt.GetEventName(),
+		)
 		return err
 	}
 
@@ -112,7 +116,7 @@ func (p *RabbitMQPublisher) publish(
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if err := p.ensureConnected(); err != nil {
+	if err := p.ensureConnected(ctx); err != nil {
 		return fmt.Errorf("ensure rabbitmq connection: %w", err)
 	}
 
@@ -152,9 +156,11 @@ func (p *RabbitMQPublisher) publish(
 
 	case err := <-errCh:
 		if err != nil {
-			log.Printf(
-				"Failed to publish message: %v body: %s event: %s",
-				err, body, routingKey,
+			logobs.FromContext(ctx).Warn(
+				"failed to publish message",
+				"error", err,
+				"body", string(body),
+				"event", routingKey,
 			)
 			return err
 		}
