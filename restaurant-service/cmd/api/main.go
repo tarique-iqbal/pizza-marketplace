@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"restaurant-service/internal/container"
+	"restaurant-service/internal/infrastructure/observability"
 	logobs "restaurant-service/internal/infrastructure/observability/logger"
 	"restaurant-service/internal/interfaces/http/routes"
 )
@@ -18,7 +19,9 @@ func main() {
 	}
 	defer app.Close()
 
-	router := gin.Default()
+	router := gin.New()
+	router.Use(gin.Recovery(), observability.Middleware(logger))
+
 	handlers := &routes.Handlers{
 		AddressHandler:      app.AddressHandler,
 		ContactHandler:      app.ContactHandler,
