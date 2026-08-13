@@ -60,7 +60,7 @@ func NewAPIContainer() (*APIContainer, error) {
 
 	// auth
 	login := authapp.NewLogin(userRepo, hasher, jwtManager, refreshTokenRepo, refreshTokenManager)
-	emailOTP := authapp.NewRequestEmailOTP(emailVerificationRepo, otp, base.Publisher)
+	emailOTP := authapp.NewRequestEmailOTP(emailVerificationRepo, userRepo, otp, base.Publisher)
 	refreshToken := authapp.NewRefreshToken(jwtManager, refreshTokenRepo, refreshTokenManager)
 	logout := authapp.NewLogout(refreshTokenRepo, refreshTokenManager)
 	authHandler := http.NewAuthHandler(login, emailOTP, refreshToken, logout)

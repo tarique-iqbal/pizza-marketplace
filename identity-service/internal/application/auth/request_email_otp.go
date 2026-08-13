@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"identity-service/internal/domain/auth"
+	"identity-service/internal/domain/user"
 	"identity-service/internal/shared/event"
 	"strings"
 	"time"
@@ -12,16 +13,18 @@ const accessTokenExpiry = 15
 
 type RequestEmailOTP struct {
 	repo      auth.EmailVerificationRepository
+	userRepo  user.UserRepository
 	otp       auth.OTPGenerator
 	publisher event.EventPublisher
 }
 
 func NewRequestEmailOTP(
 	repo auth.EmailVerificationRepository,
+	userRepo user.UserRepository,
 	otp auth.OTPGenerator,
 	publisher event.EventPublisher,
 ) *RequestEmailOTP {
-	return &RequestEmailOTP{repo: repo, otp: otp, publisher: publisher}
+	return &RequestEmailOTP{repo: repo, userRepo: userRepo, otp: otp, publisher: publisher}
 }
 
 func (uc *RequestEmailOTP) Execute(
@@ -29,6 +32,14 @@ func (uc *RequestEmailOTP) Execute(
 	input EmailVerificationRequest,
 ) error {
 	email := strings.ToLower(input.Email)
+
+	exists, err := uc.userRepo.EmailExists(ctx, email)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return user.ErrEmailAlreadyExists
+	}
 
 	code, err := uc.otp.Generate(true)
 	if err != nil {

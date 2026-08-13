@@ -3,20 +3,23 @@ package auth_test
 import (
 	"context"
 	"errors"
-	"identity-service/internal/application/auth"
-	dAuth "identity-service/internal/domain/auth"
-	"identity-service/internal/infrastructure/persistence"
-	"identity-service/internal/infrastructure/security"
-	"identity-service/internal/shared/event"
-	"identity-service/tests/testutil"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	authapp "identity-service/internal/application/auth"
+	"identity-service/internal/domain/auth"
+	"identity-service/internal/domain/user"
+	"identity-service/internal/infrastructure/persistence"
+	"identity-service/internal/infrastructure/security"
+	"identity-service/internal/shared/event"
+	"identity-service/tests/infrastructure/db/fixtures"
+	"identity-service/tests/testutil"
 )
 
-var emailOTP *auth.RequestEmailOTP
+var emailOTP *authapp.RequestEmailOTP
 var mockPublisher *MockEventPublisher
-var repo dAuth.EmailVerificationRepository
+var repo auth.EmailVerificationRepository
 
 type MockEventPublisher struct {
 	PublishedEvents []event.Event
@@ -40,21 +43,24 @@ func (m *MockEventPublisher) PublishRaw(ctx context.Context, topic string, jsonD
 	return nil
 }
 
-func requestEmailOTP(t *testing.T) *auth.RequestEmailOTP {
+func requestEmailOTP(t *testing.T) *authapp.RequestEmailOTP {
 	db := testutil.DB(t)
-	db.TruncateTables(t, testutil.TableEmailVerification)
+	db.TruncateTables(t, testutil.TableUser, testutil.TableEmailVerification)
+
+	_ = fixtures.LoadUserFixtures(t, db.DB)
 
 	repo = persistence.NewEmailVerificationRepository(db.DB)
+	userRepo := persistence.NewUserRepository(db.DB)
 	otp := security.NewOTPGenerator()
 	mockPublisher = &MockEventPublisher{}
 
-	return auth.NewRequestEmailOTP(repo, otp, mockPublisher)
+	return authapp.NewRequestEmailOTP(repo, userRepo, otp, mockPublisher)
 }
 
 func TestCreateEmailVerification_Success(t *testing.T) {
 	emailOTP = requestEmailOTP(t)
 
-	input := auth.EmailVerificationRequest{
+	input := authapp.EmailVerificationRequest{
 		Email: "adam.dangelo@example.com",
 	}
 
@@ -67,10 +73,23 @@ func TestCreateEmailVerification_Success(t *testing.T) {
 	assert.Equal(t, "adam.dangelo@example.com", emailVerification.Email)
 	assert.InDelta(t, 15, diff.Minutes(), 0.001, "Delta threshold exceeded")
 
-	createdEvent, ok := mockPublisher.PublishedEvents[0].(auth.EmailVerificationCreated)
+	createdEvent, ok := mockPublisher.PublishedEvents[0].(authapp.EmailVerificationCreated)
 	assert.True(t, ok)
 	assert.Equal(t, "adam.dangelo@example.com", createdEvent.Email)
 	assert.Equal(t, emailVerification.Code, createdEvent.Code)
 	assert.Equal(t, "email.verification_created", createdEvent.GetEventName())
 	assert.Len(t, mockPublisher.PublishedEvents, 1)
+}
+
+func TestCreateEmailVerification_EmailAlreadyRegistered(t *testing.T) {
+	emailOTP = requestEmailOTP(t)
+
+	input := authapp.EmailVerificationRequest{
+		Email: "john.doe@example.com",
+	}
+
+	err := emailOTP.Execute(context.Background(), input)
+
+	assert.ErrorIs(t, err, user.ErrEmailAlreadyExists)
+	assert.Empty(t, mockPublisher.PublishedEvents)
 }
