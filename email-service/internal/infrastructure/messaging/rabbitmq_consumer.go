@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	"email-service/internal/domain/email"
+	logobs "email-service/internal/infrastructure/observability/logger"
 
-	"github.com/rabbitmq/amqp091-go"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 const (
@@ -29,8 +29,8 @@ var Exchanges = map[string][]string{
 }
 
 type RabbitMQConsumer struct {
-	conn    *amqp091.Connection
-	channel *amqp091.Channel
+	conn    *amqp.Connection
+	channel *amqp.Channel
 	amqpURL string
 }
 
@@ -43,7 +43,7 @@ func NewRabbitMQConsumer(amqpURL string) (*RabbitMQConsumer, error) {
 }
 
 func (c *RabbitMQConsumer) connect() error {
-	conn, err := amqp091.Dial(c.amqpURL)
+	conn, err := amqp.Dial(c.amqpURL)
 	if err != nil {
 		return fmt.Errorf("RabbitMQ connection failed: %w", err)
 	}
@@ -66,7 +66,7 @@ func (c *RabbitMQConsumer) connect() error {
 	}
 
 	// Queue with DLX
-	args := amqp091.Table{
+	args := amqp.Table{
 		"x-dead-letter-exchange":    DLXName,
 		"x-dead-letter-routing-key": QueueName + ".retry",
 	}
@@ -103,8 +103,8 @@ func (c *RabbitMQConsumer) connect() error {
 	return nil
 }
 
-func (c *RabbitMQConsumer) GetMessages() (<-chan amqp091.Delivery, error) {
-	if err := c.ensureConnected(); err != nil {
+func (c *RabbitMQConsumer) GetMessages(ctx context.Context) (<-chan amqp.Delivery, error) {
+	if err := c.ensureConnected(ctx); err != nil {
 		return nil, err
 	}
 
@@ -124,9 +124,9 @@ func (c *RabbitMQConsumer) GetMessages() (<-chan amqp091.Delivery, error) {
 	return msgs, nil
 }
 
-func (c *RabbitMQConsumer) ensureConnected() error {
-	if c.conn.IsClosed() {
-		log.Println("Reconnecting to RabbitMQ...")
+func (c *RabbitMQConsumer) ensureConnected(ctx context.Context) error {
+	if c.conn == nil || c.conn.IsClosed() {
+		logobs.FromContext(ctx).Warn("reconnecting to RabbitMQ...")
 		return c.connect()
 	}
 	return nil
@@ -141,7 +141,7 @@ func (c *RabbitMQConsumer) Run(ctx context.Context, dispatcher email.EventDispat
 			return nil
 		}
 
-		log.Printf("consumer connection lost, reconnecting: %v", err)
+		logobs.FromContext(ctx).Warn("consumer connection lost, reconnecting", "error", err)
 
 		select {
 		case <-ctx.Done():
@@ -152,7 +152,7 @@ func (c *RabbitMQConsumer) Run(ctx context.Context, dispatcher email.EventDispat
 }
 
 func (c *RabbitMQConsumer) runOnce(ctx context.Context, dispatcher email.EventDispatcher) error {
-	msgs, err := c.GetMessages()
+	msgs, err := c.GetMessages(ctx)
 	if err != nil {
 		return err
 	}
@@ -174,7 +174,11 @@ func (c *RabbitMQConsumer) runOnce(ctx context.Context, dispatcher email.EventDi
 			if err := dispatcher.Dispatch(event); err != nil {
 				retryCount := getRetryCount(msg.Headers)
 				if retryCount >= MaxRetryAttempts {
-					log.Printf("Message %s exceeded retry limit", msg.MessageId)
+					logobs.FromContext(ctx).Warn(
+						"message exceeded retry limit",
+						"message_id", msg.MessageId,
+						"retry_count", retryCount,
+					)
 					_ = msg.Nack(false, false) // routes to the DLX-bound DLQ for inspection
 					continue
 				}
@@ -182,7 +186,7 @@ func (c *RabbitMQConsumer) runOnce(ctx context.Context, dispatcher email.EventDi
 				time.Sleep(time.Second * time.Duration(retryCount+1))
 
 				if err := c.republishWithRetry(ctx, msg, retryCount+1); err != nil {
-					log.Printf("failed to republish for retry: %v", err)
+					logobs.FromContext(ctx).Warn("failed to republish for retry", "error", err)
 					_ = msg.Nack(false, true) // fall back to plain requeue to avoid message loss
 					continue
 				}
@@ -198,23 +202,23 @@ func (c *RabbitMQConsumer) runOnce(ctx context.Context, dispatcher email.EventDi
 
 // republishWithRetry requeues msg via the default exchange with an incremented
 // x-retry-count, which getRetryCount reads on the next delivery.
-func (c *RabbitMQConsumer) republishWithRetry(ctx context.Context, msg amqp091.Delivery, retryCount int) error {
-	headers := amqp091.Table{}
+func (c *RabbitMQConsumer) republishWithRetry(ctx context.Context, msg amqp.Delivery, retryCount int) error {
+	headers := amqp.Table{}
 	for k, v := range msg.Headers {
 		headers[k] = v
 	}
 	headers["x-retry-count"] = int32(retryCount)
 
-	return c.channel.PublishWithContext(ctx, "", QueueName, false, false, amqp091.Publishing{
+	return c.channel.PublishWithContext(ctx, "", QueueName, false, false, amqp.Publishing{
 		ContentType:  msg.ContentType,
 		Body:         msg.Body,
 		Headers:      headers,
-		DeliveryMode: amqp091.Persistent,
+		DeliveryMode: amqp.Persistent,
 		MessageId:    msg.MessageId,
 	})
 }
 
-func getRetryCount(headers amqp091.Table) int {
+func getRetryCount(headers amqp.Table) int {
 	if val, ok := headers["x-retry-count"]; ok {
 		if count, ok := val.(int32); ok {
 			return int(count)
