@@ -24,7 +24,11 @@ func NewShared() (*Shared, error) {
 	}
 
 	outboxRepo := persistence.NewOutboxRepository(postgres.DB)
-	publisher := messaging.NewRabbitMQPublisher(amqpURL)
+
+	publisher, err := messaging.NewRabbitMQPublisher(amqpURL)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Shared{
 		Postgres:   postgres,

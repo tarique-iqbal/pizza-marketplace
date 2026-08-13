@@ -24,14 +24,14 @@ type RabbitMQPublisher struct {
 	channel *amqp.Channel
 }
 
-func NewRabbitMQPublisher(amqpURL string) *RabbitMQPublisher {
+func NewRabbitMQPublisher(amqpURL string) (*RabbitMQPublisher, error) {
 	p := &RabbitMQPublisher{amqpURL: amqpURL}
 
 	if err := p.connect(); err != nil {
-		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
+		return nil, err
 	}
 
-	return p
+	return p, nil
 }
 
 func (p *RabbitMQPublisher) connect() error {
