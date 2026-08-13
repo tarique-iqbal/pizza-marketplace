@@ -53,11 +53,11 @@ func TestUserRepository_FindByEmail(t *testing.T) {
 func TestUserRepository_EmailExists(t *testing.T) {
 	userRepo := setupUserRepo(t)
 
-	exists, err := userRepo.EmailExists("john.doe@example.com")
+	exists, err := userRepo.EmailExists(context.Background(), "john.doe@example.com")
 	assert.NoError(t, err)
 	assert.True(t, exists, "Email is expected to be exists")
 
-	exists, err = userRepo.EmailExists("random@example.com")
+	exists, err = userRepo.EmailExists(context.Background(), "random@example.com")
 	assert.NoError(t, err)
 	assert.False(t, exists, "Email is not expected to be exists")
 }

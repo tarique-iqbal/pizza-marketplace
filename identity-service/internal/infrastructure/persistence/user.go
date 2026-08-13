@@ -6,8 +6,11 @@ import (
 	"identity-service/internal/domain/user"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 )
+
+const pgUniqueViolation = "23505"
 
 type userRepo struct {
 	db *gorm.DB
@@ -34,12 +37,20 @@ func (repo *userRepo) FindByEmail(ctx context.Context, email string) (*user.User
 }
 
 func (repo *userRepo) Create(ctx context.Context, u *user.User) error {
-	return repo.db.WithContext(ctx).Create(u).Error
+	if err := repo.db.WithContext(ctx).Create(u).Error; err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgUniqueViolation {
+			return user.ErrEmailAlreadyExists
+		}
+		return err
+	}
+
+	return nil
 }
 
-func (repo *userRepo) EmailExists(email string) (bool, error) {
+func (repo *userRepo) EmailExists(ctx context.Context, email string) (bool, error) {
 	var count int64
-	err := repo.db.Model(&user.User{}).
+	err := repo.db.WithContext(ctx).Model(&user.User{}).
 		Where("email = ?", email).
 		Count(&count).Error
 	return count > 0, err
