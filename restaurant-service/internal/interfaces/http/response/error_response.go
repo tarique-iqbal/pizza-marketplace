@@ -8,6 +8,7 @@ import (
 
 	"restaurant-service/internal/domain/payout"
 	"restaurant-service/internal/domain/restaurant"
+	logobs "restaurant-service/internal/infrastructure/observability/logger"
 	apperr "restaurant-service/internal/shared/errors"
 )
 
@@ -36,6 +37,7 @@ func HandleError(ctx *gin.Context, err error) {
 		ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 
 	default:
+		logobs.FromContext(ctx.Request.Context()).Error("unhandled error", "error", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 	}
 }
