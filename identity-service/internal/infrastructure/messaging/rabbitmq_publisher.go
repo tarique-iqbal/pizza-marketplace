@@ -45,6 +45,10 @@ func (p *RabbitMQPublisher) connect() error {
 		return fmt.Errorf("open channel: %w", err)
 	}
 
+	if err := ch.Confirm(false); err != nil {
+		return fmt.Errorf("enable publisher confirms: %w", err)
+	}
+
 	err = ch.ExchangeDeclare(
 		exchangeName, // Exchange name
 		"topic",      // Exchange type
@@ -74,14 +78,14 @@ func (p *RabbitMQPublisher) ensureConnected() error {
 	return p.connect()
 }
 
-func (p *RabbitMQPublisher) PublishEvent(ctx context.Context, event event.Event) error {
-	body, err := json.Marshal(event)
+func (p *RabbitMQPublisher) PublishEvent(ctx context.Context, evt event.Event) error {
+	body, err := json.Marshal(evt)
 	if err != nil {
-		log.Printf("failed to marshal event %s: %v", event.GetEventName(), err)
+		log.Printf("failed to marshal event %s: %v", evt.GetEventName(), err)
 		return err
 	}
 
-	return p.publish(ctx, event.GetEventName(), body)
+	return p.publish(ctx, evt.GetEventName(), body)
 }
 
 func (p *RabbitMQPublisher) PublishRaw(
@@ -103,18 +107,21 @@ func (p *RabbitMQPublisher) publish(
 	default:
 	}
 
+	// Publish and confirm-wait are serialized on p.mu: confirms aren't tagged to a
+	// specific call, so overlapping publishes could read back the wrong confirmation.
 	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	if err := p.ensureConnected(); err != nil {
-		p.mu.Unlock()
 		return fmt.Errorf("ensure rabbitmq connection: %w", err)
 	}
-	channel := p.channel
-	p.mu.Unlock()
+
+	confirms := p.channel.NotifyPublish(make(chan amqp.Confirmation, 1))
 
 	errCh := make(chan error, 1)
 
 	go func() {
-		err := channel.Publish(
+		err := p.channel.Publish(
 			exchangeName,
 			routingKey,
 			false,
@@ -149,8 +156,22 @@ func (p *RabbitMQPublisher) publish(
 				"Failed to publish message: %v body: %s event: %s",
 				err, body, routingKey,
 			)
+			return err
 		}
-		return err
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+
+	case confirm, ok := <-confirms:
+		if !ok {
+			return fmt.Errorf("publisher confirm channel closed before ack for event %s", routingKey)
+		}
+		if !confirm.Ack {
+			return fmt.Errorf("broker nacked publish for event %s", routingKey)
+		}
+		return nil
 	}
 }
 
