@@ -2,7 +2,7 @@ package http
 
 import (
 	"identity-service/internal/application/user"
-	"identity-service/internal/interfaces/http/mapper"
+	"identity-service/internal/interfaces/http/response"
 	"identity-service/internal/interfaces/http/validation"
 	"net/http"
 
@@ -38,14 +38,13 @@ func (h *UserHandler) RegisterOwner(ctx *gin.Context) {
 		return
 	}
 
-	response, err := h.regOwner.Execute(reqCtx, input)
+	res, err := h.regOwner.Execute(reqCtx, input)
 	if err != nil {
-		status := mapper.MapErrorToHTTPStatus(err)
-		ctx.JSON(status, gin.H{"error": err.Error()})
+		response.HandleError(ctx, err)
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, response)
+	ctx.JSON(http.StatusCreated, res)
 }
 
 func (h *UserHandler) RegisterCustomer(ctx *gin.Context) {
@@ -58,14 +57,13 @@ func (h *UserHandler) RegisterCustomer(ctx *gin.Context) {
 		return
 	}
 
-	response, err := h.regCustomer.Execute(reqCtx, input)
+	res, err := h.regCustomer.Execute(reqCtx, input)
 	if err != nil {
-		status := mapper.MapErrorToHTTPStatus(err)
-		ctx.JSON(status, gin.H{"error": err.Error()})
+		response.HandleError(ctx, err)
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, response)
+	ctx.JSON(http.StatusCreated, res)
 }
 
 func (h *UserHandler) FindByID(ctx *gin.Context) {
@@ -78,16 +76,11 @@ func (h *UserHandler) FindByID(ctx *gin.Context) {
 		return
 	}
 
-	response, err := h.findByID.Execute(reqCtx, userID)
+	res, err := h.findByID.Execute(reqCtx, userID)
 	if err != nil {
-		if err.Error() == "user not found" {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.HandleError(ctx, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, response)
+	ctx.JSON(http.StatusOK, res)
 }

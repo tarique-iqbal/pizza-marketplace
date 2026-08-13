@@ -290,7 +290,7 @@ func TestUserHandler_FindByID_NotFound(t *testing.T) {
 	err = json.Unmarshal(w.Body.Bytes(), &body)
 	require.NoError(t, err)
 
-	assert.Equal(t, "user not found", body["error"])
+	assert.Equal(t, "resource not found", body["error"])
 }
 
 func TestUserHandler_FindByID_Failure_Unauthorized(t *testing.T) {
