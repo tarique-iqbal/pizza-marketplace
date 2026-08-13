@@ -2,23 +2,21 @@ package main
 
 import (
 	"context"
-	"log/slog"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 
 	"identity-service/internal/container"
-	"identity-service/internal/logger"
+	logobs "identity-service/internal/infrastructure/observability/logger"
 )
 
 func main() {
-	l := logger.New()
-	slog.SetDefault(l)
+	logger := logobs.NewLogger("identity-worker")
 
-	c, err := container.NewWorkerContainer(l)
+	c, err := container.NewWorkerContainer(logger)
 	if err != nil {
-		slog.Error("failed to initialize worker container", "error", err)
+		logger.Error("failed to initialize worker container", "error", err)
 		os.Exit(1)
 	}
 	defer c.Close()
@@ -32,7 +30,7 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	slog.Info("starting outbox worker...")
+	logger.Info("starting outbox worker...")
 
 	wg.Add(1)
 	go func() {
@@ -42,9 +40,9 @@ func main() {
 
 	<-ctx.Done()
 
-	slog.Info("shutdown signal received")
+	logger.Info("shutdown signal received")
 
 	wg.Wait()
 
-	slog.Info("worker stopped gracefully")
+	logger.Info("worker stopped gracefully")
 }
