@@ -2,11 +2,11 @@ package user
 
 import (
 	"context"
-	"errors"
-
-	"identity-service/internal/domain/user"
 
 	"github.com/google/uuid"
+
+	"identity-service/internal/domain/user"
+	apperr "identity-service/internal/shared/errors"
 )
 
 type FindByID struct {
@@ -18,14 +18,14 @@ func NewFindByID(repo user.UserRepository) *FindByID {
 }
 
 func (uc *FindByID) Execute(ctx context.Context, userID uuid.UUID) (Response, error) {
-	user, err := uc.repo.FindByID(ctx, userID)
+	usr, err := uc.repo.FindByID(ctx, userID)
 	if err != nil {
-		return Response{}, errors.New("internal server error")
+		return Response{}, err
 	}
 
-	if user == nil {
-		return Response{}, errors.New("user not found")
+	if usr == nil {
+		return Response{}, apperr.ErrNotFound
 	}
 
-	return MapToResponse(user), nil
+	return MapToResponse(usr), nil
 }

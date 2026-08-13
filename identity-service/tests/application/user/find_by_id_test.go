@@ -2,6 +2,7 @@ package user_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	userapp "identity-service/internal/application/user"
 	"identity-service/internal/domain/user"
 	"identity-service/internal/infrastructure/persistence"
+	apperr "identity-service/internal/shared/errors"
 	"identity-service/tests/infrastructure/db/fixtures"
 	"identity-service/tests/testutil"
 )
@@ -69,6 +71,6 @@ func TestFindByID_NotFound(t *testing.T) {
 	res, err := uc.Execute(ctx, userID)
 
 	require.Error(t, err)
-	assert.Equal(t, "user not found", err.Error())
+	assert.True(t, errors.Is(err, apperr.ErrNotFound))
 	assert.Equal(t, userapp.Response{}, res)
 }
