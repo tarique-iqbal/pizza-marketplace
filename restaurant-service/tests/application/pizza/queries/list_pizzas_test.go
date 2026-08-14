@@ -112,7 +112,9 @@ func TestListPizzas_ToppingExtraPrice_OmittedWhenUnset_SetWhenPriced(t *testing.
 	toppingPriceRepo := persistence.NewToppingPriceRepository(env.DB)
 	price, err := topping.NewToppingPrice(pz.RestaurantID, toppings[0].ID, decimal.RequireFromString("1.50"))
 	require.NoError(t, err)
-	require.NoError(t, toppingPriceRepo.UpsertPrices(context.Background(), pz.RestaurantID, []topping.ToppingPrice{*price}))
+	require.NoError(t, toppingPriceRepo.UpsertPrices(
+		context.Background(), pz.RestaurantID, []topping.ToppingPrice{*price},
+	))
 
 	output, err := env.ListPizzas.Execute(context.Background(), pz.RestaurantID, owner.OwnerID)
 	require.NoError(t, err)

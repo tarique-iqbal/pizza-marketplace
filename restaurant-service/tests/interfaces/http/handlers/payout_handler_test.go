@@ -223,10 +223,12 @@ func TestPayoutHandler_UpdatePayout_Success(t *testing.T) {
 	router.POST("/restaurants/:id/payout-details", h.Handler.CreatePayout)
 	router.PUT("/restaurants/:id/payout-details", h.Handler.UpdatePayout)
 
+	createPayload := `{"accountHolder": "Mehmet Yilmaz", "iban": "DE89370400440532013000", "bic": "DEUTDEFF", "bankName": "Deutsche Bank"}`
+
 	createReq, _ := http.NewRequest(
 		http.MethodPost,
 		"/restaurants/"+res.ID.String()+"/payout-details",
-		bytes.NewBufferString(`{"accountHolder": "Mehmet Yilmaz", "iban": "DE89370400440532013000", "bic": "DEUTDEFF", "bankName": "Deutsche Bank"}`),
+		bytes.NewBufferString(createPayload),
 	)
 	createReq.Header.Set("Content-Type", "application/json")
 
@@ -234,10 +236,12 @@ func TestPayoutHandler_UpdatePayout_Success(t *testing.T) {
 	router.ServeHTTP(createRecorder, createReq)
 	require.Equal(t, http.StatusCreated, createRecorder.Code)
 
+	updatePayload := `{"accountHolder": "Ayse Yilmaz", "iban": "GB29NWBK60161331926819", "bic": "NWBKGB2L", "bankName": "NatWest"}`
+
 	updateReq, _ := http.NewRequest(
 		http.MethodPut,
 		"/restaurants/"+res.ID.String()+"/payout-details",
-		bytes.NewBufferString(`{"accountHolder": "Ayse Yilmaz", "iban": "GB29NWBK60161331926819", "bic": "NWBKGB2L", "bankName": "NatWest"}`),
+		bytes.NewBufferString(updatePayload),
 	)
 	updateReq.Header.Set("Content-Type", "application/json")
 
@@ -303,10 +307,12 @@ func TestPayoutHandler_UpdatePayout_Failure_NothingPending(t *testing.T) {
 
 	router.PUT("/restaurants/:id/payout-details", h.Handler.UpdatePayout)
 
+	payload := `{"accountHolder": "Mehmet Yilmaz", "iban": "DE89370400440532013000", "bic": "DEUTDEFF", "bankName": "Deutsche Bank"}`
+
 	req, _ := http.NewRequest(
 		http.MethodPut,
 		"/restaurants/"+res.ID.String()+"/payout-details",
-		bytes.NewBufferString(`{"accountHolder": "Mehmet Yilmaz", "iban": "DE89370400440532013000", "bic": "DEUTDEFF", "bankName": "Deutsche Bank"}`),
+		bytes.NewBufferString(payload),
 	)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -331,10 +337,12 @@ func TestPayoutHandler_UpdatePayout_Failure_Forbidden_WrongRole(t *testing.T) {
 
 	router.PUT("/restaurants/:id/payout-details", h.Handler.UpdatePayout)
 
+	payload := `{"accountHolder": "Mehmet Yilmaz", "iban": "DE89370400440532013000", "bic": "DEUTDEFF", "bankName": "Deutsche Bank"}`
+
 	req, _ := http.NewRequest(
 		http.MethodPut,
 		"/restaurants/"+res.ID.String()+"/payout-details",
-		bytes.NewBufferString(`{"accountHolder": "Mehmet Yilmaz", "iban": "DE89370400440532013000", "bic": "DEUTDEFF", "bankName": "Deutsche Bank"}`),
+		bytes.NewBufferString(payload),
 	)
 	req.Header.Set("Content-Type", "application/json")
 

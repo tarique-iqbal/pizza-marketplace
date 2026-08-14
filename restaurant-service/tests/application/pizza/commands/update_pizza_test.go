@@ -57,7 +57,13 @@ func TestUpdatePizza_Success(t *testing.T) {
 		SortOrder: 5,
 	}
 
-	output, err := env.UpdatePizza.Execute(context.Background(), pz.RestaurantID, pz.ID, restaurantByID(t, env.DB, pz.RestaurantID).OwnerID, input)
+	output, err := env.UpdatePizza.Execute(
+		context.Background(),
+		pz.RestaurantID,
+		pz.ID,
+		restaurantByID(t, env.DB, pz.RestaurantID).OwnerID,
+		input,
+	)
 	require.NoError(t, err)
 
 	assert.Equal(t, "Margherita Deluxe", output.Name)
@@ -80,7 +86,13 @@ func TestUpdatePizza_NilFields_KeepExistingValues(t *testing.T) {
 		// IsVegetarian and Status omitted (nil)
 	}
 
-	output, err := env.UpdatePizza.Execute(context.Background(), pz.RestaurantID, pz.ID, restaurantByID(t, env.DB, pz.RestaurantID).OwnerID, input)
+	output, err := env.UpdatePizza.Execute(
+		context.Background(),
+		pz.RestaurantID,
+		pz.ID,
+		restaurantByID(t, env.DB, pz.RestaurantID).OwnerID,
+		input,
+	)
 	require.NoError(t, err)
 
 	assert.True(t, output.IsVegetarian, "nil IsVegetarian must preserve the existing value, not reset to false")
@@ -93,7 +105,13 @@ func TestUpdatePizza_PizzaNotFound(t *testing.T) {
 	pz := firstPizza(t, env.DB)
 	owner := restaurantByID(t, env.DB, pz.RestaurantID)
 
-	_, err := env.UpdatePizza.Execute(context.Background(), pz.RestaurantID, uuid.New(), owner.OwnerID, pizzaapp.UpdatePizzaRequest{Name: "x"})
+	_, err := env.UpdatePizza.Execute(
+		context.Background(),
+		pz.RestaurantID,
+		uuid.New(),
+		owner.OwnerID,
+		pizzaapp.UpdatePizzaRequest{Name: "x"},
+	)
 	require.Error(t, err)
 
 	assert.ErrorIs(t, err, apperr.ErrNotFound)
@@ -104,7 +122,13 @@ func TestUpdatePizza_RestaurantNotOwned(t *testing.T) {
 
 	pz := firstPizza(t, env.DB)
 
-	_, err := env.UpdatePizza.Execute(context.Background(), pz.RestaurantID, pz.ID, uuid.New(), pizzaapp.UpdatePizzaRequest{Name: "x"})
+	_, err := env.UpdatePizza.Execute(
+		context.Background(),
+		pz.RestaurantID,
+		pz.ID,
+		uuid.New(),
+		pizzaapp.UpdatePizzaRequest{Name: "x"},
+	)
 	require.Error(t, err)
 
 	assert.ErrorIs(t, err, apperr.ErrForbidden)
@@ -121,7 +145,13 @@ func TestUpdatePizza_ToppingIDsNil_LeavesToppingsUntouched(t *testing.T) {
 	require.NoError(t, pz.SetToppingIDs([]uuid.UUID{t1.ID}))
 	require.NoError(t, env.DB.Save(&pz).Error)
 
-	output, err := env.UpdatePizza.Execute(context.Background(), pz.RestaurantID, pz.ID, owner.OwnerID, pizzaapp.UpdatePizzaRequest{Name: "Renamed"})
+	output, err := env.UpdatePizza.Execute(
+		context.Background(),
+		pz.RestaurantID,
+		pz.ID,
+		owner.OwnerID,
+		pizzaapp.UpdatePizzaRequest{Name: "Renamed"},
+	)
 	require.NoError(t, err)
 
 	require.Len(t, output.Toppings, 1, "response must report the pizza's real toppings, not fake them as empty")
@@ -148,7 +178,13 @@ func TestUpdatePizza_ReportsExistingPrices(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, pizzaPriceRepo.ReplacePrices(context.Background(), pz.ID, []pizza.PizzaPrice{*price}))
 
-	output, err := env.UpdatePizza.Execute(context.Background(), pz.RestaurantID, pz.ID, owner.OwnerID, pizzaapp.UpdatePizzaRequest{Name: "Renamed"})
+	output, err := env.UpdatePizza.Execute(
+		context.Background(),
+		pz.RestaurantID,
+		pz.ID,
+		owner.OwnerID,
+		pizzaapp.UpdatePizzaRequest{Name: "Renamed"},
+	)
 	require.NoError(t, err)
 
 	require.Len(t, output.Prices, 1, "response must report the pizza's real prices, not fake them as empty")
@@ -166,10 +202,16 @@ func TestUpdatePizza_ToppingIDsEmpty_ClearsToppings(t *testing.T) {
 	require.NoError(t, pz.SetToppingIDs([]uuid.UUID{t1.ID}))
 	require.NoError(t, env.DB.Save(&pz).Error)
 
-	output, err := env.UpdatePizza.Execute(context.Background(), pz.RestaurantID, pz.ID, owner.OwnerID, pizzaapp.UpdatePizzaRequest{
-		Name:       "Renamed",
-		ToppingIDs: []uuid.UUID{},
-	})
+	output, err := env.UpdatePizza.Execute(
+		context.Background(),
+		pz.RestaurantID,
+		pz.ID,
+		owner.OwnerID,
+		pizzaapp.UpdatePizzaRequest{
+			Name:       "Renamed",
+			ToppingIDs: []uuid.UUID{},
+		},
+	)
 	require.NoError(t, err)
 
 	assert.Empty(t, output.Toppings)
@@ -184,10 +226,16 @@ func TestUpdatePizza_ToppingIDs_SetsDefaults_NoPriceRequired(t *testing.T) {
 	var t1 topping.Topping
 	require.NoError(t, env.DB.Order("name").Take(&t1).Error)
 
-	output, err := env.UpdatePizza.Execute(context.Background(), pz.RestaurantID, pz.ID, owner.OwnerID, pizzaapp.UpdatePizzaRequest{
-		Name:       "Renamed",
-		ToppingIDs: []uuid.UUID{t1.ID},
-	})
+	output, err := env.UpdatePizza.Execute(
+		context.Background(),
+		pz.RestaurantID,
+		pz.ID,
+		owner.OwnerID,
+		pizzaapp.UpdatePizzaRequest{
+			Name:       "Renamed",
+			ToppingIDs: []uuid.UUID{t1.ID},
+		},
+	)
 	require.NoError(t, err, "a default topping must not require topping_prices to already exist")
 
 	require.Len(t, output.Toppings, 1)
@@ -200,10 +248,16 @@ func TestUpdatePizza_ToppingIDs_ToppingDoesNotExist(t *testing.T) {
 	pz := firstPizza(t, env.DB)
 	owner := restaurantByID(t, env.DB, pz.RestaurantID)
 
-	_, err := env.UpdatePizza.Execute(context.Background(), pz.RestaurantID, pz.ID, owner.OwnerID, pizzaapp.UpdatePizzaRequest{
-		Name:       "Renamed",
-		ToppingIDs: []uuid.UUID{uuid.New()},
-	})
+	_, err := env.UpdatePizza.Execute(
+		context.Background(),
+		pz.RestaurantID,
+		pz.ID,
+		owner.OwnerID,
+		pizzaapp.UpdatePizzaRequest{
+			Name:       "Renamed",
+			ToppingIDs: []uuid.UUID{uuid.New()},
+		},
+	)
 	require.Error(t, err)
 
 	assert.ErrorIs(t, err, apperr.ErrNotFound)
@@ -218,10 +272,16 @@ func TestUpdatePizza_ToppingIDs_Duplicate(t *testing.T) {
 	var t1 topping.Topping
 	require.NoError(t, env.DB.Order("name").Take(&t1).Error)
 
-	_, err := env.UpdatePizza.Execute(context.Background(), pz.RestaurantID, pz.ID, owner.OwnerID, pizzaapp.UpdatePizzaRequest{
-		Name:       "Renamed",
-		ToppingIDs: []uuid.UUID{t1.ID, t1.ID},
-	})
+	_, err := env.UpdatePizza.Execute(
+		context.Background(),
+		pz.RestaurantID,
+		pz.ID,
+		owner.OwnerID,
+		pizzaapp.UpdatePizzaRequest{
+			Name:       "Renamed",
+			ToppingIDs: []uuid.UUID{t1.ID, t1.ID},
+		},
+	)
 	require.Error(t, err)
 
 	assert.ErrorIs(t, err, apperr.ErrConflict)

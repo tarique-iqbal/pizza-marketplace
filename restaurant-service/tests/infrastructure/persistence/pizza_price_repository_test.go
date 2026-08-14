@@ -77,7 +77,7 @@ func TestPizzaPriceRepository_ReplacePrices_UpsertsAndDeactivates(t *testing.T) 
 	}
 
 	assert.False(t, byID[sizes[0].ID].IsActive, "dropped size becomes inactive, not deleted")
-	assert.NotNil(t, byID[sizes[0].ID].UpdatedAt, "deactivation must explicitly set UpdatedAt now that GORM's autoUpdateTime is disabled")
+	assert.NotNil(t, byID[sizes[0].ID].UpdatedAt, "deactivation must set UpdatedAt manually (autoUpdateTime disabled)")
 	assert.True(t, byID[sizes[1].ID].IsActive)
 	assert.True(t, decimal.RequireFromString("13.50").Equal(byID[sizes[1].ID].Price), "price updated on re-upsert")
 	assert.True(t, byID[sizes[2].ID].IsActive)

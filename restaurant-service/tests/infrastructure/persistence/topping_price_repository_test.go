@@ -17,7 +17,9 @@ import (
 	"restaurant-service/tests/testutil"
 )
 
-func setupToppingPriceRepo(t *testing.T) (*gorm.DB, topping.ToppingPriceRepository, restaurant.Restaurant, []topping.Topping) {
+func setupToppingPriceRepo(
+	t *testing.T,
+) (*gorm.DB, topping.ToppingPriceRepository, restaurant.Restaurant, []topping.Topping) {
 	db := testutil.DB(t)
 	db.TruncateTables(t, testutil.TableRestaurant)
 
