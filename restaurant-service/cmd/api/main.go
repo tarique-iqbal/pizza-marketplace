@@ -30,6 +30,7 @@ func main() {
 		OpeningHoursHandler: app.OpeningHoursHandler,
 		ToppingPriceHandler: app.ToppingPriceHandler,
 		PizzaHandler:        app.PizzaHandler,
+		ApproveHandler:      app.ApproveHandler,
 	}
 
 	routes.SetupRoutes(router, handlers, app.Middleware)

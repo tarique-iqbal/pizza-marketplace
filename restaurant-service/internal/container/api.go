@@ -26,6 +26,7 @@ type APIContainer struct {
 	OpeningHoursHandler *handlers.OpeningHoursHandler
 	ToppingPriceHandler *handlers.ToppingPriceHandler
 	PizzaHandler        *handlers.PizzaHandler
+	ApproveHandler      *handlers.ApproveHandler
 }
 
 func NewAPIContainer() (*APIContainer, error) {
@@ -84,6 +85,9 @@ func NewAPIContainer() (*APIContainer, error) {
 	)
 	pizzaHandler := handlers.NewPizzaHandler(createPizza, updatePizza, setPizzaPrices, listPizzas)
 
+	approveRestaurant := commands.NewApproveRestaurant(restaurantRepo, payoutDetailsRepo, publisher)
+	approveHandler := handlers.NewApproveHandler(approveRestaurant)
+
 	return &APIContainer{
 		Shared:              base,
 		Middleware:          middleware,
@@ -95,6 +99,7 @@ func NewAPIContainer() (*APIContainer, error) {
 		OpeningHoursHandler: openingHoursHandler,
 		ToppingPriceHandler: toppingPriceHandler,
 		PizzaHandler:        pizzaHandler,
+		ApproveHandler:      approveHandler,
 	}, nil
 }
 
