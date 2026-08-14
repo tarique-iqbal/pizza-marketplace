@@ -157,6 +157,22 @@ func (r *Restaurant) Approve() error {
 	return nil
 }
 
+func (r *Restaurant) Launch() error {
+	if r.Status != StatusApproved {
+		return ErrNotReadyToLaunch
+	}
+
+	r.Status = StatusActive
+
+	r.events = append(r.events, RestaurantLaunched{
+		RestaurantID:   r.ID,
+		RestaurantName: r.Name,
+		LaunchedAt:     time.Now().UTC(),
+	})
+
+	return nil
+}
+
 func (r *Restaurant) PullEvents() []DomainEvent {
 	events := r.events
 	r.events = nil

@@ -114,6 +114,46 @@ func TestRestaurant_Approve_FailsIfNotPendingReview(t *testing.T) {
 	}
 }
 
+func TestRestaurant_Launch_TransitionsToActive(t *testing.T) {
+	res := restaurant.Restaurant{
+		ID:     uuid.New(),
+		Name:   "Pizza Paradise",
+		Status: restaurant.StatusApproved,
+	}
+
+	err := res.Launch()
+	require.NoError(t, err)
+
+	assert.Equal(t, restaurant.StatusActive, res.Status)
+
+	events := res.PullEvents()
+	require.Len(t, events, 1)
+
+	event, ok := events[0].(restaurant.RestaurantLaunched)
+	require.True(t, ok)
+
+	assert.Equal(t, res.ID, event.RestaurantID)
+	assert.Equal(t, "Pizza Paradise", event.RestaurantName)
+	assert.Equal(t, "restaurant.launched", event.GetEventName())
+	assert.False(t, event.LaunchedAt.IsZero())
+}
+
+func TestRestaurant_Launch_FailsIfNotApproved(t *testing.T) {
+	for _, status := range []restaurant.RestaurantStatus{
+		restaurant.StatusDraft,
+		restaurant.StatusReview,
+		restaurant.StatusActive,
+	} {
+		res := restaurant.Restaurant{ID: uuid.New(), Status: status}
+
+		err := res.Launch()
+
+		require.ErrorIs(t, err, restaurant.ErrNotReadyToLaunch)
+		assert.Equal(t, status, res.Status)
+		assert.Empty(t, res.PullEvents())
+	}
+}
+
 func TestRestaurant_PullEvents_DrainsQueue(t *testing.T) {
 	res := restaurant.Restaurant{
 		ID:     uuid.New(),
