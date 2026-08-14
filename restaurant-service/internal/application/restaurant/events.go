@@ -51,3 +51,25 @@ func newRestaurantApprovedPayload(e restaurant.RestaurantApproved) RestaurantApp
 
 	return payload
 }
+
+type RestaurantLaunchedPayload struct {
+	RestaurantID   uuid.UUID `json:"restaurant_id"`
+	RestaurantName string    `json:"restaurant_name"`
+	EventName      string    `json:"event_name"`
+	LaunchedAt     time.Time `json:"launched_at"`
+}
+
+func (RestaurantLaunchedPayload) GetEventName() string {
+	return "restaurant.launched"
+}
+
+func newRestaurantLaunchedPayload(e restaurant.RestaurantLaunched) RestaurantLaunchedPayload {
+	payload := RestaurantLaunchedPayload{
+		RestaurantID:   e.RestaurantID,
+		RestaurantName: e.RestaurantName,
+		LaunchedAt:     e.LaunchedAt,
+	}
+	payload.EventName = payload.GetEventName()
+
+	return payload
+}

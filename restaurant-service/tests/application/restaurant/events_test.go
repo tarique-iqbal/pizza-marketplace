@@ -70,3 +70,31 @@ func TestRestaurantApprovedPayload_MarshalJSON(t *testing.T) {
 	assert.Equal(t, approvedAt.Format(time.RFC3339), decoded["approved_at"])
 }
 
+func TestRestaurantLaunchedPayload_GetEventName(t *testing.T) {
+	payload := resapp.RestaurantLaunchedPayload{}
+
+	assert.Equal(t, "restaurant.launched", payload.GetEventName())
+}
+
+func TestRestaurantLaunchedPayload_MarshalJSON(t *testing.T) {
+	launchedAt := time.Date(2026, 8, 11, 12, 0, 0, 0, time.UTC)
+	restaurantID := uuid.New()
+
+	payload := resapp.RestaurantLaunchedPayload{
+		RestaurantID:   restaurantID,
+		RestaurantName: "Pizza Paradise",
+		EventName:      "restaurant.launched",
+		LaunchedAt:     launchedAt,
+	}
+
+	out, err := json.Marshal(payload)
+	require.NoError(t, err)
+
+	var decoded map[string]any
+	require.NoError(t, json.Unmarshal(out, &decoded))
+
+	assert.Equal(t, restaurantID.String(), decoded["restaurant_id"])
+	assert.Equal(t, "Pizza Paradise", decoded["restaurant_name"])
+	assert.Equal(t, "restaurant.launched", decoded["event_name"])
+	assert.Equal(t, launchedAt.Format(time.RFC3339), decoded["launched_at"])
+}

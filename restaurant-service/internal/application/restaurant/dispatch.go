@@ -24,6 +24,8 @@ func toEventPayload(e restaurant.DomainEvent) (event.Event, bool) {
 		return newRestaurantReadyForReviewPayload(evt), true
 	case restaurant.RestaurantApproved:
 		return newRestaurantApprovedPayload(evt), true
+	case restaurant.RestaurantLaunched:
+		return newRestaurantLaunchedPayload(evt), true
 	default:
 		return nil, false
 	}
