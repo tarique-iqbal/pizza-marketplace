@@ -62,6 +62,15 @@ func SetupToppingPriceRoutes(router *gin.Engine, h *handlers.ToppingPriceHandler
 	protected.PUT("/:id/topping-prices", h.SetToppingPrices)
 }
 
+func SetupLaunchRoutes(router *gin.Engine, h *handlers.LaunchHandler, m *middleware.Middleware) {
+	restaurants := router.Group("/restaurants")
+
+	protected := restaurants.Group("")
+	protected.Use(m.Auth, m.EnsureOwner)
+
+	protected.POST("/:id/launch", h.Launch)
+}
+
 func SetupApproveRoutes(router *gin.Engine, h *handlers.ApproveHandler, m *middleware.Middleware) {
 	restaurants := router.Group("/restaurants")
 
