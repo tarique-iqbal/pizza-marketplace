@@ -2,6 +2,7 @@ package persistence_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -53,7 +54,7 @@ func TestRefreshTokenRepository_Find_NotFound(t *testing.T) {
 	_, err := repo.Find(ctx, "non-existing-token")
 
 	require.Error(t, err)
-	assert.Equal(t, "refresh token not found", err.Error())
+	assert.True(t, errors.Is(err, auth.ErrRefreshTokenInvalid))
 }
 
 func TestRefreshTokenRepository_Delete(t *testing.T) {
@@ -102,5 +103,5 @@ func TestRefreshTokenRepository_TTLExpiry(t *testing.T) {
 	_, err = repo.Find(ctx, hashedToken)
 
 	require.Error(t, err)
-	assert.Equal(t, "refresh token not found", err.Error())
+	assert.True(t, errors.Is(err, auth.ErrRefreshTokenInvalid))
 }

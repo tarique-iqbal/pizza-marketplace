@@ -41,13 +41,16 @@ func (r *refreshTokenRepo) Find(
 
 	val, err := r.client.Get(ctx, key).Result()
 	if err != nil {
-		return auth.UserClaims{}, errors.New("refresh token not found")
+		if errors.Is(err, redis.Nil) {
+			return auth.UserClaims{}, auth.ErrRefreshTokenInvalid
+		}
+		return auth.UserClaims{}, err
 	}
 
 	var claims auth.UserClaims
 
 	if err := json.Unmarshal([]byte(val), &claims); err != nil {
-		return auth.UserClaims{}, errors.New("invalid token data")
+		return auth.UserClaims{}, err
 	}
 
 	return claims, nil
