@@ -21,14 +21,9 @@ func DispatchEvents(ctx context.Context, publisher event.EventPublisher, res *re
 func toEventPayload(e restaurant.DomainEvent) (event.Event, bool) {
 	switch evt := e.(type) {
 	case restaurant.RestaurantReadyForReview:
-		payload := RestaurantReadyForReviewPayload{
-			RestaurantID:   evt.RestaurantID,
-			RestaurantName: evt.RestaurantName,
-			ReadyAt:        evt.ReadyAt,
-		}
-		payload.EventName = payload.GetEventName()
-
-		return payload, true
+		return newRestaurantReadyForReviewPayload(evt), true
+	case restaurant.RestaurantApproved:
+		return newRestaurantApprovedPayload(evt), true
 	default:
 		return nil, false
 	}

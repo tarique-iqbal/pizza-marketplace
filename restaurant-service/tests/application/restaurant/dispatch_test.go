@@ -67,6 +67,25 @@ func TestDispatchEvents_DrainsAggregateEvents(t *testing.T) {
 	assert.Empty(t, res.PullEvents())
 }
 
+func TestDispatchEvents_PublishesApprovedEvent(t *testing.T) {
+	res := &restaurant.Restaurant{ID: uuid.New(), Name: "Pizza Paradise", Status: restaurant.StatusReview}
+	require.NoError(t, res.Approve())
+
+	publisher := &fakePublisher{}
+
+	resapp.DispatchEvents(context.Background(), publisher, res)
+
+	require.Len(t, publisher.events, 1)
+
+	payload, ok := publisher.events[0].(resapp.RestaurantApprovedPayload)
+	require.True(t, ok)
+
+	assert.Equal(t, res.ID, payload.RestaurantID)
+	assert.Equal(t, "Pizza Paradise", payload.RestaurantName)
+	assert.Equal(t, "restaurant.approved", payload.EventName)
+	assert.False(t, payload.ApprovedAt.IsZero())
+}
+
 func TestDispatchEvents_NoOpWhenNoEvents(t *testing.T) {
 	res := &restaurant.Restaurant{
 		ID:        uuid.New(),
