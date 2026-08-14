@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"identity-service/internal/application/auth"
+	"identity-service/internal/interfaces/http/response"
 	"identity-service/internal/interfaces/http/validation"
 )
 
@@ -40,13 +41,13 @@ func (h *AuthHandler) Login(ctx *gin.Context) {
 		return
 	}
 
-	response, err := h.login.Execute(reqCtx, input)
+	res, err := h.login.Execute(reqCtx, input)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		response.HandleError(ctx, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, response)
+	ctx.JSON(http.StatusOK, res)
 }
 
 func (h *AuthHandler) CreateEmailVerification(ctx *gin.Context) {
@@ -59,11 +60,8 @@ func (h *AuthHandler) CreateEmailVerification(ctx *gin.Context) {
 		return
 	}
 
-	err := h.emailOTP.Execute(reqCtx, input)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": "could not create verification",
-		})
+	if err := h.emailOTP.Execute(reqCtx, input); err != nil {
+		response.HandleError(ctx, err)
 		return
 	}
 
@@ -79,13 +77,13 @@ func (h *AuthHandler) Refresh(ctx *gin.Context) {
 		return
 	}
 
-	response, err := h.refreshToken.Execute(reqCtx, input)
+	res, err := h.refreshToken.Execute(reqCtx, input)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		response.HandleError(ctx, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, response)
+	ctx.JSON(http.StatusOK, res)
 }
 
 func (h *AuthHandler) Logout(ctx *gin.Context) {
@@ -103,7 +101,7 @@ func (h *AuthHandler) Logout(ctx *gin.Context) {
 	}
 
 	if err := h.logout.Execute(reqCtx, input); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		response.HandleError(ctx, err)
 		return
 	}
 

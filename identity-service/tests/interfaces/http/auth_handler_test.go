@@ -114,7 +114,7 @@ func TestAuthHandler_Login_Failed(t *testing.T) {
 				"password": "wrongpassword",
 			},
 			expectedCode: http.StatusUnauthorized,
-			expectedBody: `{"error":"invalid credentials"}`,
+			expectedBody: `{"error":"unauthorized access"}`,
 		},
 		{
 			name: "Invalid Credentials",
@@ -123,7 +123,7 @@ func TestAuthHandler_Login_Failed(t *testing.T) {
 				"password": "random",
 			},
 			expectedCode: http.StatusUnauthorized,
-			expectedBody: `{"error":"no record found"}`,
+			expectedBody: `{"error":"unauthorized access"}`,
 		},
 		{
 			name: "Invalid Request Body",
@@ -227,7 +227,7 @@ func TestAuthHandler_Refresh_InvalidToken(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &res)
 	require.NoError(t, err)
 
-	assert.Contains(t, res["error"], "invalid")
+	assert.Equal(t, "refresh token not found or expired", res["error"])
 }
 
 func TestAuthHandler_Refresh_InvalidRequest(t *testing.T) {

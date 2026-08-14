@@ -14,7 +14,7 @@ import (
 
 func HandleError(ctx *gin.Context, err error) {
 	switch {
-	case errors.Is(err, apperr.ErrUnauthorized):
+	case errors.Is(err, apperr.ErrUnauthorized) || errors.Is(err, auth.ErrRefreshTokenInvalid):
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 
 	case errors.Is(err, apperr.ErrForbidden):
