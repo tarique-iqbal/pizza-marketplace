@@ -5,7 +5,6 @@ import (
 	"identity-service/internal/infrastructure/security"
 	"identity-service/tests/testutil"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -23,7 +22,6 @@ func LoadUserFixtures(t *testing.T, db *gorm.DB) error {
 			Email:     "john.doe@example.com",
 			Password:  password,
 			Role:      "customer",
-			CreatedAt: time.Now().UTC(),
 		},
 		{
 			FirstName: "Existing",
@@ -31,7 +29,6 @@ func LoadUserFixtures(t *testing.T, db *gorm.DB) error {
 			Email:     "existing@example.com",
 			Password:  password,
 			Role:      "owner",
-			CreatedAt: time.Now().UTC(),
 		},
 	}
 

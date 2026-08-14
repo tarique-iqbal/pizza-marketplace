@@ -10,7 +10,7 @@ type EmailVerification struct {
 	Code      string    `gorm:"type:char(6);not null"`
 	IsUsed    bool      `gorm:"default:false"`
 	ExpiresAt time.Time `gorm:"type:timestamptz;not null"`
-	CreatedAt time.Time `gorm:"autoCreateTime"`
+	CreatedAt time.Time `gorm:"type:timestamptz;autoCreateTime"`
 }
 
 func (EmailVerification) TableName() string {

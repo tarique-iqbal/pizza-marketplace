@@ -21,9 +21,9 @@ type User struct {
 	Password  string     `gorm:"not null"`
 	Role      string     `gorm:"type:user_role_enum;default:'customer'"`
 	Status    string     `gorm:"type:user_status_enum;default:'active'"`
-	LoggedAt  *time.Time `gorm:"column:logged_at;default:null"`
-	CreatedAt time.Time  `gorm:"autoCreateTime"`
-	UpdatedAt *time.Time `gorm:"autoUpdateTime;default:null"`
+	LoggedAt  *time.Time `gorm:"column:logged_at;type:timestamptz;default:null"`
+	CreatedAt time.Time  `gorm:"type:timestamptz;autoCreateTime"`
+	UpdatedAt *time.Time `gorm:"type:timestamptz;autoUpdateTime;default:null"`
 }
 
 func (User) TableName() string {
