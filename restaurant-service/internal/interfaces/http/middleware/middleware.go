@@ -7,11 +7,13 @@ import (
 type Middleware struct {
 	Auth        gin.HandlerFunc
 	EnsureOwner gin.HandlerFunc
+	EnsureAdmin gin.HandlerFunc
 }
 
 func NewMiddleware() *Middleware {
 	return &Middleware{
 		Auth:        AuthMiddleware(),
 		EnsureOwner: RequireRole("owner"),
+		EnsureAdmin: RequireRole("admin"),
 	}
 }
