@@ -19,7 +19,9 @@ func (RestaurantReadyForReviewPayload) GetEventName() string {
 	return "restaurant.ready_for_review"
 }
 
-func newRestaurantReadyForReviewPayload(e restaurant.RestaurantReadyForReview) RestaurantReadyForReviewPayload {
+func newRestaurantReadyForReviewPayload(
+	e restaurant.RestaurantReadyForReview,
+) RestaurantReadyForReviewPayload {
 	payload := RestaurantReadyForReviewPayload{
 		RestaurantID:   e.RestaurantID,
 		RestaurantName: e.RestaurantName,

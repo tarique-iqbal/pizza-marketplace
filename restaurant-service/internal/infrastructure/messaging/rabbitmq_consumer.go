@@ -205,7 +205,11 @@ func (c *RabbitMQConsumer) runOnce(ctx context.Context, dispatcher restaurant.Ev
 
 // republishWithRetry requeues msg via the default exchange with an incremented
 // x-retry-count, which getRetryCount reads on the next delivery.
-func (c *RabbitMQConsumer) republishWithRetry(ctx context.Context, msg amqp.Delivery, retryCount int) error {
+func (c *RabbitMQConsumer) republishWithRetry(
+	ctx context.Context,
+	msg amqp.Delivery,
+	retryCount int,
+) error {
 	headers := amqp.Table{}
 	for k, v := range msg.Headers {
 		headers[k] = v
