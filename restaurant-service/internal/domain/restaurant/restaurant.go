@@ -20,6 +20,7 @@ const (
 const (
 	StatusDraft    RestaurantStatus = "draft"
 	StatusReview   RestaurantStatus = "review"
+	StatusApproved RestaurantStatus = "approved"
 	StatusActive   RestaurantStatus = "active"
 	StatusInactive RestaurantStatus = "inactive"
 	StatusDisabled RestaurantStatus = "disabled"
@@ -60,7 +61,7 @@ type Restaurant struct {
 	CreatedAt    time.Time        `gorm:"type:timestamptz;autoCreateTime"`
 	UpdatedAt    *time.Time       `gorm:"type:timestamptz;autoUpdateTime;default:null"`
 	LastSyncAt   *time.Time       `gorm:"type:timestamptz"`
-	events       []DomainEvent
+	events       []DomainEvent    `gorm:"-"`
 }
 
 func (Restaurant) TableName() string {
@@ -138,6 +139,22 @@ func (r *Restaurant) CompleteChecklistItem(item ChecklistItem) {
 			ReadyAt:        time.Now().UTC(),
 		})
 	}
+}
+
+func (r *Restaurant) Approve() error {
+	if r.Status != StatusReview {
+		return ErrNotPendingReview
+	}
+
+	r.Status = StatusApproved
+
+	r.events = append(r.events, RestaurantApproved{
+		RestaurantID:   r.ID,
+		RestaurantName: r.Name,
+		ApprovedAt:     time.Now().UTC(),
+	})
+
+	return nil
 }
 
 func (r *Restaurant) PullEvents() []DomainEvent {

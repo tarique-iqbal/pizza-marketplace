@@ -19,3 +19,13 @@ type RestaurantReadyForReview struct {
 func (RestaurantReadyForReview) GetEventName() string {
 	return "restaurant.ready_for_review"
 }
+
+type RestaurantApproved struct {
+	RestaurantID   uuid.UUID
+	RestaurantName string
+	ApprovedAt     time.Time
+}
+
+func (RestaurantApproved) GetEventName() string {
+	return "restaurant.approved"
+}

@@ -53,6 +53,23 @@ func (repo *RestaurantRepository) FindBySlug(
 	return &r, err
 }
 
+func (repo *RestaurantRepository) FindByID(
+	ctx context.Context,
+	id uuid.UUID,
+) (*restaurant.Restaurant, error) {
+	var r restaurant.Restaurant
+
+	err := repo.db.WithContext(ctx).
+		Where("id = ?", id).
+		Take(&r).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+
+	return &r, err
+}
+
 func (repo *RestaurantRepository) FindByIDAndOwner(
 	ctx context.Context,
 	restaurantID uuid.UUID,

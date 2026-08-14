@@ -25,6 +25,7 @@ BEGIN
         CREATE TYPE restaurant_status_enum AS ENUM (
             'draft',
             'review',
+            'approved',
             'active',
             'inactive',
             'disabled',
