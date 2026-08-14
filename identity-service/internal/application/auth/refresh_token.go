@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"errors"
 
 	"identity-service/internal/domain/auth"
 )
@@ -33,7 +32,7 @@ func (uc *RefreshToken) Execute(
 
 	claims, err := uc.repo.Find(ctx, hashed)
 	if err != nil {
-		return TokenResponse{}, errors.New("invalid or expired refresh token")
+		return TokenResponse{}, err
 	}
 
 	accessToken, err := uc.jwtManager.Generate(claims.UserID, claims.Role)

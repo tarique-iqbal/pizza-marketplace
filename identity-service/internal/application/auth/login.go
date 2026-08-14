@@ -2,9 +2,10 @@ package auth
 
 import (
 	"context"
-	"errors"
+
 	"identity-service/internal/domain/auth"
 	"identity-service/internal/domain/user"
+	apperr "identity-service/internal/shared/errors"
 )
 
 const refreshTokenExpiry = 7
@@ -37,21 +38,17 @@ func (uc *Login) Execute(
 	ctx context.Context,
 	input LoginRequest,
 ) (TokenResponse, error) {
-	user, err := uc.userRepo.FindByEmail(ctx, input.Email)
-	if user == nil {
-		return TokenResponse{}, errors.New("no record found")
-	}
-
+	usr, err := uc.userRepo.FindByEmail(ctx, input.Email)
 	if err != nil {
-		return TokenResponse{}, errors.New("internal server error")
+		return TokenResponse{}, err
 	}
 
-	status := uc.passwordHasher.Compare(user.Password, input.Password)
-	if !status {
-		return TokenResponse{}, errors.New("invalid credentials")
+	if usr == nil || !uc.passwordHasher.Compare(usr.Password, input.Password) {
+		// Deliberately collapsed response prevents user enumeration
+		return TokenResponse{}, apperr.ErrUnauthorized
 	}
 
-	accessToken, err := uc.jwtManager.Generate(user.ID.String(), user.Role)
+	accessToken, err := uc.jwtManager.Generate(usr.ID.String(), usr.Role)
 	if err != nil {
 		return TokenResponse{}, err
 	}
@@ -64,8 +61,8 @@ func (uc *Login) Execute(
 	hashedToken := uc.refreshTokenManager.Hash(refreshToken)
 
 	claims := auth.UserClaims{
-		UserID: user.ID.String(),
-		Role:   user.Role,
+		UserID: usr.ID.String(),
+		Role:   usr.Role,
 	}
 
 	ttlSeconds := int64(refreshTokenExpiry) * 24 * 3600

@@ -2,6 +2,7 @@ package auth_test
 
 import (
 	"context"
+	"errors"
 	authapp "identity-service/internal/application/auth"
 	"identity-service/internal/domain/auth"
 	"identity-service/internal/infrastructure/persistence"
@@ -89,7 +90,7 @@ func TestRefreshToken_Rotation_InvalidatesOldToken(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid")
+	assert.True(t, errors.Is(err, auth.ErrRefreshTokenInvalid))
 }
 
 func TestRefreshToken_InvalidToken(t *testing.T) {
@@ -102,7 +103,7 @@ func TestRefreshToken_InvalidToken(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid")
+	assert.True(t, errors.Is(err, auth.ErrRefreshTokenInvalid))
 }
 
 func TestRefreshToken_ExpiredToken(t *testing.T) {
@@ -127,5 +128,5 @@ func TestRefreshToken_ExpiredToken(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid")
+	assert.True(t, errors.Is(err, auth.ErrRefreshTokenInvalid))
 }

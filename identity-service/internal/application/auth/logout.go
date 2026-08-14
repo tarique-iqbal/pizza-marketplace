@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"errors"
 
 	"identity-service/internal/domain/auth"
 )
@@ -29,7 +28,7 @@ func (uc *Logout) Execute(
 	hashed := uc.manager.Hash(req.RefreshToken)
 
 	if err := uc.repo.Delete(ctx, hashed); err != nil {
-		return errors.New("failed to logout")
+		return err
 	}
 
 	return nil
