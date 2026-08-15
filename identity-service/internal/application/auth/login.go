@@ -2,9 +2,11 @@ package auth
 
 import (
 	"context"
+	"time"
 
 	"identity-service/internal/domain/auth"
 	"identity-service/internal/domain/user"
+	logobs "identity-service/internal/infrastructure/observability/logger"
 	apperr "identity-service/internal/shared/errors"
 )
 
@@ -70,6 +72,13 @@ func (uc *Login) Execute(
 	err = uc.refreshTokenRepo.Save(ctx, hashedToken, claims, ttlSeconds)
 	if err != nil {
 		return TokenResponse{}, err
+	}
+
+	loggedAt := time.Now().UTC()
+	usr.LoggedAt = &loggedAt
+
+	if err := uc.userRepo.Update(ctx, usr); err != nil {
+		logobs.FromContext(ctx).Warn("failed to update user's last login", "error", err)
 	}
 
 	return TokenResponse{

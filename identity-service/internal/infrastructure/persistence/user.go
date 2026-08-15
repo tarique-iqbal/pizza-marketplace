@@ -48,6 +48,10 @@ func (repo *userRepo) Create(ctx context.Context, u *user.User) error {
 	return nil
 }
 
+func (repo *userRepo) Update(ctx context.Context, u *user.User) error {
+	return repo.db.WithContext(ctx).Save(u).Error
+}
+
 func (repo *userRepo) EmailExists(ctx context.Context, email string) (bool, error) {
 	var count int64
 	err := repo.db.WithContext(ctx).Model(&user.User{}).

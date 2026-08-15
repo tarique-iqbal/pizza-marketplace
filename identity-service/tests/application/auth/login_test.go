@@ -3,13 +3,16 @@ package auth_test
 import (
 	"context"
 	"identity-service/internal/application/auth"
+	"identity-service/internal/domain/user"
 	"identity-service/internal/infrastructure/persistence"
 	"identity-service/internal/infrastructure/security"
 	"identity-service/tests/infrastructure/db/fixtures"
 	"identity-service/tests/testutil"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var login *auth.Login
@@ -40,10 +43,19 @@ func TestLogin_Success(t *testing.T) {
 		Password: "plainPassword",
 	}
 
+	before := time.Now().UTC()
+
 	response, err := login.Execute(context.Background(), input)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, response.AccessToken)
 	assert.NotEmpty(t, response.RefreshToken)
+
+	db := testutil.DB(t)
+
+	var u user.User
+	require.NoError(t, db.DB.Where("email = ?", input.Email).Take(&u).Error)
+	require.NotNil(t, u.LoggedAt)
+	assert.False(t, u.LoggedAt.Before(before))
 }
 
 func TestLogin_InvalidPassword(t *testing.T) {
