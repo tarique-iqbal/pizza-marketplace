@@ -64,10 +64,16 @@ func TestSetPizzaPrices_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, output.Prices, 2)
+
+	byPrice := make(map[uuid.UUID]pizzaapp.PizzaPriceResponse, len(output.Prices))
 	for _, p := range output.Prices {
 		assert.True(t, p.IsActive)
 		assert.NotZero(t, p.DiameterCm)
+		byPrice[p.SizeID] = p
 	}
+
+	assert.True(t, decimal.RequireFromString("9.50").Equal(decimal.Decimal(byPrice[sizes[0].ID].Price)))
+	assert.True(t, decimal.RequireFromString("12.00").Equal(decimal.Decimal(byPrice[sizes[1].ID].Price)))
 }
 
 func TestSetPizzaPrices_ReportsExistingToppings(t *testing.T) {

@@ -41,11 +41,11 @@ func setupListPizzas(t *testing.T) listPizzasSetup {
 	toppingRepo := persistence.NewToppingRepository(db.DB)
 	toppingPriceRepo := persistence.NewToppingPriceRepository(db.DB)
 
+	pizzaCatalog := queries.NewPizzaCatalog(pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo)
+
 	return listPizzasSetup{
-		DB: db.DB,
-		ListPizzas: queries.NewListPizzas(
-			restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo,
-		),
+		DB:         db.DB,
+		ListPizzas: queries.NewListPizzas(restaurantRepo, pizzaCatalog),
 	}
 }
 
@@ -76,7 +76,9 @@ func TestListPizzas_Success(t *testing.T) {
 	output, err := env.ListPizzas.Execute(context.Background(), pz.RestaurantID, owner.OwnerID)
 	require.NoError(t, err)
 
-	assert.Len(t, output, 2, "both fixture pizzas are `available`")
+	require.Len(t, output, 2, "both fixture pizzas are `available`")
+	assert.Equal(t, "Margherita", output[0].Name)
+	assert.Equal(t, "Salami", output[1].Name)
 }
 
 func TestListPizzas_ExcludesArchived(t *testing.T) {

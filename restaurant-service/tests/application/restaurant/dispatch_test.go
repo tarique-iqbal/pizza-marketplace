@@ -86,7 +86,10 @@ func TestDispatchEvents_PublishesApprovedEvent(t *testing.T) {
 	assert.False(t, payload.ApprovedAt.IsZero())
 }
 
-func TestDispatchEvents_PublishesLaunchedEvent(t *testing.T) {
+func TestDispatchEvents_DropsLaunchedEvent(t *testing.T) {
+	// RestaurantLaunched needs the current menu attached, which only the caller
+	// (LaunchRestaurant) can fetch — it's published directly via
+	// resapp.NewRestaurantLaunchedPayload, not through this generic dispatch path.
 	res := &restaurant.Restaurant{ID: uuid.New(), Name: "Pizza Paradise", Status: restaurant.StatusApproved}
 	require.NoError(t, res.Launch())
 
@@ -94,15 +97,7 @@ func TestDispatchEvents_PublishesLaunchedEvent(t *testing.T) {
 
 	resapp.DispatchEvents(context.Background(), publisher, res)
 
-	require.Len(t, publisher.events, 1)
-
-	payload, ok := publisher.events[0].(resapp.RestaurantLaunchedPayload)
-	require.True(t, ok)
-
-	assert.Equal(t, res.ID, payload.RestaurantID)
-	assert.Equal(t, "Pizza Paradise", payload.RestaurantName)
-	assert.Equal(t, "restaurant.launched", payload.EventName)
-	assert.False(t, payload.LaunchedAt.IsZero())
+	assert.Empty(t, publisher.events)
 }
 
 func TestDispatchEvents_NoOpWhenNoEvents(t *testing.T) {

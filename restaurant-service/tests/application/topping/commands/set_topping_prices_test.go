@@ -63,9 +63,15 @@ func TestSetToppingPrices_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, output, 2)
+
+	byToppingID := make(map[uuid.UUID]toppingapp.ToppingPriceResponse, len(output))
 	for _, p := range output {
 		assert.NotEmpty(t, p.Name)
+		byToppingID[p.ToppingID] = p
 	}
+
+	assert.True(t, decimal.RequireFromString("1.00").Equal(decimal.Decimal(byToppingID[toppings[0].ID].ExtraPrice)))
+	assert.True(t, decimal.RequireFromString("1.50").Equal(decimal.Decimal(byToppingID[toppings[1].ID].ExtraPrice)))
 }
 
 func TestSetToppingPrices_ToppingDoesNotExist(t *testing.T) {
