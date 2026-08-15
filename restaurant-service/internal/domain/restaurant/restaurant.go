@@ -60,7 +60,6 @@ type Restaurant struct {
 	TotalReviews int32            `gorm:"not null;default:0;check:total_reviews >= 0"`
 	CreatedAt    time.Time        `gorm:"type:timestamptz;autoCreateTime"`
 	UpdatedAt    *time.Time       `gorm:"type:timestamptz;autoUpdateTime;default:null"`
-	LastSyncAt   *time.Time       `gorm:"type:timestamptz"`
 	events       []DomainEvent    `gorm:"-"`
 }
 

@@ -76,7 +76,6 @@ CREATE TABLE restaurants (
         CHECK (total_reviews >= 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ,
-    last_sync_at TIMESTAMPTZ,
 
     CONSTRAINT pk_restaurants
         PRIMARY KEY (id)
