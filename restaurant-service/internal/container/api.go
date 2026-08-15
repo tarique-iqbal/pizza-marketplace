@@ -81,15 +81,16 @@ func NewAPIContainer() (*APIContainer, error) {
 	setPizzaPrices := pizzacmd.NewSetPizzaPrices(
 		restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo,
 	)
-	listPizzas := pizzaqueries.NewListPizzas(
-		restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo,
+	pizzaCatalog := pizzaqueries.NewPizzaCatalog(
+		pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo,
 	)
+	listPizzas := pizzaqueries.NewListPizzas(restaurantRepo, pizzaCatalog)
 	pizzaHandler := handlers.NewPizzaHandler(createPizza, updatePizza, setPizzaPrices, listPizzas)
 
 	approveRestaurant := commands.NewApproveRestaurant(restaurantRepo, payoutDetailsRepo, publisher)
 	approveHandler := handlers.NewApproveHandler(approveRestaurant)
 
-	launchRestaurant := commands.NewLaunchRestaurant(restaurantRepo, payoutDetailsRepo, publisher)
+	launchRestaurant := commands.NewLaunchRestaurant(restaurantRepo, payoutDetailsRepo, pizzaCatalog, publisher)
 	launchHandler := handlers.NewLaunchHandler(launchRestaurant)
 
 	return &APIContainer{
