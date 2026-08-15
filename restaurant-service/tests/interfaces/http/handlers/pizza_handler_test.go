@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -44,11 +45,13 @@ func setupPizzaHandler(t *testing.T) pizzaHandlerSetup {
 	toppingRepo := persistence.NewToppingRepository(db.DB)
 	toppingPriceRepo := persistence.NewToppingPriceRepository(db.DB)
 
+	pizzaCatalog := queries.NewPizzaCatalog(pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo)
+
 	handler := handlers.NewPizzaHandler(
 		commands.NewCreatePizza(restaurantRepo, pizzaRepo, toppingRepo),
 		commands.NewUpdatePizza(restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo),
 		commands.NewSetPizzaPrices(restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo),
-		queries.NewListPizzas(restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo),
+		queries.NewListPizzas(restaurantRepo, pizzaCatalog),
 	)
 
 	return pizzaHandlerSetup{DB: db.DB, Handler: handler}
@@ -143,7 +146,11 @@ func TestPizzaHandler_ListPizzas_Success(t *testing.T) {
 
 	var response []pizzaapp.PizzaResponse
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
-	assert.Len(t, response, 2)
+	require.Len(t, response, 2)
+	assert.Equal(t, "Margherita", response[0].Name)
+	assert.True(t, response[0].IsVegetarian)
+	assert.Equal(t, "Salami", response[1].Name)
+	assert.False(t, response[1].IsVegetarian)
 }
 
 func TestPizzaHandler_UpdatePizza_Success(t *testing.T) {
@@ -208,6 +215,8 @@ func TestPizzaHandler_SetPizzaPrices_Success(t *testing.T) {
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
 	require.Len(t, response.Prices, 1)
 	assert.True(t, response.Prices[0].IsActive)
+	assert.Equal(t, size.ID, response.Prices[0].SizeID)
+	assert.True(t, decimal.RequireFromString("9.99").Equal(decimal.Decimal(response.Prices[0].Price)))
 }
 
 func TestPizzaHandler_UpdatePizza_SetsToppings_NoPriceRequired(t *testing.T) {

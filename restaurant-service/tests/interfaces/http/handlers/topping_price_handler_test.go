@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -84,6 +85,7 @@ func TestToppingPriceHandler_SetToppingPrices_Success(t *testing.T) {
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
 	require.Len(t, response, 1)
 	assert.Equal(t, t1.ID, response[0].ToppingID)
+	assert.True(t, decimal.RequireFromString("1.50").Equal(decimal.Decimal(response[0].ExtraPrice)))
 }
 
 func TestToppingPriceHandler_SetToppingPrices_ValidationError_EmptyPrices(t *testing.T) {
