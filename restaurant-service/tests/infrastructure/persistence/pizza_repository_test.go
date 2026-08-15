@@ -124,5 +124,7 @@ func TestPizzaRepository_ListByRestaurant(t *testing.T) {
 
 	pizzas, err := setup.PizzaRepo.ListByRestaurant(context.Background(), existing.RestaurantID)
 	require.NoError(t, err)
-	assert.Len(t, pizzas, 2)
+	require.Len(t, pizzas, 2)
+	assert.Equal(t, "Margherita", pizzas[0].Name)
+	assert.Equal(t, "Salami", pizzas[1].Name)
 }

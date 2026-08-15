@@ -92,6 +92,8 @@ func TestToppingPriceRepository_UpsertPrices_EmptyIsNoop(t *testing.T) {
 	all, err := repo.ListByRestaurant(context.Background(), res.ID)
 	require.NoError(t, err)
 	require.Len(t, all, 1)
+	assert.Equal(t, toppings[0].ID, all[0].ToppingID)
+	assert.True(t, decimal.RequireFromString("1.00").Equal(all[0].ExtraPrice))
 }
 
 func TestToppingPriceRepository_ListByRestaurant_ScopedPerRestaurant(t *testing.T) {
