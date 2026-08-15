@@ -6,9 +6,11 @@ import (
 
 	"github.com/google/uuid"
 
+	pizzaqueries "restaurant-service/internal/application/pizza/queries"
 	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/domain/payout"
 	"restaurant-service/internal/domain/restaurant"
+	logobs "restaurant-service/internal/infrastructure/observability/logger"
 	apperr "restaurant-service/internal/shared/errors"
 	"restaurant-service/internal/shared/event"
 )
@@ -16,17 +18,20 @@ import (
 type LaunchRestaurant struct {
 	restaurantRepo    restaurant.RestaurantRepository
 	payoutDetailsRepo payout.PayoutDetailsRepository
+	pizzaCatalog      *pizzaqueries.PizzaCatalog
 	publisher         event.EventPublisher
 }
 
 func NewLaunchRestaurant(
 	restaurantRepo restaurant.RestaurantRepository,
 	payoutDetailsRepo payout.PayoutDetailsRepository,
+	pizzaCatalog *pizzaqueries.PizzaCatalog,
 	publisher event.EventPublisher,
 ) *LaunchRestaurant {
 	return &LaunchRestaurant{
 		restaurantRepo:    restaurantRepo,
 		payoutDetailsRepo: payoutDetailsRepo,
+		pizzaCatalog:      pizzaCatalog,
 		publisher:         publisher,
 	}
 }
@@ -55,7 +60,7 @@ func (uc *LaunchRestaurant) Execute(
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to update restaurant: %w", err)
 	}
 
-	resapp.DispatchEvents(ctx, uc.publisher, res)
+	resapp.DispatchEvents(ctx, uc.publisher, res, uc.enrichLaunched(ctx, res))
 
 	pd, err := uc.payoutDetailsRepo.FindActiveByRestaurant(ctx, res.ID)
 	if err != nil {
@@ -63,4 +68,21 @@ func (uc *LaunchRestaurant) Execute(
 	}
 
 	return resapp.ToRestaurantResponse(res, pd), nil
+}
+
+func (uc *LaunchRestaurant) enrichLaunched(ctx context.Context, res *restaurant.Restaurant) resapp.Enricher {
+	return func(e restaurant.DomainEvent) (event.Event, bool) {
+		launched, ok := e.(restaurant.RestaurantLaunched)
+		if !ok {
+			return nil, false
+		}
+
+		pizzas, err := uc.pizzaCatalog.Execute(ctx, res.ID)
+		if err != nil {
+			logobs.FromContext(ctx).Warn("failed to load pizza catalog for restaurant.launched", "error", err)
+			return nil, false
+		}
+
+		return resapp.NewRestaurantLaunchedPayload(launched, res, pizzas), true
+	}
 }
