@@ -43,6 +43,13 @@ func NewRabbitMQConsumer(amqpURL string) (*RabbitMQConsumer, error) {
 }
 
 func (c *RabbitMQConsumer) connect() error {
+	if c.channel != nil {
+		_ = c.channel.Close()
+	}
+	if c.conn != nil {
+		_ = c.conn.Close()
+	}
+
 	conn, err := amqp.Dial(c.amqpURL)
 	if err != nil {
 		return fmt.Errorf("RabbitMQ connection failed: %w", err)
@@ -125,7 +132,7 @@ func (c *RabbitMQConsumer) GetMessages(ctx context.Context) (<-chan amqp.Deliver
 }
 
 func (c *RabbitMQConsumer) ensureConnected(ctx context.Context) error {
-	if c.conn == nil || c.conn.IsClosed() {
+	if c.conn == nil || c.conn.IsClosed() || c.channel == nil || c.channel.IsClosed() {
 		logobs.FromContext(ctx).Warn("reconnecting to RabbitMQ...")
 		return c.connect()
 	}
