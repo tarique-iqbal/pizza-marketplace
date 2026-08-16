@@ -8,18 +8,20 @@ import (
 )
 
 type Handlers struct {
-	AddressHandler      *handlers.AddressHandler
-	ContactHandler      *handlers.ContactHandler
-	DeliveryHandler     *handlers.DeliveryHandler
-	PayoutHandler       *handlers.PayoutHandler
-	OpeningHoursHandler *handlers.OpeningHoursHandler
-	ToppingPriceHandler *handlers.ToppingPriceHandler
-	PizzaHandler        *handlers.PizzaHandler
-	ApproveHandler      *handlers.ApproveHandler
-	LaunchHandler       *handlers.LaunchHandler
+	GetRestaurantHandler *handlers.GetRestaurantHandler
+	AddressHandler       *handlers.AddressHandler
+	ContactHandler       *handlers.ContactHandler
+	DeliveryHandler      *handlers.DeliveryHandler
+	PayoutHandler        *handlers.PayoutHandler
+	OpeningHoursHandler  *handlers.OpeningHoursHandler
+	ToppingPriceHandler  *handlers.ToppingPriceHandler
+	PizzaHandler         *handlers.PizzaHandler
+	ApproveHandler       *handlers.ApproveHandler
+	LaunchHandler        *handlers.LaunchHandler
 }
 
 func SetupRoutes(router *gin.Engine, h *Handlers, m *middleware.Middleware) {
+	SetupGetRestaurantRoutes(router, h.GetRestaurantHandler, m)
 	SetupAddressRoutes(router, h.AddressHandler, m)
 	SetupContactRoutes(router, h.ContactHandler, m)
 	SetupDeliveryRoutes(router, h.DeliveryHandler, m)
