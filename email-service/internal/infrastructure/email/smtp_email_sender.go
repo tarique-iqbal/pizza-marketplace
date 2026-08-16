@@ -27,8 +27,12 @@ func (s *SMTPSender) SendEmail(to, subject, body string) error {
 	auth := smtp.PlainAuth("", s.username, s.password, s.host)
 
 	msg := []byte(
-		"To: " + to + "\r\n" +
+		"From: " + s.from + "\r\n" +
+			"To: " + to + "\r\n" +
 			"Subject: " + subject + "\r\n" +
+			"MIME-Version: 1.0\r\n" +
+			"Content-Type: text/plain; charset=\"UTF-8\"\r\n" +
+			"Content-Transfer-Encoding: 8bit\r\n" +
 			"\r\n" + body + "\r\n",
 	)
 
