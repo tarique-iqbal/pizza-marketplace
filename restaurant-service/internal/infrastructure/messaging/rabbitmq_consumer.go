@@ -24,6 +24,11 @@ var Exchanges = map[string][]string{
 	},
 }
 
+type messageSource interface {
+	GetMessages(ctx context.Context) (<-chan amqp.Delivery, error)
+	Republish(ctx context.Context, msg amqp.Delivery, retryCount int) error
+}
+
 type RabbitMQConsumer struct {
 	amqpURL string
 	conn    *amqp.Connection
@@ -39,6 +44,13 @@ func NewRabbitMQConsumer(amqpURL string) (*RabbitMQConsumer, error) {
 }
 
 func (c *RabbitMQConsumer) connect() error {
+	if c.channel != nil {
+		_ = c.channel.Close()
+	}
+	if c.conn != nil {
+		_ = c.conn.Close()
+	}
+
 	conn, err := amqp.Dial(c.amqpURL)
 	if err != nil {
 		return fmt.Errorf("RabbitMQ connection failed: %w", err)
@@ -121,7 +133,7 @@ func (c *RabbitMQConsumer) GetMessages(ctx context.Context) (<-chan amqp.Deliver
 }
 
 func (c *RabbitMQConsumer) ensureConnected(ctx context.Context) error {
-	if c.conn == nil || c.conn.IsClosed() {
+	if c.conn == nil || c.conn.IsClosed() || c.channel == nil || c.channel.IsClosed() {
 		logobs.FromContext(ctx).Warn("reconnecting to RabbitMQ...")
 
 		return c.connect()
@@ -131,9 +143,9 @@ func (c *RabbitMQConsumer) ensureConnected(ctx context.Context) error {
 
 // Run consumes until ctx is cancelled; dropped connections trigger a reconnect via
 // GetMessages' ensureConnected, allowing consumption to resume without returning an error.
-func (c *RabbitMQConsumer) Run(ctx context.Context, dispatcher restaurant.EventDispatcher) error {
+func Run(ctx context.Context, source messageSource, dispatcher restaurant.EventDispatcher) error {
 	for {
-		err := c.runOnce(ctx, dispatcher)
+		err := runOnce(ctx, source, dispatcher)
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -148,8 +160,8 @@ func (c *RabbitMQConsumer) Run(ctx context.Context, dispatcher restaurant.EventD
 	}
 }
 
-func (c *RabbitMQConsumer) runOnce(ctx context.Context, dispatcher restaurant.EventDispatcher) error {
-	msgs, err := c.GetMessages(ctx)
+func runOnce(ctx context.Context, source messageSource, dispatcher restaurant.EventDispatcher) error {
+	msgs, err := source.GetMessages(ctx)
 	if err != nil {
 		return err
 	}
@@ -185,7 +197,7 @@ func (c *RabbitMQConsumer) runOnce(ctx context.Context, dispatcher restaurant.Ev
 
 				time.Sleep(time.Second * time.Duration(retryCount+1))
 
-				if err := c.republishWithRetry(ctx, msg, retryCount+1); err != nil {
+				if err := source.Republish(ctx, msg, retryCount+1); err != nil {
 					logobs.FromContext(ctx).Warn("failed to republish for retry", "error", err)
 
 					_ = msg.Nack(false, true) // fall back to plain requeue to avoid message loss
@@ -203,9 +215,9 @@ func (c *RabbitMQConsumer) runOnce(ctx context.Context, dispatcher restaurant.Ev
 	}
 }
 
-// republishWithRetry requeues msg via the default exchange with an incremented
+// Republish requeues msg via the default exchange with an incremented
 // x-retry-count, which getRetryCount reads on the next delivery.
-func (c *RabbitMQConsumer) republishWithRetry(
+func (c *RabbitMQConsumer) Republish(
 	ctx context.Context,
 	msg amqp.Delivery,
 	retryCount int,

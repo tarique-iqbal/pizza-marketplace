@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"restaurant-service/internal/container"
+	"restaurant-service/internal/infrastructure/messaging"
 )
 
 type runner struct {
@@ -28,7 +29,7 @@ func (r *runner) start(ctx context.Context, stop context.CancelFunc) {
 		defer r.wg.Done()
 		defer r.recoverPanic(stop)
 
-		if err := r.app.Consumer.Run(ctx, r.app.Dispatcher); err != nil &&
+		if err := messaging.Run(ctx, r.app.Consumer, r.app.Dispatcher); err != nil &&
 			!errors.Is(err, context.Canceled) {
 			r.logger.Error("consumer stopped unexpectedly", "error", err)
 			stop()

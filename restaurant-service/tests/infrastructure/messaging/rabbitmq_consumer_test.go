@@ -3,78 +3,203 @@ package messaging_test
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/rabbitmq/amqp091-go"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/infrastructure/messaging"
 )
 
 type mockDispatcher struct {
-	DispatchCalled bool
-	EventReceived  restaurant.EventPayload
-	Fail           bool
+	mu             sync.Mutex
+	fail           bool
+	dispatchCalled bool
+	eventReceived  restaurant.EventPayload
 }
 
 func (m *mockDispatcher) Register(eventName string, handler restaurant.EventHandler) {}
 
 func (m *mockDispatcher) Dispatch(ctx context.Context, event restaurant.EventPayload) error {
-	m.DispatchCalled = true
-	m.EventReceived = event
-	if m.Fail {
+	m.mu.Lock()
+	m.dispatchCalled = true
+	m.eventReceived = event
+	m.mu.Unlock()
+
+	if m.fail {
 		return errors.New("fail dispatch")
 	}
 	return nil
 }
 
-func makeDelivery(body []byte, routingKey string, redelivered bool) amqp091.Delivery {
-	msg := amqp091.Delivery{
-		Body:        body,
-		RoutingKey:  routingKey,
-		Redelivered: redelivered,
-	}
-	return msg
+func (m *mockDispatcher) wasDispatched() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.dispatchCalled
 }
 
-func TestRabbitMQConsumer_Run_DispatchSuccess(t *testing.T) {
-	t.Skip("Skipping this test temporarily")
+type fakeAcknowledger struct {
+	mu      sync.Mutex
+	acked   bool
+	nacked  bool
+	requeue bool
+}
 
+func (f *fakeAcknowledger) Ack(tag uint64, multiple bool) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.acked = true
+	return nil
+}
+
+func (f *fakeAcknowledger) Nack(tag uint64, multiple, requeue bool) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.nacked = true
+	f.requeue = requeue
+	return nil
+}
+
+func (f *fakeAcknowledger) Reject(tag uint64, requeue bool) error {
+	return nil
+}
+
+func (f *fakeAcknowledger) isAcked() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.acked
+}
+
+func (f *fakeAcknowledger) isNacked() (nacked, requeue bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.nacked, f.requeue
+}
+
+type republishCall struct {
+	retryCount int
+}
+
+type fakeSource struct {
+	messages chan amqp091.Delivery
+
+	mu          sync.Mutex
+	republished []republishCall
+}
+
+func (f *fakeSource) GetMessages(ctx context.Context) (<-chan amqp091.Delivery, error) {
+	return f.messages, nil
+}
+
+func (f *fakeSource) Republish(ctx context.Context, msg amqp091.Delivery, retryCount int) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.republished = append(f.republished, republishCall{retryCount: retryCount})
+	return nil
+}
+
+func (f *fakeSource) republishCalls() []republishCall {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]republishCall(nil), f.republished...)
+}
+
+func makeDelivery(
+	body []byte,
+	routingKey string,
+	headers amqp091.Table,
+	ack *fakeAcknowledger,
+) amqp091.Delivery {
+	return amqp091.Delivery{
+		Acknowledger: ack,
+		Body:         body,
+		RoutingKey:   routingKey,
+		Headers:      headers,
+	}
+}
+
+func waitFor(t *testing.T, timeout time.Duration, cond func() bool) {
+	t.Helper()
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if cond() {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	t.Fatal("condition not met within timeout")
+}
+
+func TestRabbitMQConsumer_Run_DispatchSuccess_AcksMessage(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	dispatcher := &mockDispatcher{}
-	msgs := make(chan amqp091.Delivery)
+	source := &fakeSource{messages: make(chan amqp091.Delivery, 1)}
 
-	consumer := &messaging.RabbitMQConsumer{}
-	go consumer.Run(ctx, dispatcher)
+	go func() { _ = messaging.Run(ctx, source, dispatcher) }()
 
-	// Simulate a valid message
-	msgs <- makeDelivery([]byte(`{"business_name": "Pizza Palace"}`), "restaurant.initiated", false)
+	ack := &fakeAcknowledger{}
+	body := []byte(`{"business_name":"Pizza Palace"}`)
+	source.messages <- makeDelivery(body, "restaurant.initiated", nil, ack)
 
-	time.Sleep(100 * time.Millisecond) // Give goroutine time to process
+	waitFor(t, time.Second, ack.isAcked)
 
-	assert.True(t, dispatcher.DispatchCalled)
-	assert.Equal(t, "restaurant.initiated", dispatcher.EventReceived.Name)
+	assert.True(t, dispatcher.wasDispatched())
+	assert.Equal(t, "restaurant.initiated", dispatcher.eventReceived.Name)
+	nacked, _ := ack.isNacked()
+	assert.False(t, nacked)
+	assert.Empty(t, source.republishCalls())
 }
 
-func TestRabbitMQConsumer_Run_DispatchFailsOnce(t *testing.T) {
-	t.Skip("Skipping this test temporarily")
-
+func TestRabbitMQConsumer_Run_DispatchFails_RepublishesWithIncrementedRetryCount(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	dispatcher := &mockDispatcher{Fail: true}
-	msgs := make(chan amqp091.Delivery)
+	dispatcher := &mockDispatcher{fail: true}
+	source := &fakeSource{messages: make(chan amqp091.Delivery, 1)}
 
-	consumer := &messaging.RabbitMQConsumer{}
-	go consumer.Run(ctx, dispatcher)
+	go func() { _ = messaging.Run(ctx, source, dispatcher) }()
 
-	msgs <- makeDelivery([]byte(`{}`), "restaurant.initiated", false)
+	ack := &fakeAcknowledger{}
+	headers := amqp091.Table{"x-retry-count": int32(1)}
+	source.messages <- makeDelivery([]byte(`{}`), "restaurant.initiated", headers, ack)
 
-	time.Sleep(100 * time.Millisecond)
+	waitFor(t, 3*time.Second, func() bool { return len(source.republishCalls()) == 1 })
 
-	assert.True(t, dispatcher.DispatchCalled)
+	assert.True(t, dispatcher.wasDispatched())
+	require.Len(t, source.republishCalls(), 1)
+	assert.Equal(t, 2, source.republishCalls()[0].retryCount)
+	assert.True(t, ack.isAcked(), "original delivery is acked once superseded by the republished copy")
+}
+
+func TestRabbitMQConsumer_Run_ExceedsRetryLimit_NacksWithoutRequeue(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	dispatcher := &mockDispatcher{fail: true}
+	source := &fakeSource{messages: make(chan amqp091.Delivery, 1)}
+
+	go func() { _ = messaging.Run(ctx, source, dispatcher) }()
+
+	ack := &fakeAcknowledger{}
+	headers := amqp091.Table{"x-retry-count": int32(messaging.MaxRetryAttempts)}
+	source.messages <- makeDelivery([]byte(`{}`), "restaurant.initiated", headers, ack)
+
+	waitFor(t, time.Second, func() bool {
+		nacked, _ := ack.isNacked()
+		return nacked
+	})
+
+	assert.True(t, dispatcher.wasDispatched())
+	nacked, requeue := ack.isNacked()
+	assert.True(t, nacked)
+	assert.False(t, requeue, "exhausted retries route to the DLX-bound DLQ, not a plain requeue")
+	assert.Empty(t, source.republishCalls())
 }
