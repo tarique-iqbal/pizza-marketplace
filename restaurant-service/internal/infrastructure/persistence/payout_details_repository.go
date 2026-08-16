@@ -69,6 +69,26 @@ func (repo *PayoutDetailsRepository) UpdatePending(
 	return nil
 }
 
+func (repo *PayoutDetailsRepository) PromoteToActive(
+	ctx context.Context,
+	restaurantID uuid.UUID,
+) error {
+	result := repo.db.WithContext(ctx).
+		Model(&payout.PayoutDetails{}).
+		Where("restaurant_id = ? AND status = ?", restaurantID, payout.PayoutPending).
+		Update("status", payout.PayoutActive)
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return payout.ErrNoPendingPayout
+	}
+
+	return nil
+}
+
 func (repo *PayoutDetailsRepository) FindActiveByRestaurant(
 	ctx context.Context,
 	restaurantID uuid.UUID,

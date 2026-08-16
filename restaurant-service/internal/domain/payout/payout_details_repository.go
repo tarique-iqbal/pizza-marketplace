@@ -19,4 +19,5 @@ type PayoutDetailsRepository interface {
 		bankName string,
 	) error
 	FindActiveByRestaurant(ctx context.Context, restaurantID uuid.UUID) (*PayoutDetails, error)
+	PromoteToActive(ctx context.Context, restaurantID uuid.UUID) error
 }
