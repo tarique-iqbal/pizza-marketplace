@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	pizzaqueries "restaurant-service/internal/application/pizza/queries"
+	pizzaqry "restaurant-service/internal/application/pizza/queries"
 	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/domain/payout"
 	"restaurant-service/internal/domain/restaurant"
@@ -18,14 +18,14 @@ import (
 type LaunchRestaurant struct {
 	restaurantRepo    restaurant.RestaurantRepository
 	payoutDetailsRepo payout.PayoutDetailsRepository
-	pizzaCatalog      *pizzaqueries.PizzaCatalog
+	pizzaCatalog      *pizzaqry.PizzaCatalog
 	publisher         event.EventPublisher
 }
 
 func NewLaunchRestaurant(
 	restaurantRepo restaurant.RestaurantRepository,
 	payoutDetailsRepo payout.PayoutDetailsRepository,
-	pizzaCatalog *pizzaqueries.PizzaCatalog,
+	pizzaCatalog *pizzaqry.PizzaCatalog,
 	publisher event.EventPublisher,
 ) *LaunchRestaurant {
 	return &LaunchRestaurant{

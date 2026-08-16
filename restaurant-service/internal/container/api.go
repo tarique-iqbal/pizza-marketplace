@@ -5,7 +5,7 @@ import (
 
 	payoutcmd "restaurant-service/internal/application/payout/commands"
 	pizzacmd "restaurant-service/internal/application/pizza/commands"
-	pizzaqueries "restaurant-service/internal/application/pizza/queries"
+	pizzaqry "restaurant-service/internal/application/pizza/queries"
 	"restaurant-service/internal/application/restaurant/commands"
 	resqry "restaurant-service/internal/application/restaurant/queries"
 	toppingcmd "restaurant-service/internal/application/topping/commands"
@@ -83,10 +83,10 @@ func NewAPIContainer() (*APIContainer, error) {
 	setPizzaPrices := pizzacmd.NewSetPizzaPrices(
 		restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo,
 	)
-	pizzaCatalog := pizzaqueries.NewPizzaCatalog(
+	pizzaCatalog := pizzaqry.NewPizzaCatalog(
 		pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo,
 	)
-	listPizzas := pizzaqueries.NewListPizzas(restaurantRepo, pizzaCatalog)
+	listPizzas := pizzaqry.NewListPizzas(restaurantRepo, pizzaCatalog)
 	pizzaHandler := handlers.NewPizzaHandler(createPizza, updatePizza, setPizzaPrices, listPizzas)
 
 	getRestaurant := resqry.NewGetRestaurant(restaurantRepo, payoutDetailsRepo, pizzaCatalog)

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	pizzaqueries "restaurant-service/internal/application/pizza/queries"
+	pizzaqry "restaurant-service/internal/application/pizza/queries"
 	"restaurant-service/internal/application/restaurant/queries"
 	"restaurant-service/internal/domain/pizza"
 	"restaurant-service/internal/domain/restaurant"
@@ -38,7 +38,7 @@ func setupGetRestaurant(t *testing.T) getRestaurantSetup {
 	toppingRepo := persistence.NewToppingRepository(db.DB)
 	toppingPriceRepo := persistence.NewToppingPriceRepository(db.DB)
 
-	pizzaCatalog := pizzaqueries.NewPizzaCatalog(pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo)
+	pizzaCatalog := pizzaqry.NewPizzaCatalog(pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo)
 
 	return getRestaurantSetup{
 		DB:            db.DB,
