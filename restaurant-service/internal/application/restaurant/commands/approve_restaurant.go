@@ -51,6 +51,10 @@ func (uc *ApproveRestaurant) Execute(
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to update restaurant: %w", err)
 	}
 
+	if err := uc.payoutDetailsRepo.PromoteToActive(ctx, res.ID); err != nil {
+		return resapp.RestaurantResponse{}, fmt.Errorf("failed to promote payout details: %w", err)
+	}
+
 	resapp.DispatchEvents(ctx, uc.publisher, res)
 
 	pd, err := uc.payoutDetailsRepo.FindActiveByRestaurant(ctx, res.ID)
