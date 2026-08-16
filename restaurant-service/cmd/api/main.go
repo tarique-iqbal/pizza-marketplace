@@ -23,15 +23,16 @@ func main() {
 	router.Use(gin.Recovery(), observability.Middleware(logger))
 
 	handlers := &routes.Handlers{
-		AddressHandler:      app.AddressHandler,
-		ContactHandler:      app.ContactHandler,
-		DeliveryHandler:     app.DeliveryHandler,
-		PayoutHandler:       app.PayoutHandler,
-		OpeningHoursHandler: app.OpeningHoursHandler,
-		ToppingPriceHandler: app.ToppingPriceHandler,
-		PizzaHandler:        app.PizzaHandler,
-		ApproveHandler:      app.ApproveHandler,
-		LaunchHandler:       app.LaunchHandler,
+		GetRestaurantHandler: app.GetRestaurantHandler,
+		AddressHandler:       app.AddressHandler,
+		ContactHandler:       app.ContactHandler,
+		DeliveryHandler:      app.DeliveryHandler,
+		PayoutHandler:        app.PayoutHandler,
+		OpeningHoursHandler:  app.OpeningHoursHandler,
+		ToppingPriceHandler:  app.ToppingPriceHandler,
+		PizzaHandler:         app.PizzaHandler,
+		ApproveHandler:       app.ApproveHandler,
+		LaunchHandler:        app.LaunchHandler,
 	}
 
 	routes.SetupRoutes(router, handlers, app.Middleware)

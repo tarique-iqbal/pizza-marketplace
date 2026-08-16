@@ -7,6 +7,7 @@ import (
 	pizzacmd "restaurant-service/internal/application/pizza/commands"
 	pizzaqueries "restaurant-service/internal/application/pizza/queries"
 	"restaurant-service/internal/application/restaurant/commands"
+	resqry "restaurant-service/internal/application/restaurant/queries"
 	toppingcmd "restaurant-service/internal/application/topping/commands"
 	"restaurant-service/internal/infrastructure/geocoder"
 	"restaurant-service/internal/infrastructure/messaging"
@@ -17,17 +18,18 @@ import (
 
 type APIContainer struct {
 	*Shared
-	Middleware          *middleware.Middleware
-	Publisher           *messaging.RabbitMQPublisher
-	AddressHandler      *handlers.AddressHandler
-	ContactHandler      *handlers.ContactHandler
-	DeliveryHandler     *handlers.DeliveryHandler
-	PayoutHandler       *handlers.PayoutHandler
-	OpeningHoursHandler *handlers.OpeningHoursHandler
-	ToppingPriceHandler *handlers.ToppingPriceHandler
-	PizzaHandler        *handlers.PizzaHandler
-	ApproveHandler      *handlers.ApproveHandler
-	LaunchHandler       *handlers.LaunchHandler
+	Middleware           *middleware.Middleware
+	Publisher            *messaging.RabbitMQPublisher
+	GetRestaurantHandler *handlers.GetRestaurantHandler
+	AddressHandler       *handlers.AddressHandler
+	ContactHandler       *handlers.ContactHandler
+	DeliveryHandler      *handlers.DeliveryHandler
+	PayoutHandler        *handlers.PayoutHandler
+	OpeningHoursHandler  *handlers.OpeningHoursHandler
+	ToppingPriceHandler  *handlers.ToppingPriceHandler
+	PizzaHandler         *handlers.PizzaHandler
+	ApproveHandler       *handlers.ApproveHandler
+	LaunchHandler        *handlers.LaunchHandler
 }
 
 func NewAPIContainer() (*APIContainer, error) {
@@ -87,6 +89,9 @@ func NewAPIContainer() (*APIContainer, error) {
 	listPizzas := pizzaqueries.NewListPizzas(restaurantRepo, pizzaCatalog)
 	pizzaHandler := handlers.NewPizzaHandler(createPizza, updatePizza, setPizzaPrices, listPizzas)
 
+	getRestaurant := resqry.NewGetRestaurant(restaurantRepo, payoutDetailsRepo, pizzaCatalog)
+	getRestaurantHandler := handlers.NewGetRestaurantHandler(getRestaurant)
+
 	approveRestaurant := commands.NewApproveRestaurant(restaurantRepo, payoutDetailsRepo, publisher)
 	approveHandler := handlers.NewApproveHandler(approveRestaurant)
 
@@ -94,18 +99,19 @@ func NewAPIContainer() (*APIContainer, error) {
 	launchHandler := handlers.NewLaunchHandler(launchRestaurant)
 
 	return &APIContainer{
-		Shared:              base,
-		Middleware:          middleware,
-		Publisher:           publisher,
-		AddressHandler:      addressHandler,
-		ContactHandler:      contactHandler,
-		DeliveryHandler:     deliveryHandler,
-		PayoutHandler:       payoutHandler,
-		OpeningHoursHandler: openingHoursHandler,
-		ToppingPriceHandler: toppingPriceHandler,
-		PizzaHandler:        pizzaHandler,
-		ApproveHandler:      approveHandler,
-		LaunchHandler:       launchHandler,
+		Shared:               base,
+		Middleware:           middleware,
+		Publisher:            publisher,
+		GetRestaurantHandler: getRestaurantHandler,
+		AddressHandler:       addressHandler,
+		ContactHandler:       contactHandler,
+		DeliveryHandler:      deliveryHandler,
+		PayoutHandler:        payoutHandler,
+		OpeningHoursHandler:  openingHoursHandler,
+		ToppingPriceHandler:  toppingPriceHandler,
+		PizzaHandler:         pizzaHandler,
+		ApproveHandler:       approveHandler,
+		LaunchHandler:        launchHandler,
 	}, nil
 }
 
