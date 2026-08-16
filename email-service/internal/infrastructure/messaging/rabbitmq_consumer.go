@@ -28,6 +28,11 @@ var Exchanges = map[string][]string{
 	},
 }
 
+type messageSource interface {
+	GetMessages(ctx context.Context) (<-chan amqp.Delivery, error)
+	Republish(ctx context.Context, msg amqp.Delivery, retryCount int) error
+}
+
 type RabbitMQConsumer struct {
 	conn    *amqp.Connection
 	channel *amqp.Channel
@@ -141,9 +146,9 @@ func (c *RabbitMQConsumer) ensureConnected(ctx context.Context) error {
 
 // Run consumes until ctx is cancelled; dropped connections trigger a reconnect via
 // GetMessages' ensureConnected, allowing consumption to resume without returning an error.
-func (c *RabbitMQConsumer) Run(ctx context.Context, dispatcher email.EventDispatcher) error {
+func Run(ctx context.Context, source messageSource, dispatcher email.EventDispatcher) error {
 	for {
-		err := c.runOnce(ctx, dispatcher)
+		err := runOnce(ctx, source, dispatcher)
 		if ctx.Err() != nil {
 			return nil
 		}
@@ -158,8 +163,8 @@ func (c *RabbitMQConsumer) Run(ctx context.Context, dispatcher email.EventDispat
 	}
 }
 
-func (c *RabbitMQConsumer) runOnce(ctx context.Context, dispatcher email.EventDispatcher) error {
-	msgs, err := c.GetMessages(ctx)
+func runOnce(ctx context.Context, source messageSource, dispatcher email.EventDispatcher) error {
+	msgs, err := source.GetMessages(ctx)
 	if err != nil {
 		return err
 	}
@@ -192,7 +197,7 @@ func (c *RabbitMQConsumer) runOnce(ctx context.Context, dispatcher email.EventDi
 
 				time.Sleep(time.Second * time.Duration(retryCount+1))
 
-				if err := c.republishWithRetry(ctx, msg, retryCount+1); err != nil {
+				if err := source.Republish(ctx, msg, retryCount+1); err != nil {
 					logobs.FromContext(ctx).Warn("failed to republish for retry", "error", err)
 					_ = msg.Nack(false, true) // fall back to plain requeue to avoid message loss
 					continue
@@ -207,9 +212,9 @@ func (c *RabbitMQConsumer) runOnce(ctx context.Context, dispatcher email.EventDi
 	}
 }
 
-// republishWithRetry requeues msg via the default exchange with an incremented
+// Republish requeues msg via the default exchange with an incremented
 // x-retry-count, which getRetryCount reads on the next delivery.
-func (c *RabbitMQConsumer) republishWithRetry(ctx context.Context, msg amqp.Delivery, retryCount int) error {
+func (c *RabbitMQConsumer) Republish(ctx context.Context, msg amqp.Delivery, retryCount int) error {
 	headers := amqp.Table{}
 	for k, v := range msg.Headers {
 		headers[k] = v

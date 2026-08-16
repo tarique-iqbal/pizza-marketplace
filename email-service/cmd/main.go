@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"email-service/internal/container"
+	"email-service/internal/infrastructure/messaging"
 	logobs "email-service/internal/infrastructure/observability/logger"
 )
 
@@ -27,7 +28,7 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	go app.Consumer.Run(ctx, app.Dispatcher)
+	go messaging.Run(ctx, app.Consumer, app.Dispatcher)
 
 	<-sigs
 	logger.Info("shutdown signal received")
