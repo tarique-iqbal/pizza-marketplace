@@ -7,6 +7,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	payoutapp "restaurant-service/internal/application/payout"
+	pizzaapp "restaurant-service/internal/application/pizza"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/shared/money"
 )
@@ -72,6 +73,11 @@ type RestaurantResponse struct {
 	Status         RestaurantStatus         `json:"status"`
 	CreatedAt      time.Time                `json:"createdAt"`
 	UpdatedAt      *time.Time               `json:"updatedAt,omitempty"`
+}
+
+type RestaurantWithPizzasResponse struct {
+	RestaurantResponse
+	Pizzas []pizzaapp.PizzaResponse `json:"pizzas"`
 }
 
 type ContactResponse struct {
