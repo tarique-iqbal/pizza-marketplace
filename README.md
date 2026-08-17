@@ -121,8 +121,8 @@ Each service is configured via its own `.env` file. Copy the `.env.example` in e
 
 All routes are served through Traefik on port `80`. See each service's API reference for details:
 
-- [Identity service](docs/identity-service-api.md) — `/auth`, `/users`
-- [Restaurant service](docs/restaurant-service-api.md) — `/restaurants`
+- [Identity service](docs/api/identity-service.md) — `/auth`, `/users`
+- [Restaurant service](docs/api/restaurant-service.md) — `/restaurants`
 
 
 ## Event flow
