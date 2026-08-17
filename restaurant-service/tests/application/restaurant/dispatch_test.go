@@ -68,7 +68,8 @@ func TestDispatchEvents_DrainsAggregateEvents(t *testing.T) {
 }
 
 func TestDispatchEvents_PublishesApprovedEvent(t *testing.T) {
-	res := &restaurant.Restaurant{ID: uuid.New(), Name: "Pizza Paradise", Status: restaurant.StatusReview}
+	email := "kontakt@pizzaparadise.de"
+	res := &restaurant.Restaurant{ID: uuid.New(), Name: "Pizza Paradise", Email: &email, Status: restaurant.StatusReview}
 	require.NoError(t, res.Approve())
 
 	publisher := &fakePublisher{}

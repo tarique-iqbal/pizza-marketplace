@@ -75,9 +75,11 @@ func TestRestaurant_CompleteChecklistItem_NoOpIfAlreadyPastDraft(t *testing.T) {
 }
 
 func TestRestaurant_Approve_TransitionsToApproved(t *testing.T) {
+	email := "kontakt@pizzaparadise.de"
 	res := restaurant.Restaurant{
 		ID:     uuid.New(),
 		Name:   "Pizza Paradise",
+		Email:  &email,
 		Status: restaurant.StatusReview,
 	}
 
@@ -94,6 +96,7 @@ func TestRestaurant_Approve_TransitionsToApproved(t *testing.T) {
 
 	assert.Equal(t, res.ID, event.RestaurantID)
 	assert.Equal(t, "Pizza Paradise", event.RestaurantName)
+	assert.Equal(t, email, event.Email)
 	assert.Equal(t, "restaurant.approved", event.GetEventName())
 	assert.False(t, event.ApprovedAt.IsZero())
 }

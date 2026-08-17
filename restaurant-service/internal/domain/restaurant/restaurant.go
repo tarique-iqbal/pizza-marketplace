@@ -150,6 +150,7 @@ func (r *Restaurant) Approve() error {
 	r.events = append(r.events, RestaurantApproved{
 		RestaurantID:   r.ID,
 		RestaurantName: r.Name,
+		Email:          *r.Email,
 		ApprovedAt:     time.Now().UTC(),
 	})
 

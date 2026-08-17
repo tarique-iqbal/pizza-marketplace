@@ -23,6 +23,7 @@ func (RestaurantReadyForReview) GetEventName() string {
 type RestaurantApproved struct {
 	RestaurantID   uuid.UUID
 	RestaurantName string
+	Email          string
 	ApprovedAt     time.Time
 }
 
