@@ -175,6 +175,7 @@ services:
       - "traefik.http.middlewares.jwt.forwardauth.address=http://identity-service:8080/auth/verify"
       - "traefik.http.middlewares.jwt.forwardauth.authRequestHeaders=Authorization"
       - "traefik.http.middlewares.jwt.forwardauth.authResponseHeaders=X-User-ID,X-User-Role"
+      - "traefik.docker.network=backend"
     networks:
       - backend
       - internal
@@ -204,6 +205,7 @@ services:
       - "traefik.http.routers.user.entrypoints=web"
       - "traefik.http.routers.user.middlewares=jwt@docker"
       - "traefik.http.services.user.loadbalancer.server.port=8080"
+      - "traefik.docker.network=backend"
     networks:
       - backend
       - internal
