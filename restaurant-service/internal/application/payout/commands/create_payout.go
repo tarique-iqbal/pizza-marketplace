@@ -64,7 +64,7 @@ func (uc *CreatePayout) Execute(
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to create payout details: %w", err)
 	}
 
-	res.CompleteChecklistItem(restaurant.ChecklistPayment)
+	res.CompleteChecklistItem(restaurant.ChecklistPayout)
 
 	if err := uc.restaurantRepo.Update(ctx, res); err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to update restaurant: %w", err)

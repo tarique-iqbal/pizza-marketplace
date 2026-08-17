@@ -7,7 +7,7 @@ const (
 	ChecklistContact      ChecklistItem = "contact"
 	ChecklistAddress      ChecklistItem = "address"
 	ChecklistDelivery     ChecklistItem = "delivery"
-	ChecklistPayment      ChecklistItem = "payment"
+	ChecklistPayout       ChecklistItem = "payout"
 	ChecklistOpeningHours ChecklistItem = "openinghours"
 )
 
@@ -19,7 +19,7 @@ func NewChecklist() Checklist {
 		ChecklistContact:      false,
 		ChecklistAddress:      false,
 		ChecklistDelivery:     false,
-		ChecklistPayment:      false,
+		ChecklistPayout:       false,
 		ChecklistOpeningHours: false,
 	}
 }
@@ -38,7 +38,7 @@ func (c Checklist) IsCompleted() bool {
 		ChecklistContact,
 		ChecklistAddress,
 		ChecklistDelivery,
-		ChecklistPayment,
+		ChecklistPayout,
 		ChecklistOpeningHours,
 	}
 

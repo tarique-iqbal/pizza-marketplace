@@ -34,7 +34,7 @@ func restaurantReadyForReview() *restaurant.Restaurant {
 			restaurant.ChecklistContact:      true,
 			restaurant.ChecklistAddress:      true,
 			restaurant.ChecklistDelivery:     true,
-			restaurant.ChecklistPayment:      true,
+			restaurant.ChecklistPayout:       true,
 			restaurant.ChecklistOpeningHours: false,
 		},
 	}

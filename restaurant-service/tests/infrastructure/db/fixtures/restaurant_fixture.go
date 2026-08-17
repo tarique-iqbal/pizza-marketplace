@@ -37,7 +37,7 @@ func LoadRestaurantFixtures(t *testing.T, db *gorm.DB) error {
 				restaurant.ChecklistContact:      true,
 				restaurant.ChecklistAddress:      true,
 				restaurant.ChecklistDelivery:     true,
-				restaurant.ChecklistPayment:      true,
+				restaurant.ChecklistPayout:       true,
 				restaurant.ChecklistOpeningHours: true,
 			},
 			Status: restaurant.StatusDraft,
@@ -79,7 +79,7 @@ func LoadRestaurantFixtures(t *testing.T, db *gorm.DB) error {
 		err := db.Create(&r).Error
 		require.NoError(t, err)
 
-		if r.Checklist[restaurant.ChecklistPayment] {
+		if r.Checklist[restaurant.ChecklistPayout] {
 			pd, err := payout.NewPayoutDetails(
 				r.ID,
 				"Mehmet Yilmaz",

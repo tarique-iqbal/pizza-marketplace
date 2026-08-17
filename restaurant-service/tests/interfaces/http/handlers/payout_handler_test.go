@@ -96,7 +96,7 @@ func TestPayoutHandler_CreatePayout_Success(t *testing.T) {
 	err = h.DB.First(&updated, "id = ?", res.ID).Error
 	require.NoError(t, err)
 
-	assert.True(t, updated.Checklist[restaurant.ChecklistPayment])
+	assert.True(t, updated.Checklist[restaurant.ChecklistPayout])
 }
 
 func TestPayoutHandler_CreatePayout_Failure_ValidationError(t *testing.T) {

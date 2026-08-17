@@ -147,7 +147,7 @@ func TestUpdatePayout_Failure_OnlyActiveRecordExists(t *testing.T) {
 
 	var target restaurant.Restaurant
 	for _, r := range restaurants {
-		if r.Checklist[restaurant.ChecklistPayment] {
+		if r.Checklist[restaurant.ChecklistPayout] {
 			target = r
 			break
 		}

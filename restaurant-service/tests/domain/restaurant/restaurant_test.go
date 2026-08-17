@@ -20,7 +20,7 @@ func TestRestaurant_CompleteChecklistItem_TransitionsToReview(t *testing.T) {
 			restaurant.ChecklistContact:      true,
 			restaurant.ChecklistAddress:      true,
 			restaurant.ChecklistDelivery:     true,
-			restaurant.ChecklistPayment:      true,
+			restaurant.ChecklistPayout:       true,
 			restaurant.ChecklistOpeningHours: false,
 		},
 	}
@@ -63,7 +63,7 @@ func TestRestaurant_CompleteChecklistItem_NoOpIfAlreadyPastDraft(t *testing.T) {
 			restaurant.ChecklistContact:      true,
 			restaurant.ChecklistAddress:      true,
 			restaurant.ChecklistDelivery:     true,
-			restaurant.ChecklistPayment:      true,
+			restaurant.ChecklistPayout:       true,
 			restaurant.ChecklistOpeningHours: true,
 		},
 	}
@@ -163,7 +163,7 @@ func TestRestaurant_PullEvents_DrainsQueue(t *testing.T) {
 			restaurant.ChecklistContact:      true,
 			restaurant.ChecklistAddress:      true,
 			restaurant.ChecklistDelivery:     true,
-			restaurant.ChecklistPayment:      true,
+			restaurant.ChecklistPayout:       true,
 			restaurant.ChecklistOpeningHours: false,
 		},
 	}

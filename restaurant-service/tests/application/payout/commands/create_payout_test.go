@@ -88,7 +88,7 @@ func TestCreatePayout_Success(t *testing.T) {
 
 	res := firstRestaurant(t, env.DB)
 
-	assert.False(t, res.Checklist[restaurant.ChecklistPayment])
+	assert.False(t, res.Checklist[restaurant.ChecklistPayout])
 
 	output, err := env.CreatePayout.Execute(
 		context.Background(),
@@ -110,7 +110,7 @@ func TestCreatePayout_Success(t *testing.T) {
 	err = env.DB.Take(&updated, "id = ?", res.ID).Error
 	require.NoError(t, err)
 
-	assert.True(t, updated.Checklist[restaurant.ChecklistPayment])
+	assert.True(t, updated.Checklist[restaurant.ChecklistPayout])
 	assert.False(t, updated.UpdatedAt.IsZero())
 
 	pd := findPayoutDetailsByStatus(t, env.DB, res.ID, payout.PayoutPending)
@@ -202,7 +202,7 @@ func TestCreatePayout_DoesNotTouchExistingActiveRecord(t *testing.T) {
 
 	var target restaurant.Restaurant
 	for _, r := range restaurants {
-		if r.Checklist[restaurant.ChecklistPayment] {
+		if r.Checklist[restaurant.ChecklistPayout] {
 			target = r
 			break
 		}
