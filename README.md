@@ -29,13 +29,13 @@ Traefik API Gateway (:80)
   └── /search        ──► Search Service      (planned)
 
 Async event flow via RabbitMQ:
-  Identity Service  ──► email.verification_created
-                    ──► user.registered
-                    ──► restaurant.initiated
+  Identity Service   ──► email.verification_created
+                     ──► user.registered
+                     ──► restaurant.initiated
 
 Consumers:
-  Email Service       ◄── email.verification_created, user.registered
-  Restaurant Service   ◄── restaurant.initiated (worker)
+  Email Service      ◄── email.verification_created, user.registered
+  Restaurant Service ◄── restaurant.initiated (worker)
 ```
 
 Each service owns its data store. There is no shared database.
@@ -125,22 +125,37 @@ All routes are served through Traefik on port `80`. See each service's API refer
 - [Restaurant service](docs/api/restaurant-service.md) — `/restaurants`
 
 
+## Service documentation
+
+Architecture, domain model, and design decisions for each implemented service:
+
+- [Identity service](docs/services/identity-service.md)
+- [Restaurant service](docs/services/restaurant-service.md)
+- [Email service](docs/services/email-service.md)
+
+
 ## Event flow
 
 Events are published to RabbitMQ and consumed asynchronously. The outbox pattern is used in producer services for at-least-once delivery.
 
 ```
-identity-service   ──publishes──► email.verification_created
-                                   user.registered
-                                   restaurant.initiated
+identity-service     ──publishes──► email.verification_created
+                                     user.registered
+                                     restaurant.initiated
 
-email-service       ◄──consumes── email.verification_created
-                                   user.registered
+restaurant-service   ──publishes──► restaurant.ready_for_review
+                                     restaurant.approved
+                                     restaurant.launched   (unconsumed)
 
-restaurant-service   ◄──consumes── restaurant.initiated
+email-service        ◄──consumes──  email.verification_created
+                                     user.registered
+                                     restaurant.ready_for_review
+                                     restaurant.approved
+
+restaurant-service   ◄──consumes──  restaurant.initiated
 ```
 
-Planned, not wired up yet: once `search-service` is implemented, `restaurant-service` will publish `restaurant.launched` for it to consume and index into Elasticsearch.
+`restaurant.launched` is published but has no consumer yet — it's meant to feed `search-service`'s Elasticsearch indexing once that service is implemented (currently just a `go.mod`, no code).
 
 
 ## Project structure
