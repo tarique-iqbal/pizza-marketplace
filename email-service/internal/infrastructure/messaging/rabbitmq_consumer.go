@@ -25,6 +25,7 @@ var Exchanges = map[string][]string{
 	},
 	"restaurant.events": {
 		"restaurant.ready_for_review",
+		"restaurant.approved",
 	},
 }
 

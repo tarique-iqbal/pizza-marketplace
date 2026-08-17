@@ -30,11 +30,13 @@ func NewContainer() (*Container, error) {
 	userRegistered := emailapp.NewUserRegistered(smtpSender, template)
 	emailVerificationCreated := emailapp.NewEmailVerificationCreated(smtpSender, template)
 	restaurantReadyForReview := emailapp.NewRestaurantReadyForReview(smtpSender, template)
+	restaurantApproved := emailapp.NewRestaurantApproved(smtpSender, template)
 
 	dispatcher := emailapp.NewEventDispatcher()
 	dispatcher.Register(messaging.Exchanges["identity.events"][1], userRegistered)
 	dispatcher.Register(messaging.Exchanges["identity.events"][0], emailVerificationCreated)
 	dispatcher.Register(messaging.Exchanges["restaurant.events"][0], restaurantReadyForReview)
+	dispatcher.Register(messaging.Exchanges["restaurant.events"][1], restaurantApproved)
 
 	consumer, err := messaging.NewRabbitMQConsumer(amqpURL)
 
