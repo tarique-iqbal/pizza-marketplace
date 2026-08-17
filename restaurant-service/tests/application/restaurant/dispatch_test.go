@@ -83,6 +83,7 @@ func TestDispatchEvents_PublishesApprovedEvent(t *testing.T) {
 
 	assert.Equal(t, res.ID, payload.RestaurantID)
 	assert.Equal(t, "Pizza Paradise", payload.RestaurantName)
+	assert.Equal(t, email, payload.Email)
 	assert.Equal(t, "restaurant.approved", payload.EventName)
 	assert.False(t, payload.ApprovedAt.IsZero())
 }

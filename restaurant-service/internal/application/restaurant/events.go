@@ -37,6 +37,7 @@ func newRestaurantReadyForReviewPayload(
 type RestaurantApprovedPayload struct {
 	RestaurantID   uuid.UUID `json:"restaurant_id"`
 	RestaurantName string    `json:"restaurant_name"`
+	Email          string    `json:"email"`
 	EventName      string    `json:"event_name"`
 	ApprovedAt     time.Time `json:"approved_at"`
 }
@@ -49,6 +50,7 @@ func newRestaurantApprovedPayload(e restaurant.RestaurantApproved) RestaurantApp
 	payload := RestaurantApprovedPayload{
 		RestaurantID:   e.RestaurantID,
 		RestaurantName: e.RestaurantName,
+		Email:          e.Email,
 		ApprovedAt:     e.ApprovedAt,
 	}
 	payload.EventName = payload.GetEventName()

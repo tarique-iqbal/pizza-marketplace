@@ -52,6 +52,7 @@ func TestApproveRestaurant_Success(t *testing.T) {
 
 	res := firstRestaurant(t, env.DB)
 	res.Status = restaurant.StatusReview
+	res.Email = testutil.StringPtr("kontakt@pizzaparadise.de")
 	require.NoError(t, env.DB.Save(&res).Error)
 	createPendingPayout(t, env.DB, res.ID)
 
@@ -82,6 +83,7 @@ func TestApproveRestaurant_FailsIfNoPendingPayout(t *testing.T) {
 
 	res := firstRestaurant(t, env.DB)
 	res.Status = restaurant.StatusReview
+	res.Email = testutil.StringPtr("kontakt@pizzaparadise.de")
 	require.NoError(t, env.DB.Save(&res).Error)
 
 	_, err := env.ApproveRestaurant.Execute(context.Background(), res.ID)

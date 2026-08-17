@@ -54,6 +54,7 @@ func TestRestaurantApprovedPayload_MarshalJSON(t *testing.T) {
 	payload := resapp.RestaurantApprovedPayload{
 		RestaurantID:   restaurantID,
 		RestaurantName: "Pizza Paradise",
+		Email:          "kontakt@pizzaparadise.de",
 		EventName:      "restaurant.approved",
 		ApprovedAt:     approvedAt,
 	}
@@ -66,6 +67,7 @@ func TestRestaurantApprovedPayload_MarshalJSON(t *testing.T) {
 
 	assert.Equal(t, restaurantID.String(), decoded["restaurant_id"])
 	assert.Equal(t, "Pizza Paradise", decoded["restaurant_name"])
+	assert.Equal(t, "kontakt@pizzaparadise.de", decoded["email"])
 	assert.Equal(t, "restaurant.approved", decoded["event_name"])
 	assert.Equal(t, approvedAt.Format(time.RFC3339), decoded["approved_at"])
 }
