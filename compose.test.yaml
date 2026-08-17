@@ -97,9 +97,10 @@ services:
     volumes:
       - ./identity-service:/app
     depends_on:
-      pg-identity-test: { condition: service_healthy }
-      redis-test:    { condition: service_healthy }
-      rabbitmq-test: { condition: service_healthy }
+      pg-identity-test:      { condition: service_healthy }
+      redis-test:            { condition: service_healthy }
+      rabbitmq-test:         { condition: service_healthy }
+      migrate-identity-test: { condition: service_completed_successfully }
     profiles: ["test"]
 
   restaurant-test:
@@ -112,8 +113,9 @@ services:
     volumes:
       - ./restaurant-service:/app
     depends_on:
-      pg-restaurant-test: { condition: service_healthy }
-      rabbitmq-test: { condition: service_healthy }
+      pg-restaurant-test:      { condition: service_healthy }
+      rabbitmq-test:           { condition: service_healthy }
+      migrate-restaurant-test: { condition: service_completed_successfully }
     profiles: ["test"]
 
 volumes:
