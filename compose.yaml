@@ -56,6 +56,40 @@ services:
     networks:
       - internal
 
+  # Migrations (identity)
+  migrate-identity:
+    image: migrate/migrate
+    depends_on:
+      postgres-identity:
+        condition: service_healthy
+    volumes:
+      - ./identity-service/internal/infrastructure/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://user_dev:pass_dev@postgres-identity:5432/identity_db?sslmode=disable",
+        "up"
+      ]
+    networks:
+      - internal
+
+  # Migrations (restaurant)
+  migrate-restaurant:
+    image: migrate/migrate
+    depends_on:
+      postgres-restaurant:
+        condition: service_healthy
+    volumes:
+      - ./restaurant-service/internal/infrastructure/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://user_dev:pass_dev@postgres-restaurant:5432/restaurant_db?sslmode=disable",
+        "up"
+      ]
+    networks:
+      - internal
+
   # Message Broker
   rabbitmq:
     image: rabbitmq:3-management-alpine
@@ -127,6 +161,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate-identity:
+        condition: service_completed_successfully
     env_file: identity-service/.env
     expose:
       - "8080"
@@ -159,6 +195,8 @@ services:
         condition: service_healthy
       elasticsearch:
         condition: service_healthy
+      migrate-restaurant:
+        condition: service_completed_successfully
     env_file: restaurant-service/.env
     labels:
       - "traefik.enable=true"
