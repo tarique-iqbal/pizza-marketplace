@@ -78,6 +78,7 @@ func SetupLaunchRoutes(router *gin.Engine, h *handlers.LaunchHandler, m *middlew
 	protected.Use(m.Auth, m.EnsureOwner)
 
 	protected.POST("/:id/launch", h.Launch)
+	protected.GET("/:id/launch", h.LaunchReadiness)
 }
 
 func SetupApproveRoutes(router *gin.Engine, h *handlers.ApproveHandler, m *middleware.Middleware) {

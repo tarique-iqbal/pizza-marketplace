@@ -96,7 +96,8 @@ func NewAPIContainer() (*APIContainer, error) {
 	approveHandler := handlers.NewApproveHandler(approveRestaurant)
 
 	launchRestaurant := commands.NewLaunchRestaurant(restaurantRepo, payoutDetailsRepo, pizzaCatalog, publisher)
-	launchHandler := handlers.NewLaunchHandler(launchRestaurant)
+	getLaunchReadiness := resqry.NewGetLaunchReadiness(restaurantRepo, pizzaCatalog)
+	launchHandler := handlers.NewLaunchHandler(launchRestaurant, getLaunchReadiness)
 
 	return &APIContainer{
 		Shared:               base,
