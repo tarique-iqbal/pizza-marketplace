@@ -81,11 +81,13 @@ func TestGetLaunchReadiness_ReadyToLaunch(t *testing.T) {
 	output, err := env.GetLaunchReadiness.Execute(context.Background(), res.ID, res.OwnerID)
 	require.NoError(t, err)
 
+	assert.Equal(t, "Anatolische Küche", output.Name)
 	assert.Equal(t, restaurant.StatusApproved, output.Status)
 	assert.True(t, output.ReadyToLaunch)
 	assert.Equal(t, 2, output.MinPizzasRequired)
 	assert.Len(t, output.ReadyPizzas, 2)
 	assert.Empty(t, output.IncompletePizzas)
+	assert.Equal(t, "Welcome to launch! Your restaurant is ready to go live.", output.Comment)
 }
 
 func TestGetLaunchReadiness_NotEnoughPizzas(t *testing.T) {
@@ -109,6 +111,7 @@ func TestGetLaunchReadiness_NotEnoughPizzas(t *testing.T) {
 	assert.Len(t, output.ReadyPizzas, 1)
 	require.Len(t, output.IncompletePizzas, 1)
 	assert.Equal(t, "Salami", output.IncompletePizzas[0].Name)
+	assert.Equal(t, "Add 1 more priced pizza(s) to reach the minimum of 2.", output.Comment)
 }
 
 func TestGetLaunchReadiness_NotApprovedStatus(t *testing.T) {
@@ -129,6 +132,7 @@ func TestGetLaunchReadiness_NotApprovedStatus(t *testing.T) {
 
 	assert.Len(t, output.ReadyPizzas, 2, "minimum-pizzas check is independent of status")
 	assert.False(t, output.ReadyToLaunch, "not approved yet, so not ready to launch")
+	assert.Equal(t, "Complete your onboarding checklist before you can be reviewed for launch.", output.Comment)
 }
 
 func TestGetLaunchReadiness_NotApplicableAfterLaunch(t *testing.T) {
