@@ -83,6 +83,13 @@ func (uc *LaunchRestaurant) enrichLaunched(ctx context.Context, res *restaurant.
 			return nil, false
 		}
 
-		return resapp.NewRestaurantLaunchedPayload(launched, res, pizzas), true
+		priced := pizzas[:0]
+		for _, p := range pizzas {
+			if p.HasActivePrice() {
+				priced = append(priced, p)
+			}
+		}
+
+		return resapp.NewRestaurantLaunchedPayload(launched, res, priced), true
 	}
 }

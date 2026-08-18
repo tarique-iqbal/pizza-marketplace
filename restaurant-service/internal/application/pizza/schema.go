@@ -52,3 +52,13 @@ type PizzaPriceResponse struct {
 	Price      money.Money `json:"price"`
 	IsActive   bool        `json:"isActive"`
 }
+
+func (p PizzaResponse) HasActivePrice() bool {
+	for _, price := range p.Prices {
+		if price.IsActive {
+			return true
+		}
+	}
+
+	return false
+}

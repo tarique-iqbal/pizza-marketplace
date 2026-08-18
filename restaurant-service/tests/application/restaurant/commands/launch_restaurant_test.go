@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -12,6 +13,7 @@ import (
 	"restaurant-service/internal/application/pizza/queries"
 	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/application/restaurant/commands"
+	"restaurant-service/internal/domain/pizza"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/infrastructure/persistence"
 	apperr "restaurant-service/internal/shared/errors"
@@ -127,6 +129,17 @@ func TestLaunchRestaurant_FailsIfNotApproved(t *testing.T) {
 	assert.Equal(t, restaurant.StatusReview, unchanged.Status)
 }
 
+func setPizzaPrice(t *testing.T, db *gorm.DB, pizzaID uuid.UUID) {
+	var size pizza.PizzaSize
+	require.NoError(t, db.Order("diameter_cm").First(&size).Error)
+
+	price, err := pizza.NewPizzaPrice(pizzaID, size.ID, decimal.RequireFromString("9.99"))
+	require.NoError(t, err)
+
+	pizzaPriceRepo := persistence.NewPizzaPriceRepository(db)
+	require.NoError(t, pizzaPriceRepo.ReplacePrices(context.Background(), pizzaID, []pizza.PizzaPrice{*price}))
+}
+
 func TestLaunchRestaurant_PublishesLaunchedEventWithMenu(t *testing.T) {
 	env := setupLaunchRestaurant(t)
 	require.NoError(t, fixtures.LoadPizzaFixtures(t, env.DB))
@@ -136,6 +149,12 @@ func TestLaunchRestaurant_PublishesLaunchedEventWithMenu(t *testing.T) {
 
 	res.Status = restaurant.StatusApproved
 	require.NoError(t, env.DB.Save(&res).Error)
+
+	var pizzas []pizza.Pizza
+	require.NoError(t, env.DB.Where("restaurant_id = ?", res.ID).Order("sort_order").Find(&pizzas).Error)
+	for _, p := range pizzas {
+		setPizzaPrice(t, env.DB, p.ID)
+	}
 
 	_, err := env.LaunchRestaurant.Execute(context.Background(), res.ID, res.OwnerID)
 	require.NoError(t, err)
@@ -153,4 +172,32 @@ func TestLaunchRestaurant_PublishesLaunchedEventWithMenu(t *testing.T) {
 	assert.Equal(t, []string{"vegetarian", "vegan", "halal"}, payload.Tags)
 	assert.Equal(t, restaurant.DeliveryOwn, payload.Delivery.Type)
 	assert.InDelta(t, 53.5511, *payload.Lat, 0.0001)
+}
+
+func TestLaunchRestaurant_ExcludesUnpricedPizzasFromMenu(t *testing.T) {
+	env := setupLaunchRestaurant(t)
+	require.NoError(t, fixtures.LoadPizzaFixtures(t, env.DB))
+
+	var res restaurant.Restaurant
+	require.NoError(t, env.DB.Where("slug = ?", "anatolische-kueche").Take(&res).Error)
+
+	res.Status = restaurant.StatusApproved
+	require.NoError(t, env.DB.Save(&res).Error)
+
+	var pizzas []pizza.Pizza
+	require.NoError(t, env.DB.Where("restaurant_id = ?", res.ID).Order("sort_order").Find(&pizzas).Error)
+	require.Len(t, pizzas, 2, "fixture seeds Margherita and Salami")
+
+	setPizzaPrice(t, env.DB, pizzas[0].ID)
+
+	_, err := env.LaunchRestaurant.Execute(context.Background(), res.ID, res.OwnerID)
+	require.NoError(t, err)
+
+	require.Len(t, env.Publisher.events, 1)
+
+	payload, ok := env.Publisher.events[0].(resapp.RestaurantLaunchedPayload)
+	require.True(t, ok)
+
+	require.Len(t, payload.Pizzas, 1, "unpriced pizza must be excluded from the launched snapshot")
+	assert.Equal(t, "Margherita", payload.Pizzas[0].Name)
 }
