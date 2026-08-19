@@ -8,6 +8,7 @@ var (
 	ErrNotPendingReview             = errors.New("restaurant is not pending review")
 	ErrNotReadyToLaunch             = errors.New("restaurant is not ready to launch")
 	ErrLaunchReadinessNotApplicable = errors.New(
-		"launch readiness only applies before a restaurant has launched",
+		"launch readiness is not accessible once a restaurant has launched",
 	)
+	ErrNotEnoughPizzas = errors.New("restaurant does not have enough priced pizzas to launch")
 )
