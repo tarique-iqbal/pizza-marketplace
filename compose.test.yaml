@@ -87,6 +87,21 @@ services:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
 
+  elasticsearch-test:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.9.0
+    container_name: pizza-elasticsearch-test
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+    ports:
+      - "9201:9200"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
   identity-test:
     build:
       context: .
@@ -116,6 +131,20 @@ services:
       pg-restaurant-test:      { condition: service_healthy }
       rabbitmq-test:           { condition: service_healthy }
       migrate-restaurant-test: { condition: service_completed_successfully }
+    profiles: ["test"]
+
+  search-test:
+    build:
+      context: .
+      dockerfile: search-service/Dockerfile
+      target: dev
+    container_name: pizza-search-test
+    env_file: search-service/.env.test
+    volumes:
+      - ./search-service:/app
+    depends_on:
+      elasticsearch-test: { condition: service_healthy }
+      rabbitmq-test:      { condition: service_healthy }
     profiles: ["test"]
 
 volumes:
