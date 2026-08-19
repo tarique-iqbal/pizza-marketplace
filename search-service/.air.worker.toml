@@ -1,0 +1,14 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/worker ./cmd/worker/main.go"
+  bin = "tmp/worker"
+  full_bin = "./tmp/worker"
+  include_ext = ["go", "toml"]
+  exclude_dir = ["assets", "tmp", "vendor"]
+  delay = 1000
+  stop_on_error = true
+
+[log]
+  time = true
