@@ -6,11 +6,11 @@ import (
 
 	"github.com/google/uuid"
 
+	pizzaapp "restaurant-service/internal/application/pizza"
 	pizzaqry "restaurant-service/internal/application/pizza/queries"
 	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/domain/payout"
 	"restaurant-service/internal/domain/restaurant"
-	logobs "restaurant-service/internal/infrastructure/observability/logger"
 	apperr "restaurant-service/internal/shared/errors"
 	"restaurant-service/internal/shared/event"
 )
@@ -52,6 +52,16 @@ func (uc *LaunchRestaurant) Execute(
 		)
 	}
 
+	pizzas, err := uc.pizzaCatalog.Execute(ctx, res.ID)
+	if err != nil {
+		return resapp.RestaurantResponse{}, fmt.Errorf("failed to load pizza catalog: %w", err)
+	}
+
+	readiness := resapp.EvaluateLaunchReadiness(pizzas)
+	if !readiness.MeetsMinimum() {
+		return resapp.RestaurantResponse{}, fmt.Errorf("%w: %w", restaurant.ErrNotEnoughPizzas, apperr.ErrConflict)
+	}
+
 	if err := res.Launch(); err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("%w: %w", err, apperr.ErrConflict)
 	}
@@ -60,7 +70,7 @@ func (uc *LaunchRestaurant) Execute(
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to update restaurant: %w", err)
 	}
 
-	resapp.DispatchEvents(ctx, uc.publisher, res, uc.enrichLaunched(ctx, res))
+	resapp.DispatchEvents(ctx, uc.publisher, res, uc.enrichLaunched(res, readiness.ReadyPizzas))
 
 	pd, err := uc.payoutDetailsRepo.FindActiveByRestaurant(ctx, res.ID)
 	if err != nil {
@@ -70,26 +80,16 @@ func (uc *LaunchRestaurant) Execute(
 	return resapp.ToRestaurantResponse(res, pd), nil
 }
 
-func (uc *LaunchRestaurant) enrichLaunched(ctx context.Context, res *restaurant.Restaurant) resapp.Enricher {
+func (uc *LaunchRestaurant) enrichLaunched(
+	res *restaurant.Restaurant,
+	pizzas []pizzaapp.PizzaResponse,
+) resapp.Enricher {
 	return func(e restaurant.DomainEvent) (event.Event, bool) {
 		launched, ok := e.(restaurant.RestaurantLaunched)
 		if !ok {
 			return nil, false
 		}
 
-		pizzas, err := uc.pizzaCatalog.Execute(ctx, res.ID)
-		if err != nil {
-			logobs.FromContext(ctx).Warn("failed to load pizza catalog for restaurant.launched", "error", err)
-			return nil, false
-		}
-
-		priced := pizzas[:0]
-		for _, p := range pizzas {
-			if p.HasActivePrice() {
-				priced = append(priced, p)
-			}
-		}
-
-		return resapp.NewRestaurantLaunchedPayload(launched, res, priced), true
+		return resapp.NewRestaurantLaunchedPayload(launched, res, pizzas), true
 	}
 }

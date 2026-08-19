@@ -2,6 +2,7 @@ package commands_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -62,12 +63,25 @@ func setupLaunchRestaurant(t *testing.T) launchRestaurantSetup {
 	}
 }
 
+func priceMinimumPizzas(t *testing.T, db *gorm.DB, restaurantID uuid.UUID) {
+	pizzaRepo := persistence.NewPizzaRepository(db)
+
+	for i := range resapp.MinPizzasToLaunch {
+		p := pizza.NewPizza(uuid.New(), restaurantID).WithDetails(
+			fmt.Sprintf("Test Pizza %d", i+1), nil, false, pizza.PizzaAvailable, i,
+		)
+		require.NoError(t, pizzaRepo.Create(context.Background(), p))
+		setPizzaPrice(t, db, p.ID)
+	}
+}
+
 func TestLaunchRestaurant_Success(t *testing.T) {
 	env := setupLaunchRestaurant(t)
 
 	res := firstRestaurant(t, env.DB)
 	res.Status = restaurant.StatusApproved
 	require.NoError(t, env.DB.Save(&res).Error)
+	priceMinimumPizzas(t, env.DB, res.ID)
 
 	output, err := env.LaunchRestaurant.Execute(context.Background(), res.ID, res.OwnerID)
 	require.NoError(t, err)
@@ -114,6 +128,7 @@ func TestLaunchRestaurant_FailsIfNotApproved(t *testing.T) {
 	res := firstRestaurant(t, env.DB)
 	res.Status = restaurant.StatusReview
 	require.NoError(t, env.DB.Save(&res).Error)
+	priceMinimumPizzas(t, env.DB, res.ID)
 
 	_, err := env.LaunchRestaurant.Execute(context.Background(), res.ID, res.OwnerID)
 
@@ -190,6 +205,10 @@ func TestLaunchRestaurant_ExcludesUnpricedPizzasFromMenu(t *testing.T) {
 
 	setPizzaPrice(t, env.DB, pizzas[0].ID)
 
+	extra := pizza.NewPizza(uuid.New(), res.ID).WithDetails("Funghi", nil, false, pizza.PizzaAvailable, 3)
+	require.NoError(t, persistence.NewPizzaRepository(env.DB).Create(context.Background(), extra))
+	setPizzaPrice(t, env.DB, extra.ID)
+
 	_, err := env.LaunchRestaurant.Execute(context.Background(), res.ID, res.OwnerID)
 	require.NoError(t, err)
 
@@ -198,6 +217,40 @@ func TestLaunchRestaurant_ExcludesUnpricedPizzasFromMenu(t *testing.T) {
 	payload, ok := env.Publisher.events[0].(resapp.RestaurantLaunchedPayload)
 	require.True(t, ok)
 
-	require.Len(t, payload.Pizzas, 1, "unpriced pizza must be excluded from the launched snapshot")
-	assert.Equal(t, "Margherita", payload.Pizzas[0].Name)
+	require.Len(t, payload.Pizzas, 2, "unpriced pizza must be excluded from the launched snapshot")
+
+	names := []string{payload.Pizzas[0].Name, payload.Pizzas[1].Name}
+	assert.Contains(t, names, "Margherita")
+	assert.Contains(t, names, "Funghi")
+	assert.NotContains(t, names, "Salami")
+}
+
+func TestLaunchRestaurant_FailsIfNotEnoughPizzas(t *testing.T) {
+	env := setupLaunchRestaurant(t)
+	require.NoError(t, fixtures.LoadPizzaFixtures(t, env.DB))
+
+	var res restaurant.Restaurant
+	require.NoError(t, env.DB.Where("slug = ?", "anatolische-kueche").Take(&res).Error)
+
+	res.Status = restaurant.StatusApproved
+	require.NoError(t, env.DB.Save(&res).Error)
+
+	var pizzas []pizza.Pizza
+	require.NoError(t, env.DB.Where("restaurant_id = ?", res.ID).Order("sort_order").Find(&pizzas).Error)
+	require.Len(t, pizzas, 2, "fixture seeds Margherita and Salami")
+
+	setPizzaPrice(t, env.DB, pizzas[0].ID)
+
+	_, err := env.LaunchRestaurant.Execute(context.Background(), res.ID, res.OwnerID)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, restaurant.ErrNotEnoughPizzas)
+	assert.ErrorIs(t, err, apperr.ErrConflict)
+	assert.Empty(t, env.Publisher.events, "no event should be published when launch is rejected")
+
+	var unchanged restaurant.Restaurant
+
+	err = env.DB.Take(&unchanged, "id = ?", res.ID).Error
+	require.NoError(t, err)
+	assert.Equal(t, restaurant.StatusApproved, unchanged.Status)
 }
