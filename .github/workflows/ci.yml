@@ -19,6 +19,10 @@ on:
         description: Run email-service tests
         type: boolean
         default: false
+      run_search:
+        description: Run search-service tests
+        type: boolean
+        default: false
 
 jobs:
   detect-changes:
@@ -28,6 +32,7 @@ jobs:
       identity: ${{ steps.filter.outputs.identity }}
       restaurant: ${{ steps.filter.outputs.restaurant }}
       email: ${{ steps.filter.outputs.email }}
+      search: ${{ steps.filter.outputs.search }}
     steps:
       - uses: actions/checkout@v5
       - uses: dorny/paths-filter@v4
@@ -45,6 +50,10 @@ jobs:
             email:
               - 'email-service/**'
               - 'compose.yaml'
+            search:
+              - 'search-service/**'
+              - 'compose.yaml'
+              - 'compose.test.yaml'
 
   identity-ci:
     needs: detect-changes
@@ -181,3 +190,49 @@ jobs:
 
       - name: Run tests
         run: cd email-service && go test ./tests/...
+
+  search-ci:
+    needs: detect-changes
+    if: |
+      always() &&
+      (needs.detect-changes.outputs.search == 'true' ||
+        (github.event_name == 'workflow_dispatch' && inputs.run_search))
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: search-service/go.mod
+
+      - name: Check formatting
+        run: |
+          cd search-service
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Run go vet
+        run: cd search-service && go vet ./...
+
+      - name: Write .env.test
+        run: |
+          cat > search-service/.env.test <<'EOF'
+          APP_ENV=test
+          LOG_LEVEL=info
+          RABBITMQ_URL=amqp://user_test:pass_test@rabbitmq-test:5672/
+          ELASTICSEARCH_URL=http://elasticsearch-test:9200
+          OPENCAGE_API_KEY=test-key
+          EOF
+
+      - name: Start test stack
+        run: docker compose -f compose.test.yaml --profile test up -d search-test
+
+      - name: Run tests
+        run: docker compose -f compose.test.yaml exec -T search-test sh -c "cd /app && go test -p 1 -count=1 ./tests/..."
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f compose.test.yaml down -v
