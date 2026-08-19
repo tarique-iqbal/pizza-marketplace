@@ -29,8 +29,8 @@ jobs:
       restaurant: ${{ steps.filter.outputs.restaurant }}
       email: ${{ steps.filter.outputs.email }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -54,7 +54,7 @@ jobs:
         (github.event_name == 'workflow_dispatch' && inputs.run_identity))
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: actions/setup-go@v5
         with:
@@ -107,7 +107,7 @@ jobs:
         (github.event_name == 'workflow_dispatch' && inputs.run_restaurant))
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: actions/setup-go@v5
         with:
@@ -161,7 +161,7 @@ jobs:
         (github.event_name == 'workflow_dispatch' && inputs.run_email))
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: actions/setup-go@v5
         with:
