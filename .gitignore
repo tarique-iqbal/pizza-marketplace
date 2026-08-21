@@ -31,5 +31,6 @@ build/
 /email-service/tmp
 /identity-service/tmp
 /restaurant-service/tmp
+/search-service/tmp
 
 notes/
