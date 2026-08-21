@@ -137,9 +137,9 @@ flowchart LR
 - **Outbound**: `restaurant.ready_for_review` (consumed by `email-service`, notifies the admin inbox),
   `restaurant.approved` (consumed by `email-service`, notifies the restaurant's own contact email — the
   domain event denormalizes `Restaurant.Email` at the point `Approve()` fires, trusting the checklist
-  invariant that `contact` is complete by then), `restaurant.launched` (published, currently unconsumed by
-  anything in this repo — the
-  `search-service` indexing flow described in the root docs is not yet wired up).
+  invariant that `contact` is complete by then), `restaurant.launched` (a full restaurant+pizzas snapshot,
+  composed in-process by `launch_restaurant.go`'s `Enricher` — consumed by `search-service`'s worker, which
+  indexes it into Elasticsearch; see `docs/services/search-service.md`).
 
 ## Design notes worth knowing
 
