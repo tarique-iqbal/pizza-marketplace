@@ -226,6 +226,50 @@ services:
     networks:
       - internal
 
+  # Search Service (API)
+  search-service:
+    container_name: pizza-search-service
+    build:
+      context: .
+      dockerfile: search-service/Dockerfile
+      target: dev
+    volumes:
+      - ./search-service:/app
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    env_file: search-service/.env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.search.rule=PathPrefix(`/search`)"
+      - "traefik.http.routers.search.entrypoints=web"
+      - "traefik.http.services.search.loadbalancer.server.port=8080"
+      - "traefik.docker.network=backend"
+    networks:
+      - backend
+      - internal
+
+  # Search Service (worker)
+  search-worker:
+    container_name: pizza-search-worker
+    build:
+      context: .
+      dockerfile: search-service/Dockerfile
+      target: dev
+    command: ["air", "-c", ".air.worker.toml"]
+    volumes:
+      - ./search-service:/app
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    env_file: search-service/.env
+    networks:
+      - internal
+
 volumes:
   pg_identity:
   pg_restaurant:
