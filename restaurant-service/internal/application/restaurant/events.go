@@ -118,3 +118,61 @@ func NewRestaurantLaunchedPayload(
 
 	return payload
 }
+
+type RestaurantUpdatedPayload struct {
+	RestaurantID   uuid.UUID            `json:"restaurant_id"`
+	RestaurantName string               `json:"restaurant_name"`
+	EventName      string               `json:"event_name"`
+	UpdatedAt      time.Time            `json:"updated_at"`
+	Slug           string               `json:"slug"`
+	Contact        ContactResponse      `json:"contact"`
+	Address        Address              `json:"address"`
+	Lat            float64              `json:"lat"`
+	Lon            float64              `json:"lon"`
+	Delivery       DeliveryResponse     `json:"delivery"`
+	Currency       string               `json:"currency"`
+	Rating         float64              `json:"rating"`
+	TotalReviews   int32                `json:"total_reviews"`
+	Pickup         bool                 `json:"pickup"`
+	Tags           []string             `json:"tags"`
+	OpeningHours   OpeningHoursResponse `json:"opening_hours"`
+}
+
+func (RestaurantUpdatedPayload) GetEventName() string {
+	return "restaurant.updated"
+}
+
+func NewRestaurantUpdatedPayload(
+	e restaurant.RestaurantUpdated,
+	r *restaurant.Restaurant,
+) RestaurantUpdatedPayload {
+	payload := RestaurantUpdatedPayload{
+		RestaurantID:   e.RestaurantID,
+		RestaurantName: r.Name,
+		UpdatedAt:      e.UpdatedAt,
+		Slug:           *r.Slug,
+		Contact: ContactResponse{
+			Email:   r.Email,
+			Phone:   r.Phone,
+			Website: r.Website,
+		},
+		Address: r.Address,
+		Lat:     *r.Lat,
+		Lon:     *r.Lon,
+		Delivery: DeliveryResponse{
+			Type:         r.DeliveryType,
+			RadiusKm:     r.DeliveryKm,
+			Fee:          money.Money(r.DeliveryFee),
+			MinimumOrder: money.Money(r.MinimumOrder),
+		},
+		Currency:     r.Currency,
+		Rating:       r.Rating,
+		TotalReviews: r.TotalReviews,
+		Pickup:       r.Pickup,
+		Tags:         parseTags(r.Tags),
+		OpeningHours: r.OpeningHours,
+	}
+	payload.EventName = payload.GetEventName()
+
+	return payload
+}
