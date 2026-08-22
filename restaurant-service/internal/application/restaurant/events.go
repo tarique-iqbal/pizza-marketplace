@@ -63,11 +63,11 @@ type RestaurantLaunchedPayload struct {
 	RestaurantName string                   `json:"restaurant_name"`
 	EventName      string                   `json:"event_name"`
 	LaunchedAt     time.Time                `json:"launched_at"`
-	Slug           *string                  `json:"slug,omitempty"`
+	Slug           string                   `json:"slug"`
 	Contact        ContactResponse          `json:"contact"`
 	Address        Address                  `json:"address"`
-	Lat            *float64                 `json:"lat,omitempty"`
-	Lon            *float64                 `json:"lon,omitempty"`
+	Lat            float64                  `json:"lat"`
+	Lon            float64                  `json:"lon"`
 	Delivery       DeliveryResponse         `json:"delivery"`
 	Currency       string                   `json:"currency"`
 	Rating         float64                  `json:"rating"`
@@ -91,15 +91,15 @@ func NewRestaurantLaunchedPayload(
 		RestaurantID:   e.RestaurantID,
 		RestaurantName: e.RestaurantName,
 		LaunchedAt:     e.LaunchedAt,
-		Slug:           r.Slug,
+		Slug:           *r.Slug,
 		Contact: ContactResponse{
 			Email:   r.Email,
 			Phone:   r.Phone,
 			Website: r.Website,
 		},
 		Address: r.Address,
-		Lat:     r.Lat,
-		Lon:     r.Lon,
+		Lat:     *r.Lat,
+		Lon:     *r.Lon,
 		Delivery: DeliveryResponse{
 			Type:         r.DeliveryType,
 			RadiusKm:     r.DeliveryKm,

@@ -78,7 +78,9 @@ func priceMinimumPizzas(t *testing.T, db *gorm.DB, restaurantID uuid.UUID) {
 func TestLaunchRestaurant_Success(t *testing.T) {
 	env := setupLaunchRestaurant(t)
 
-	res := firstRestaurant(t, env.DB)
+	var res restaurant.Restaurant
+	require.NoError(t, env.DB.Where("slug = ?", "anatolische-kueche").Take(&res).Error)
+
 	res.Status = restaurant.StatusApproved
 	require.NoError(t, env.DB.Save(&res).Error)
 	priceMinimumPizzas(t, env.DB, res.ID)
@@ -186,7 +188,7 @@ func TestLaunchRestaurant_PublishesLaunchedEventWithMenu(t *testing.T) {
 	assert.Equal(t, "Hamburg", payload.Address.City)
 	assert.Equal(t, []string{"vegetarian", "vegan", "halal"}, payload.Tags)
 	assert.Equal(t, restaurant.DeliveryOwn, payload.Delivery.Type)
-	assert.InDelta(t, 53.5511, *payload.Lat, 0.0001)
+	assert.InDelta(t, 53.5511, payload.Lat, 0.0001)
 }
 
 func TestLaunchRestaurant_ExcludesUnpricedPizzasFromMenu(t *testing.T) {
