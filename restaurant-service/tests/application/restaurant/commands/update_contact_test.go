@@ -21,6 +21,7 @@ import (
 type updateContactSetup struct {
 	DB            *gorm.DB
 	UpdateContact *commands.UpdateContact
+	Publisher     *fakePublisher
 }
 
 func setupUpdateContact(t *testing.T) updateContactSetup {
@@ -31,11 +32,13 @@ func setupUpdateContact(t *testing.T) updateContactSetup {
 
 	restaurantRepo := persistence.NewRestaurantRepository(db.DB)
 	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(db.DB)
-	updateContact := commands.NewUpdateContact(restaurantRepo, payoutDetailsRepo, testutil.NoopPublisher{})
+	publisher := &fakePublisher{}
+	updateContact := commands.NewUpdateContact(restaurantRepo, payoutDetailsRepo, publisher)
 
 	return updateContactSetup{
 		DB:            db.DB,
 		UpdateContact: updateContact,
+		Publisher:     publisher,
 	}
 }
 
@@ -77,6 +80,35 @@ func TestUpdateContact_Success(t *testing.T) {
 	assert.Equal(t, "+49 40 12345678", *updated.Phone)
 	assert.Equal(t, "https://example.com", *updated.Website)
 	assert.False(t, updated.UpdatedAt.IsZero())
+
+	assert.Empty(t, env.Publisher.events, "no restaurant.updated event while still draft")
+}
+
+func TestUpdateContact_PublishesUpdatedEvent_WhenActive(t *testing.T) {
+	env := setupUpdateContact(t)
+
+	var res restaurant.Restaurant
+	require.NoError(t, env.DB.Where("slug = ?", "anatolische-kueche").Take(&res).Error)
+
+	res.Status = restaurant.StatusActive
+	require.NoError(t, env.DB.Save(&res).Error)
+
+	_, err := env.UpdateContact.Execute(
+		context.Background(),
+		res.ID,
+		res.OwnerID,
+		validContactInput(),
+	)
+
+	require.NoError(t, err)
+	require.Len(t, env.Publisher.events, 1)
+
+	payload, ok := env.Publisher.events[0].(resapp.RestaurantUpdatedPayload)
+	require.True(t, ok)
+
+	assert.Equal(t, "restaurant.updated", payload.EventName)
+	assert.Equal(t, res.ID, payload.RestaurantID)
+	assert.Equal(t, "owner@example.com", *payload.Contact.Email)
 }
 
 func TestUpdateContact_RestaurantNotOwned(t *testing.T) {
