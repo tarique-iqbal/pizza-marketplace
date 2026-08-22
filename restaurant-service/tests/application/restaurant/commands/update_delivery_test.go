@@ -22,6 +22,7 @@ import (
 type updateDeliverySetup struct {
 	DB             *gorm.DB
 	UpdateDelivery *commands.UpdateDelivery
+	Publisher      *fakePublisher
 }
 
 func setupUpdateDelivery(t *testing.T) updateDeliverySetup {
@@ -32,11 +33,13 @@ func setupUpdateDelivery(t *testing.T) updateDeliverySetup {
 
 	restaurantRepo := persistence.NewRestaurantRepository(db.DB)
 	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(db.DB)
-	updateDelivery := commands.NewUpdateDelivery(restaurantRepo, payoutDetailsRepo, testutil.NoopPublisher{})
+	publisher := &fakePublisher{}
+	updateDelivery := commands.NewUpdateDelivery(restaurantRepo, payoutDetailsRepo, publisher)
 
 	return updateDeliverySetup{
 		DB:             db.DB,
 		UpdateDelivery: updateDelivery,
+		Publisher:      publisher,
 	}
 }
 
@@ -84,6 +87,35 @@ func TestUpdateDelivery_Success(t *testing.T) {
 	assert.True(t, decimal.NewFromFloat(2.50).Equal(updated.DeliveryFee))
 	assert.True(t, decimal.NewFromFloat(15.00).Equal(updated.MinimumOrder))
 	assert.False(t, updated.UpdatedAt.IsZero())
+
+	assert.Empty(t, env.Publisher.events, "no restaurant.updated event while still draft")
+}
+
+func TestUpdateDelivery_PublishesUpdatedEvent_WhenActive(t *testing.T) {
+	env := setupUpdateDelivery(t)
+
+	var res restaurant.Restaurant
+	require.NoError(t, env.DB.Where("slug = ?", "anatolische-kueche").Take(&res).Error)
+
+	res.Status = restaurant.StatusActive
+	require.NoError(t, env.DB.Save(&res).Error)
+
+	_, err := env.UpdateDelivery.Execute(
+		context.Background(),
+		res.ID,
+		res.OwnerID,
+		validDeliveryInput(),
+	)
+
+	require.NoError(t, err)
+	require.Len(t, env.Publisher.events, 1)
+
+	payload, ok := env.Publisher.events[0].(resapp.RestaurantUpdatedPayload)
+	require.True(t, ok)
+
+	assert.Equal(t, "restaurant.updated", payload.EventName)
+	assert.Equal(t, res.ID, payload.RestaurantID)
+	assert.Equal(t, restaurant.DeliveryOwn, payload.Delivery.Type)
 }
 
 func TestUpdateDelivery_RestaurantNotOwned(t *testing.T) {

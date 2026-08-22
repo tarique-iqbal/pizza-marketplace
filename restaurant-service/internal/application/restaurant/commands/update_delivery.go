@@ -49,6 +49,7 @@ func (uc *UpdateDelivery) Execute(
 	}
 
 	res.CompleteChecklistItem(restaurant.ChecklistDelivery)
+	res.NotifyUpdated()
 
 	res.WithDelivery(
 		input.Pickup,
@@ -62,7 +63,7 @@ func (uc *UpdateDelivery) Execute(
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to update restaurant: %w", err)
 	}
 
-	resapp.DispatchEvents(ctx, uc.publisher, res)
+	resapp.DispatchEvents(ctx, uc.publisher, res, uc.enrichUpdated(res))
 
 	pd, err := uc.payoutDetailsRepo.FindActiveByRestaurant(ctx, res.ID)
 	if err != nil {
@@ -70,4 +71,15 @@ func (uc *UpdateDelivery) Execute(
 	}
 
 	return resapp.ToRestaurantResponse(res, pd), nil
+}
+
+func (uc *UpdateDelivery) enrichUpdated(res *restaurant.Restaurant) resapp.Enricher {
+	return func(e restaurant.DomainEvent) (event.Event, bool) {
+		updated, ok := e.(restaurant.RestaurantUpdated)
+		if !ok {
+			return nil, false
+		}
+
+		return resapp.NewRestaurantUpdatedPayload(updated, res), true
+	}
 }
