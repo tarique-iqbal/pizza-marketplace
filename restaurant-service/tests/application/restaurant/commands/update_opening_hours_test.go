@@ -21,6 +21,7 @@ import (
 type updateOpeningHoursSetup struct {
 	DB                 *gorm.DB
 	UpdateOpeningHours *commands.UpdateOpeningHours
+	Publisher          *fakePublisher
 }
 
 func setupUpdateOpeningHours(t *testing.T) updateOpeningHoursSetup {
@@ -31,11 +32,13 @@ func setupUpdateOpeningHours(t *testing.T) updateOpeningHoursSetup {
 
 	restaurantRepo := persistence.NewRestaurantRepository(db.DB)
 	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(db.DB)
-	updateOpeningHours := commands.NewUpdateOpeningHours(restaurantRepo, payoutDetailsRepo, testutil.NoopPublisher{})
+	publisher := &fakePublisher{}
+	updateOpeningHours := commands.NewUpdateOpeningHours(restaurantRepo, payoutDetailsRepo, publisher)
 
 	return updateOpeningHoursSetup{
 		DB:                 db.DB,
 		UpdateOpeningHours: updateOpeningHours,
+		Publisher:          publisher,
 	}
 }
 
@@ -82,6 +85,35 @@ func TestUpdateOpeningHours_Success(t *testing.T) {
 	assert.Equal(t, "11:00", updated.OpeningHours.Friday[0].Open)
 	assert.Empty(t, updated.OpeningHours.Sunday)
 	assert.False(t, updated.UpdatedAt.IsZero())
+
+	assert.Empty(t, env.Publisher.events, "no restaurant.updated event while still draft")
+}
+
+func TestUpdateOpeningHours_PublishesUpdatedEvent_WhenActive(t *testing.T) {
+	env := setupUpdateOpeningHours(t)
+
+	var res restaurant.Restaurant
+	require.NoError(t, env.DB.Where("slug = ?", "anatolische-kueche").Take(&res).Error)
+
+	res.Status = restaurant.StatusActive
+	require.NoError(t, env.DB.Save(&res).Error)
+
+	_, err := env.UpdateOpeningHours.Execute(
+		context.Background(),
+		res.ID,
+		res.OwnerID,
+		validOpeningHoursInput(),
+	)
+
+	require.NoError(t, err)
+	require.Len(t, env.Publisher.events, 1)
+
+	payload, ok := env.Publisher.events[0].(resapp.RestaurantUpdatedPayload)
+	require.True(t, ok)
+
+	assert.Equal(t, "restaurant.updated", payload.EventName)
+	assert.Equal(t, res.ID, payload.RestaurantID)
+	assert.Equal(t, "11:00", payload.OpeningHours.Monday[0].Open)
 }
 
 func TestUpdateOpeningHours_SupportsMultipleRangesPerDay(t *testing.T) {
