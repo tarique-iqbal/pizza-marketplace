@@ -76,6 +76,7 @@ func (uc *UpdateAddress) Execute(
 	}
 
 	res.CompleteChecklistItem(restaurant.ChecklistAddress)
+	res.NotifyUpdated()
 
 	res.WithSlug(slug).
 		WithAddress(addr).
@@ -85,7 +86,7 @@ func (uc *UpdateAddress) Execute(
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to update restaurant: %w", err)
 	}
 
-	resapp.DispatchEvents(ctx, uc.publisher, res)
+	resapp.DispatchEvents(ctx, uc.publisher, res, uc.enrichUpdated(res))
 
 	pd, err := uc.payoutDetailsRepo.FindActiveByRestaurant(ctx, res.ID)
 	if err != nil {
@@ -125,4 +126,15 @@ func (uc *UpdateAddress) generateUniqueSlug(
 	}
 
 	return "", fmt.Errorf("failed to generate unique slug")
+}
+
+func (uc *UpdateAddress) enrichUpdated(res *restaurant.Restaurant) resapp.Enricher {
+	return func(e restaurant.DomainEvent) (event.Event, bool) {
+		updated, ok := e.(restaurant.RestaurantUpdated)
+		if !ok {
+			return nil, false
+		}
+
+		return resapp.NewRestaurantUpdatedPayload(updated, res), true
+	}
 }

@@ -36,6 +36,7 @@ func (m *mockGeocoder) GeocodeAddress(
 type updateAddressSetup struct {
 	DB            *gorm.DB
 	UpdateAddress *commands.UpdateAddress
+	Publisher     *fakePublisher
 }
 
 func setupUpdateAddress(
@@ -57,11 +58,13 @@ func setupUpdateAddress(
 
 	restaurantRepo := persistence.NewRestaurantRepository(db.DB)
 	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(db.DB)
-	updateAddress := commands.NewUpdateAddress(mockGeo, restaurantRepo, payoutDetailsRepo, testutil.NoopPublisher{})
+	publisher := &fakePublisher{}
+	updateAddress := commands.NewUpdateAddress(mockGeo, restaurantRepo, payoutDetailsRepo, publisher)
 
 	return updateAddressSetup{
 		DB:            db.DB,
 		UpdateAddress: updateAddress,
+		Publisher:     publisher,
 	}
 }
 
@@ -121,6 +124,33 @@ func TestUpdateAddress_Success(t *testing.T) {
 	assert.Contains(t, *updated.Slug, "cityville")
 	assert.Contains(t, *updated.Slug, "main-str")
 	assert.False(t, updated.UpdatedAt.IsZero())
+
+	assert.Empty(t, updateAddr.Publisher.events, "no restaurant.updated event while still draft")
+}
+
+func TestUpdateAddress_PublishesUpdatedEvent_WhenActive(t *testing.T) {
+	updateAddr := setupUpdateAddress(t, 52.52, 13.405, nil)
+
+	res := firstRestaurant(t, updateAddr.DB)
+	res.Status = restaurant.StatusActive
+	require.NoError(t, updateAddr.DB.Save(&res).Error)
+
+	_, err := updateAddr.UpdateAddress.Execute(
+		context.Background(),
+		res.ID,
+		res.OwnerID,
+		validAddressInput(),
+	)
+
+	require.NoError(t, err)
+	require.Len(t, updateAddr.Publisher.events, 1)
+
+	payload, ok := updateAddr.Publisher.events[0].(resapp.RestaurantUpdatedPayload)
+	require.True(t, ok)
+
+	assert.Equal(t, "restaurant.updated", payload.EventName)
+	assert.Equal(t, res.ID, payload.RestaurantID)
+	assert.Equal(t, "Cityville", payload.Address.City)
 }
 
 func TestUpdateAddress_RestaurantNotOwned(t *testing.T) {
