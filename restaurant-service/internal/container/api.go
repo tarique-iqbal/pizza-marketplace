@@ -76,7 +76,7 @@ func NewAPIContainer() (*APIContainer, error) {
 	pizzaPriceRepo := persistence.NewPizzaPriceRepository(base.DB)
 	pizzaSizeRepo := persistence.NewPizzaSizeRepository(base.DB)
 
-	createPizza := pizzacmd.NewCreatePizza(restaurantRepo, pizzaRepo, toppingRepo)
+	createPizza := pizzacmd.NewCreatePizza(restaurantRepo, pizzaRepo, toppingRepo, publisher)
 	updatePizza := pizzacmd.NewUpdatePizza(
 		restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo,
 	)

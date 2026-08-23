@@ -8,27 +8,32 @@ import (
 	"github.com/google/uuid"
 
 	pizzaapp "restaurant-service/internal/application/pizza"
+	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/domain/pizza"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/domain/topping"
 	apperr "restaurant-service/internal/shared/errors"
+	"restaurant-service/internal/shared/event"
 )
 
 type CreatePizza struct {
 	restaurantRepo restaurant.RestaurantRepository
 	pizzaRepo      pizza.PizzaRepository
 	toppingRepo    topping.ToppingRepository
+	publisher      event.EventPublisher
 }
 
 func NewCreatePizza(
 	restaurantRepo restaurant.RestaurantRepository,
 	pizzaRepo pizza.PizzaRepository,
 	toppingRepo topping.ToppingRepository,
+	publisher event.EventPublisher,
 ) *CreatePizza {
 	return &CreatePizza{
 		restaurantRepo: restaurantRepo,
 		pizzaRepo:      pizzaRepo,
 		toppingRepo:    toppingRepo,
+		publisher:      publisher,
 	}
 }
 
@@ -112,5 +117,21 @@ func (uc *CreatePizza) Execute(
 		return pizzaapp.PizzaResponse{}, fmt.Errorf("failed to create pizza: %w", err)
 	}
 
-	return pizzaapp.ToPizzaResponse(p, nil, nil, toppingIDs, toppingByID, nil), nil
+	output := pizzaapp.ToPizzaResponse(p, nil, nil, toppingIDs, toppingByID, nil)
+
+	res.NotifyPizzaUpdated()
+	resapp.DispatchEvents(ctx, uc.publisher, res, uc.enrichPizzaUpdated(output))
+
+	return output, nil
+}
+
+func (uc *CreatePizza) enrichPizzaUpdated(output pizzaapp.PizzaResponse) resapp.Enricher {
+	return func(e restaurant.DomainEvent) (event.Event, bool) {
+		updated, ok := e.(restaurant.PizzaUpdated)
+		if !ok {
+			return nil, false
+		}
+
+		return resapp.NewPizzaUpdatedPayload(updated, output), true
+	}
 }

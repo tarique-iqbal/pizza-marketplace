@@ -11,18 +11,30 @@ import (
 
 	pizzaapp "restaurant-service/internal/application/pizza"
 	"restaurant-service/internal/application/pizza/commands"
+	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/domain/pizza"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/domain/topping"
 	"restaurant-service/internal/infrastructure/persistence"
 	apperr "restaurant-service/internal/shared/errors"
+	"restaurant-service/internal/shared/event"
 	"restaurant-service/tests/infrastructure/db/fixtures"
 	"restaurant-service/tests/testutil"
 )
 
+type fakePublisher struct {
+	events []event.Event
+}
+
+func (f *fakePublisher) PublishEvent(ctx context.Context, e event.Event) error {
+	f.events = append(f.events, e)
+	return nil
+}
+
 type createPizzaSetup struct {
 	DB          *gorm.DB
 	CreatePizza *commands.CreatePizza
+	Publisher   *fakePublisher
 }
 
 func setupCreatePizza(t *testing.T) createPizzaSetup {
@@ -34,10 +46,12 @@ func setupCreatePizza(t *testing.T) createPizzaSetup {
 	restaurantRepo := persistence.NewRestaurantRepository(db.DB)
 	pizzaRepo := persistence.NewPizzaRepository(db.DB)
 	toppingRepo := persistence.NewToppingRepository(db.DB)
+	publisher := &fakePublisher{}
 
 	return createPizzaSetup{
 		DB:          db.DB,
-		CreatePizza: commands.NewCreatePizza(restaurantRepo, pizzaRepo, toppingRepo),
+		CreatePizza: commands.NewCreatePizza(restaurantRepo, pizzaRepo, toppingRepo, publisher),
+		Publisher:   publisher,
 	}
 }
 
@@ -73,6 +87,29 @@ func TestCreatePizza_Success(t *testing.T) {
 	var stored pizza.Pizza
 	require.NoError(t, env.DB.Take(&stored, "id = ?", output.ID).Error)
 	assert.Equal(t, res.ID, stored.RestaurantID)
+
+	assert.Empty(t, env.Publisher.events, "no pizza.updated event while restaurant is still draft")
+}
+
+func TestCreatePizza_PublishesPizzaUpdatedEvent_WhenActive(t *testing.T) {
+	env := setupCreatePizza(t)
+
+	res := restaurantByName(t, env.DB, "Anatolische Küche")
+	res.Status = restaurant.StatusActive
+	require.NoError(t, env.DB.Save(&res).Error)
+
+	output, err := env.CreatePizza.Execute(context.Background(), res.ID, res.OwnerID, validCreatePizzaInput())
+	require.NoError(t, err)
+
+	require.Len(t, env.Publisher.events, 1)
+
+	payload, ok := env.Publisher.events[0].(resapp.PizzaUpdatedPayload)
+	require.True(t, ok)
+
+	assert.Equal(t, "restaurant.pizza_updated", payload.EventName)
+	assert.Equal(t, res.ID, payload.RestaurantID)
+	assert.Equal(t, output.ID, payload.Pizza.ID)
+	assert.Equal(t, "Margherita", payload.Pizza.Name)
 }
 
 func TestCreatePizza_ChecklistIncomplete(t *testing.T) {

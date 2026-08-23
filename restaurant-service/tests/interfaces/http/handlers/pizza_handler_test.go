@@ -48,7 +48,7 @@ func setupPizzaHandler(t *testing.T) pizzaHandlerSetup {
 	pizzaCatalog := queries.NewPizzaCatalog(pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo)
 
 	handler := handlers.NewPizzaHandler(
-		commands.NewCreatePizza(restaurantRepo, pizzaRepo, toppingRepo),
+		commands.NewCreatePizza(restaurantRepo, pizzaRepo, toppingRepo, testutil.NoopPublisher{}),
 		commands.NewUpdatePizza(restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo),
 		commands.NewSetPizzaPrices(restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo),
 		queries.NewListPizzas(restaurantRepo, pizzaCatalog),
