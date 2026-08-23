@@ -176,3 +176,28 @@ func NewRestaurantUpdatedPayload(
 
 	return payload
 }
+
+type PizzaUpdatedPayload struct {
+	RestaurantID uuid.UUID              `json:"restaurant_id"`
+	EventName    string                 `json:"event_name"`
+	UpdatedAt    time.Time              `json:"updated_at"`
+	Pizza        pizzaapp.PizzaResponse `json:"pizza"`
+}
+
+func (PizzaUpdatedPayload) GetEventName() string {
+	return "restaurant.pizza_updated"
+}
+
+func NewPizzaUpdatedPayload(
+	e restaurant.PizzaUpdated,
+	pizza pizzaapp.PizzaResponse,
+) PizzaUpdatedPayload {
+	payload := PizzaUpdatedPayload{
+		RestaurantID: e.RestaurantID,
+		UpdatedAt:    e.UpdatedAt,
+		Pizza:        pizza,
+	}
+	payload.EventName = payload.GetEventName()
+
+	return payload
+}
