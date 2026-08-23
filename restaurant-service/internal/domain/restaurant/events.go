@@ -49,3 +49,12 @@ type RestaurantUpdated struct {
 func (RestaurantUpdated) GetEventName() string {
 	return "restaurant.updated"
 }
+
+type PizzaUpdated struct {
+	RestaurantID uuid.UUID
+	UpdatedAt    time.Time
+}
+
+func (PizzaUpdated) GetEventName() string {
+	return "restaurant.pizza_updated"
+}

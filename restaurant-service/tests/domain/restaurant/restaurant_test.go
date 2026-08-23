@@ -194,6 +194,43 @@ func TestRestaurant_NotifyUpdated_NoOpOtherwise(t *testing.T) {
 	}
 }
 
+func TestRestaurant_NotifyPizzaUpdated_PublishesForActiveAndInactive(t *testing.T) {
+	for _, status := range []restaurant.RestaurantStatus{
+		restaurant.StatusActive,
+		restaurant.StatusInactive,
+	} {
+		res := restaurant.Restaurant{ID: uuid.New(), Status: status}
+
+		res.NotifyPizzaUpdated()
+
+		events := res.PullEvents()
+		require.Len(t, events, 1)
+
+		event, ok := events[0].(restaurant.PizzaUpdated)
+		require.True(t, ok)
+
+		assert.Equal(t, res.ID, event.RestaurantID)
+		assert.Equal(t, "restaurant.pizza_updated", event.GetEventName())
+		assert.False(t, event.UpdatedAt.IsZero())
+	}
+}
+
+func TestRestaurant_NotifyPizzaUpdated_NoOpOtherwise(t *testing.T) {
+	for _, status := range []restaurant.RestaurantStatus{
+		restaurant.StatusDraft,
+		restaurant.StatusReview,
+		restaurant.StatusApproved,
+		restaurant.StatusRejected,
+		restaurant.StatusDisabled,
+	} {
+		res := restaurant.Restaurant{ID: uuid.New(), Status: status}
+
+		res.NotifyPizzaUpdated()
+
+		assert.Empty(t, res.PullEvents())
+	}
+}
+
 func TestRestaurant_PullEvents_DrainsQueue(t *testing.T) {
 	res := restaurant.Restaurant{
 		ID:     uuid.New(),
