@@ -12,7 +12,9 @@ import (
 
 	pizzaapp "restaurant-service/internal/application/pizza"
 	"restaurant-service/internal/application/pizza/commands"
+	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/domain/pizza"
+	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/domain/topping"
 	"restaurant-service/internal/infrastructure/persistence"
 	apperr "restaurant-service/internal/shared/errors"
@@ -23,6 +25,7 @@ import (
 type setPizzaPricesSetup struct {
 	DB             *gorm.DB
 	SetPizzaPrices *commands.SetPizzaPrices
+	Publisher      *fakePublisher
 }
 
 func setupSetPizzaPrices(t *testing.T) setPizzaPricesSetup {
@@ -37,10 +40,14 @@ func setupSetPizzaPrices(t *testing.T) setPizzaPricesSetup {
 	pizzaPriceRepo := persistence.NewPizzaPriceRepository(db.DB)
 	pizzaSizeRepo := persistence.NewPizzaSizeRepository(db.DB)
 	toppingRepo := persistence.NewToppingRepository(db.DB)
+	publisher := &fakePublisher{}
 
 	return setPizzaPricesSetup{
-		DB:             db.DB,
-		SetPizzaPrices: commands.NewSetPizzaPrices(restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo),
+		DB: db.DB,
+		SetPizzaPrices: commands.NewSetPizzaPrices(
+			restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, publisher,
+		),
+		Publisher: publisher,
 	}
 }
 
@@ -74,6 +81,37 @@ func TestSetPizzaPrices_Success(t *testing.T) {
 
 	assert.True(t, decimal.RequireFromString("9.50").Equal(decimal.Decimal(byPrice[sizes[0].ID].Price)))
 	assert.True(t, decimal.RequireFromString("12.00").Equal(decimal.Decimal(byPrice[sizes[1].ID].Price)))
+
+	assert.Empty(t, env.Publisher.events, "no pizza.updated event while restaurant is still draft")
+}
+
+func TestSetPizzaPrices_PublishesPizzaUpdatedEvent_WhenActive(t *testing.T) {
+	env := setupSetPizzaPrices(t)
+
+	pz := firstPizza(t, env.DB)
+	owner := restaurantByID(t, env.DB, pz.RestaurantID)
+	owner.Status = restaurant.StatusActive
+	require.NoError(t, env.DB.Save(&owner).Error)
+
+	var size pizza.PizzaSize
+	require.NoError(t, env.DB.Order("diameter_cm").Take(&size).Error)
+
+	input := pizzaapp.SetPizzaPricesRequest{
+		Prices: []pizzaapp.PizzaPriceInput{{SizeID: size.ID, Price: decimal.RequireFromString("9.50")}},
+	}
+
+	output, err := env.SetPizzaPrices.Execute(context.Background(), pz.RestaurantID, pz.ID, owner.OwnerID, input)
+	require.NoError(t, err)
+
+	require.Len(t, env.Publisher.events, 1)
+
+	payload, ok := env.Publisher.events[0].(resapp.PizzaUpdatedPayload)
+	require.True(t, ok)
+
+	assert.Equal(t, "restaurant.pizza_updated", payload.EventName)
+	assert.Equal(t, owner.ID, payload.RestaurantID)
+	assert.Equal(t, output.ID, payload.Pizza.ID)
+	require.Len(t, payload.Pizza.Prices, 1)
 }
 
 func TestSetPizzaPrices_ReportsExistingToppings(t *testing.T) {

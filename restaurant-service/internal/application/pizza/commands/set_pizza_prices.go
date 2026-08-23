@@ -7,10 +7,12 @@ import (
 	"github.com/google/uuid"
 
 	pizzaapp "restaurant-service/internal/application/pizza"
+	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/domain/pizza"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/domain/topping"
 	apperr "restaurant-service/internal/shared/errors"
+	"restaurant-service/internal/shared/event"
 )
 
 type SetPizzaPrices struct {
@@ -19,6 +21,7 @@ type SetPizzaPrices struct {
 	pizzaPriceRepo pizza.PizzaPriceRepository
 	pizzaSizeRepo  pizza.PizzaSizeRepository
 	toppingRepo    topping.ToppingRepository
+	publisher      event.EventPublisher
 }
 
 func NewSetPizzaPrices(
@@ -27,6 +30,7 @@ func NewSetPizzaPrices(
 	pizzaPriceRepo pizza.PizzaPriceRepository,
 	pizzaSizeRepo pizza.PizzaSizeRepository,
 	toppingRepo topping.ToppingRepository,
+	publisher event.EventPublisher,
 ) *SetPizzaPrices {
 	return &SetPizzaPrices{
 		restaurantRepo: restaurantRepo,
@@ -34,6 +38,7 @@ func NewSetPizzaPrices(
 		pizzaPriceRepo: pizzaPriceRepo,
 		pizzaSizeRepo:  pizzaSizeRepo,
 		toppingRepo:    toppingRepo,
+		publisher:      publisher,
 	}
 }
 
@@ -126,5 +131,21 @@ func (uc *SetPizzaPrices) Execute(
 		toppingByID[t.ID] = t
 	}
 
-	return pizzaapp.ToPizzaResponse(p, updated, sizeByID, toppingIDs, toppingByID, nil), nil
+	output := pizzaapp.ToPizzaResponse(p, updated, sizeByID, toppingIDs, toppingByID, nil)
+
+	res.NotifyPizzaUpdated()
+	resapp.DispatchEvents(ctx, uc.publisher, res, uc.enrichPizzaUpdated(output))
+
+	return output, nil
+}
+
+func (uc *SetPizzaPrices) enrichPizzaUpdated(output pizzaapp.PizzaResponse) resapp.Enricher {
+	return func(e restaurant.DomainEvent) (event.Event, bool) {
+		updated, ok := e.(restaurant.PizzaUpdated)
+		if !ok {
+			return nil, false
+		}
+
+		return resapp.NewPizzaUpdatedPayload(updated, output), true
+	}
 }

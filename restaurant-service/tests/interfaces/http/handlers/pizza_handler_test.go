@@ -52,7 +52,9 @@ func setupPizzaHandler(t *testing.T) pizzaHandlerSetup {
 		commands.NewUpdatePizza(
 			restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, testutil.NoopPublisher{},
 		),
-		commands.NewSetPizzaPrices(restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo),
+		commands.NewSetPizzaPrices(
+			restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, testutil.NoopPublisher{},
+		),
 		queries.NewListPizzas(restaurantRepo, pizzaCatalog),
 	)
 

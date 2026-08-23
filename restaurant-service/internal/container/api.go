@@ -81,7 +81,7 @@ func NewAPIContainer() (*APIContainer, error) {
 		restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, publisher,
 	)
 	setPizzaPrices := pizzacmd.NewSetPizzaPrices(
-		restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo,
+		restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, publisher,
 	)
 	pizzaCatalog := pizzaqry.NewPizzaCatalog(
 		pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo,
