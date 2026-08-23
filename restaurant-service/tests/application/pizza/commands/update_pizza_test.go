@@ -12,6 +12,7 @@ import (
 
 	pizzaapp "restaurant-service/internal/application/pizza"
 	"restaurant-service/internal/application/pizza/commands"
+	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/domain/pizza"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/domain/topping"
@@ -24,6 +25,7 @@ import (
 type updatePizzaSetup struct {
 	DB          *gorm.DB
 	UpdatePizza *commands.UpdatePizza
+	Publisher   *fakePublisher
 }
 
 func setupUpdatePizza(t *testing.T) updatePizzaSetup {
@@ -38,10 +40,14 @@ func setupUpdatePizza(t *testing.T) updatePizzaSetup {
 	pizzaPriceRepo := persistence.NewPizzaPriceRepository(db.DB)
 	pizzaSizeRepo := persistence.NewPizzaSizeRepository(db.DB)
 	toppingRepo := persistence.NewToppingRepository(db.DB)
+	publisher := &fakePublisher{}
 
 	return updatePizzaSetup{
-		DB:          db.DB,
-		UpdatePizza: commands.NewUpdatePizza(restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo),
+		DB: db.DB,
+		UpdatePizza: commands.NewUpdatePizza(
+			restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, publisher,
+		),
+		Publisher: publisher,
 	}
 }
 
@@ -73,6 +79,36 @@ func TestUpdatePizza_Success(t *testing.T) {
 	var updated pizza.Pizza
 	require.NoError(t, env.DB.Take(&updated, "id = ?", pz.ID).Error)
 	assert.NotNil(t, updated.UpdatedAt)
+
+	assert.Empty(t, env.Publisher.events, "no pizza.updated event while restaurant is still draft")
+}
+
+func TestUpdatePizza_PublishesPizzaUpdatedEvent_WhenActive(t *testing.T) {
+	env := setupUpdatePizza(t)
+
+	pz := firstPizza(t, env.DB)
+	owner := restaurantByID(t, env.DB, pz.RestaurantID)
+	owner.Status = restaurant.StatusActive
+	require.NoError(t, env.DB.Save(&owner).Error)
+
+	output, err := env.UpdatePizza.Execute(
+		context.Background(),
+		pz.RestaurantID,
+		pz.ID,
+		owner.OwnerID,
+		pizzaapp.UpdatePizzaRequest{Name: "Margherita Deluxe"},
+	)
+	require.NoError(t, err)
+
+	require.Len(t, env.Publisher.events, 1)
+
+	payload, ok := env.Publisher.events[0].(resapp.PizzaUpdatedPayload)
+	require.True(t, ok)
+
+	assert.Equal(t, "restaurant.pizza_updated", payload.EventName)
+	assert.Equal(t, owner.ID, payload.RestaurantID)
+	assert.Equal(t, output.ID, payload.Pizza.ID)
+	assert.Equal(t, "Margherita Deluxe", payload.Pizza.Name)
 }
 
 func TestUpdatePizza_NilFields_KeepExistingValues(t *testing.T) {

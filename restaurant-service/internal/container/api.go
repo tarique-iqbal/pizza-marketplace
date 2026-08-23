@@ -78,7 +78,7 @@ func NewAPIContainer() (*APIContainer, error) {
 
 	createPizza := pizzacmd.NewCreatePizza(restaurantRepo, pizzaRepo, toppingRepo, publisher)
 	updatePizza := pizzacmd.NewUpdatePizza(
-		restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo,
+		restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, publisher,
 	)
 	setPizzaPrices := pizzacmd.NewSetPizzaPrices(
 		restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo,
