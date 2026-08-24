@@ -3,6 +3,7 @@ package index_test
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -19,7 +20,7 @@ func launchedPayload(t *testing.T, restaurantID uuid.UUID) []byte {
 	return []byte(`{
 		"restaurant_id": "` + restaurantID.String() + `",
 		"restaurant_name": "Anatolische Kueche",
-		"launched_at": "2026-08-19T10:00:00Z",
+		"updated_at": "2026-08-19T10:00:00Z",
 		"slug": "anatolische-kueche",
 		"address": {"city": "Hamburg"},
 		"lat": 53.5511,
@@ -68,6 +69,7 @@ func TestUpsertSnapshot_Success(t *testing.T) {
 	assert.Equal(t, []string{"vegetarian", "halal"}, got.Tags)
 	assert.InDelta(t, 4.7, got.Rating, 0.001)
 	assert.EqualValues(t, 128, got.TotalReviews)
+	assert.True(t, got.UpdatedAt.Equal(time.Date(2026, 8, 19, 10, 0, 0, 0, time.UTC)))
 
 	assert.InDelta(t, 53.5511, got.Location.Lat, 0.0001)
 	assert.InDelta(t, 9.9937, got.Location.Lon, 0.0001)

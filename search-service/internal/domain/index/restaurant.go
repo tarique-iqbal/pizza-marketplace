@@ -1,6 +1,10 @@
 package index
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type GeoPoint struct {
 	Lat float64 `json:"lat"`
@@ -28,4 +32,5 @@ type IndexedRestaurant struct {
 	Rating       float64        `json:"rating"`
 	TotalReviews int32          `json:"totalReviews"`
 	Pizzas       []IndexedPizza `json:"pizzas"`
+	UpdatedAt    time.Time      `json:"updatedAt"`
 }

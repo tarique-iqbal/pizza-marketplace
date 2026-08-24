@@ -18,7 +18,7 @@ import (
 type restaurantLaunchedPayload struct {
 	RestaurantID   uuid.UUID `json:"restaurant_id"`
 	RestaurantName string    `json:"restaurant_name"`
-	LaunchedAt     time.Time `json:"launched_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 	Slug           *string   `json:"slug"`
 	Address        struct {
 		City string `json:"city"`
@@ -108,5 +108,6 @@ func toIndexedRestaurant(p restaurantLaunchedPayload) index.IndexedRestaurant {
 		Rating:       p.Rating,
 		TotalReviews: p.TotalReviews,
 		Pizzas:       pizzas,
+		UpdatedAt:    p.UpdatedAt,
 	}
 }

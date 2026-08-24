@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/google/uuid"
@@ -45,6 +46,7 @@ type esRestaurant struct {
 	Rating       float64    `json:"rating"`
 	TotalReviews int32      `json:"totalReviews"`
 	Pizzas       []esPizza  `json:"pizzas"`
+	UpdatedAt    time.Time  `json:"updatedAt"`
 }
 
 func (r *SearchRepository) UpsertSnapshot(ctx context.Context, restaurant index.IndexedRestaurant) error {
@@ -210,6 +212,7 @@ func toESRestaurant(r index.IndexedRestaurant) esRestaurant {
 		Rating:       r.Rating,
 		TotalReviews: r.TotalReviews,
 		Pizzas:       pizzas,
+		UpdatedAt:    r.UpdatedAt,
 	}
 }
 
@@ -240,5 +243,6 @@ func fromESRestaurant(id uuid.UUID, doc esRestaurant) index.IndexedRestaurant {
 		Rating:       doc.Rating,
 		TotalReviews: doc.TotalReviews,
 		Pizzas:       pizzas,
+		UpdatedAt:    doc.UpdatedAt,
 	}
 }
