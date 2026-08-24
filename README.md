@@ -1,6 +1,6 @@
 # Pizza Marketplace – Monorepo
 
-**Online pizza ordering marketplace** built with a **microservices architecture**, enabling restaurants to receive and manage orders. Each service is developed using **Go (Gin)**, with **PostgreSQL** for transactional data and planned **Elasticsearch** integration for high-performance search. Services communicate asynchronously via **RabbitMQ** and expose **HTTP APIs** through a **Traefik API Gateway** with **JWT-based authentication**.
+**Online pizza ordering marketplace** built with a **microservices architecture**, enabling restaurants to receive and manage orders. Each service is developed using **Go (Gin)**, with **PostgreSQL** for transactional data and **Elasticsearch** for search. Services communicate asynchronously via **RabbitMQ** and expose **HTTP APIs** through a **Traefik API Gateway** with **JWT-based authentication**.
 
 The platform follows **Domain-Driven Design** and **Clean Architecture** principles. It implements the **Outbox Pattern** for reliable event delivery and data consistency. **Docker** is used for containerization, and **Kubernetes** orchestration is planned for scalable deployments.
 
@@ -26,16 +26,23 @@ Client (Web)
 Traefik API Gateway (:80)
   ├── /auth, /users  ──► Identity Service
   ├── /restaurants   ──► Restaurant Service  (JWT protected)
-  └── /search        ──► Search Service      (planned)
+  └── /search        ──► Search Service      (no auth)
 
 Async event flow via RabbitMQ:
   Identity Service   ──► email.verification_created
                      ──► user.registered
                      ──► restaurant.initiated
+  Restaurant Service ──► restaurant.ready_for_review
+                     ──► restaurant.approved
+                     ──► restaurant.launched
+                     ──► restaurant.updated
+                     ──► restaurant.pizza_updated
 
 Consumers:
-  Email Service      ◄── email.verification_created, user.registered
+  Email Service      ◄── email.verification_created, user.registered,
+                          restaurant.ready_for_review, restaurant.approved
   Restaurant Service ◄── restaurant.initiated (worker)
+  Search Service     ◄── restaurant.launched, restaurant.updated (worker)
 ```
 
 Each service owns its data store. There is no shared database.
@@ -49,10 +56,10 @@ See the system architecture diagram: [Architecture diagram](docs/architecture.md
 |---|---|---|
 | `identity-service` | Auth, JWT, user management | mixed (public and JWT-protected) |
 | `restaurant-service` | Restaurant & menu CRUD | JWT-protected |
-| `search-service` | Search API + Elasticsearch indexing | **not implemented** |
+| `search-service` | Search API + Elasticsearch indexing | public (no auth) |
 | `email-service` | Email notifications (background worker) | — |
 
-`identity-service` and `restaurant-service` each also run a `cmd/worker` process (outbox relay / event consumer) alongside their API — not separate services.
+`identity-service`, `restaurant-service`, and `search-service` each also run a `cmd/worker` process (outbox relay / event consumer) alongside their API — not separate services. `search-service`'s worker (`search-worker`) is the only one of the three with its own container in `compose.yaml`; without it the search index stays permanently empty, so it runs by default in dev. The others are started manually when working on outbox/consumer code.
 
 All services are behind Traefik and not directly reachable from outside the Docker network.
 
@@ -90,6 +97,7 @@ cd pizza-marketplace
 cp identity-service/.env.example   identity-service/.env
 cp restaurant-service/.env.example restaurant-service/.env
 cp email-service/.env.example      email-service/.env
+cp search-service/.env.example     search-service/.env
 
 # 3. Start all services
 docker compose up --build
@@ -132,6 +140,7 @@ Architecture, domain model, and design decisions for each implemented service:
 - [Identity service](docs/services/identity-service.md)
 - [Restaurant service](docs/services/restaurant-service.md)
 - [Email service](docs/services/email-service.md)
+- [Search service](docs/services/search-service.md)
 
 
 ## Event flow
@@ -145,7 +154,9 @@ identity-service     ──publishes──► email.verification_created
 
 restaurant-service   ──publishes──► restaurant.ready_for_review
                                      restaurant.approved
-                                     restaurant.launched   (unconsumed)
+                                     restaurant.launched
+                                     restaurant.updated
+                                     restaurant.pizza_updated   (unconsumed)
 
 email-service        ◄──consumes──  email.verification_created
                                      user.registered
@@ -153,9 +164,12 @@ email-service        ◄──consumes──  email.verification_created
                                      restaurant.approved
 
 restaurant-service   ◄──consumes──  restaurant.initiated
+
+search-service       ◄──consumes──  restaurant.launched
+                                     restaurant.updated
 ```
 
-`restaurant.launched` is published but has no consumer yet — it's meant to feed `search-service`'s Elasticsearch indexing once that service is implemented (currently just a `go.mod`, no code).
+`restaurant.pizza_updated` is published but has no consumer yet — a future `search-service` handler needs to merge just the one changed pizza into the indexed document's menu, rather than a whole-document replace.
 
 
 ## Project structure
@@ -185,7 +199,6 @@ pizza-marketplace/
 ## Roadmap
 
 - [ ] Profile service — user profile, address, and payment info management
-- [ ] Search service — Elasticsearch-based search and indexing
 - [ ] Payment service — payment processing
 - [ ] Order service — place and track orders
 - [ ] Notification service — SMS/web notification consumer
