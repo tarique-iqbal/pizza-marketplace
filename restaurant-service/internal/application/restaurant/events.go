@@ -151,7 +151,7 @@ func NewRestaurantUpdatedPayload(
 	payload := RestaurantUpdatedPayload{
 		RestaurantID:   e.RestaurantID,
 		RestaurantName: r.Name,
-		UpdatedAt:      e.UpdatedAt,
+		UpdatedAt:      *r.UpdatedAt,
 		Slug:           *r.Slug,
 		Contact: ContactResponse{
 			Email:   r.Email,
