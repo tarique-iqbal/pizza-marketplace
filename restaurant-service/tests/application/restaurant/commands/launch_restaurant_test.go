@@ -189,6 +189,7 @@ func TestLaunchRestaurant_PublishesLaunchedEventWithMenu(t *testing.T) {
 	assert.Equal(t, []string{"vegetarian", "vegan", "halal"}, payload.Tags)
 	assert.Equal(t, restaurant.DeliveryOwn, payload.Delivery.Type)
 	assert.InDelta(t, 53.5511, payload.Lat, 0.0001)
+	assert.False(t, payload.UpdatedAt.IsZero(), "must carry the restaurant row's real write timestamp")
 }
 
 func TestLaunchRestaurant_ExcludesUnpricedPizzasFromMenu(t *testing.T) {

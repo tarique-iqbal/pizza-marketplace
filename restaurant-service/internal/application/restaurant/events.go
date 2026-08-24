@@ -62,7 +62,6 @@ type RestaurantLaunchedPayload struct {
 	RestaurantID   uuid.UUID                `json:"restaurant_id"`
 	RestaurantName string                   `json:"restaurant_name"`
 	EventName      string                   `json:"event_name"`
-	LaunchedAt     time.Time                `json:"launched_at"`
 	Slug           string                   `json:"slug"`
 	Contact        ContactResponse          `json:"contact"`
 	Address        Address                  `json:"address"`
@@ -76,6 +75,8 @@ type RestaurantLaunchedPayload struct {
 	Tags           []string                 `json:"tags"`
 	OpeningHours   OpeningHoursResponse     `json:"opening_hours"`
 	Pizzas         []pizzaapp.PizzaResponse `json:"pizzas"`
+	UpdatedAt      time.Time                `json:"updated_at"`
+	LaunchedAt     time.Time                `json:"launched_at"`
 }
 
 func (RestaurantLaunchedPayload) GetEventName() string {
@@ -90,7 +91,6 @@ func NewRestaurantLaunchedPayload(
 	payload := RestaurantLaunchedPayload{
 		RestaurantID:   e.RestaurantID,
 		RestaurantName: e.RestaurantName,
-		LaunchedAt:     e.LaunchedAt,
 		Slug:           *r.Slug,
 		Contact: ContactResponse{
 			Email:   r.Email,
@@ -113,6 +113,8 @@ func NewRestaurantLaunchedPayload(
 		Tags:         parseTags(r.Tags),
 		OpeningHours: r.OpeningHours,
 		Pizzas:       pizzas,
+		UpdatedAt:    *r.UpdatedAt,
+		LaunchedAt:   e.LaunchedAt,
 	}
 	payload.EventName = payload.GetEventName()
 
