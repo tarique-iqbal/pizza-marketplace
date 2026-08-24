@@ -125,6 +125,8 @@ flowchart LR
         D2["CompleteChecklistItem\n(checklist just completed)"] --> E1["restaurant.ready_for_review"]
         E2A["Approve()"] --> E2["restaurant.approved"]
         E3A["Launch()"] --> E3["restaurant.launched"]
+        E4A["NotifyUpdated()\n(address/contact/delivery/opening-hours commands)"] --> E4["restaurant.updated"]
+        E5A["NotifyPizzaUpdated()\n(pizza commands)"] --> E5["restaurant.pizza_updated"]
     end
 ```
 
@@ -138,8 +140,22 @@ flowchart LR
   `restaurant.approved` (consumed by `email-service`, notifies the restaurant's own contact email — the
   domain event denormalizes `Restaurant.Email` at the point `Approve()` fires, trusting the checklist
   invariant that `contact` is complete by then), `restaurant.launched` (a full restaurant+pizzas snapshot,
-  composed in-process by `launch_restaurant.go`'s `Enricher` — consumed by `search-service`'s worker, which
-  indexes it into Elasticsearch; see `docs/services/search-service.md`).
+  composed in-process by `launch_restaurant.go`'s `Enricher`), `restaurant.updated` (fired by
+  `Restaurant.NotifyUpdated()` after `UpdateAddress`/`UpdateContact`/`UpdateDelivery`/`UpdateOpeningHours`,
+  guarded to `active`/`inactive` status only — no reindexing needed pre-launch). `restaurant.launched` and
+  `restaurant.updated` are both consumed by `search-service`'s worker, which indexes/updates the restaurant
+  in Elasticsearch; see `docs/services/search-service.md`. `restaurant.pizza_updated` (fired by
+  `Restaurant.NotifyPizzaUpdated()` from `CreatePizza`/`UpdatePizza`/`SetPizzaPrices`, same status guard) is
+  published but has **no consumer yet** — a future `search-service` handler needs to merge just the one
+  changed pizza into the indexed document's menu array, not a whole-document replace; `SetToppingPrices`
+  deliberately does not publish this event, since it never touches a specific `Pizza` row.
+- **Event timestamps**: every domain event carries a single `OccurredAt time.Time` — when the domain method
+  raised it, nothing more. `RestaurantLaunchedPayload`/`RestaurantUpdatedPayload` additionally carry their own
+  `UpdatedAt`, sourced from the restaurant row's real GORM-managed write timestamp (`*r.UpdatedAt`), not from
+  the event's `OccurredAt` — the two can differ by the gap between `NotifyUpdated()`/`Launch()` running and the
+  subsequent `restaurantRepo.Update` actually persisting. `search-service`'s redelivery-ordering guard compares
+  against `UpdatedAt` specifically, since it needs to reflect the real last-write time on the row, not when an
+  in-memory event object happened to be constructed.
 
 ## Design notes worth knowing
 
