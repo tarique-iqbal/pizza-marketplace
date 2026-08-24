@@ -49,25 +49,122 @@ type esRestaurant struct {
 	UpdatedAt    time.Time  `json:"updatedAt"`
 }
 
+type esRestaurantFields struct {
+	Name         string     `json:"name"`
+	Slug         string     `json:"slug"`
+	City         string     `json:"city"`
+	Location     esGeoPoint `json:"location"`
+	Currency     string     `json:"currency"`
+	Pickup       bool       `json:"pickup"`
+	DeliveryType string     `json:"deliveryType"`
+	DeliveryKm   *int16     `json:"deliveryKm,omitempty"`
+	Tags         []string   `json:"tags"`
+	Rating       float64    `json:"rating"`
+	TotalReviews int32      `json:"totalReviews"`
+	UpdatedAt    time.Time  `json:"updatedAt"`
+}
+
+type esScript struct {
+	Source string         `json:"source"`
+	Lang   string         `json:"lang"`
+	Params map[string]any `json:"params"`
+}
+
+type esUpdateBody struct {
+	Script esScript `json:"script"`
+	Upsert any      `json:"upsert,omitempty"`
+}
+
+// upsertSnapshotScript fully replaces _source (equivalent to the plain
+// Index() overwrite this used to be), but only if the incoming event is
+// newer than whatever is already indexed — otherwise it's a no-op. This
+// guards against a stale, retried restaurant.launched redelivery (see
+// rabbitmq_consumer.go's retry-to-back-of-queue behavior) clobbering a
+// restaurant.updated write that landed in between.
+const upsertSnapshotScript = `if (!ctx._source.containsKey('updatedAt') || ` +
+	`params.updatedAtMillis > Instant.parse(ctx._source.updatedAt).toEpochMilli()) { ` +
+	`ctx._source = params.doc; ` +
+	`} else { ` +
+	`ctx.op = 'noop'; ` +
+	`}`
+
+const updateFieldsScript = `if (!ctx._source.containsKey('updatedAt') || ` +
+	`params.updatedAtMillis > Instant.parse(ctx._source.updatedAt).toEpochMilli()) { ` +
+	`ctx._source.name = params.doc.name; ` +
+	`ctx._source.slug = params.doc.slug; ` +
+	`ctx._source.city = params.doc.city; ` +
+	`ctx._source.location = params.doc.location; ` +
+	`ctx._source.currency = params.doc.currency; ` +
+	`ctx._source.pickup = params.doc.pickup; ` +
+	`ctx._source.deliveryType = params.doc.deliveryType; ` +
+	`ctx._source.deliveryKm = params.doc.deliveryKm; ` +
+	`ctx._source.tags = params.doc.tags; ` +
+	`ctx._source.rating = params.doc.rating; ` +
+	`ctx._source.totalReviews = params.doc.totalReviews; ` +
+	`ctx._source.updatedAt = params.doc.updatedAt; ` +
+	`} else { ` +
+	`ctx.op = 'noop'; ` +
+	`}`
+
 func (r *SearchRepository) UpsertSnapshot(ctx context.Context, restaurant index.IndexedRestaurant) error {
-	body, err := json.Marshal(toESRestaurant(restaurant))
+	doc := toESRestaurant(restaurant)
+
+	body, err := json.Marshal(esUpdateBody{
+		Script: esScript{
+			Source: upsertSnapshotScript,
+			Lang:   "painless",
+			Params: map[string]any{
+				"doc":             doc,
+				"updatedAtMillis": restaurant.UpdatedAt.UnixMilli(),
+			},
+		},
+		Upsert: doc,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to marshal document: %w", err)
 	}
 
-	res, err := r.es.Index(
+	res, err := r.es.Update(
 		IndexName,
+		restaurant.ID.String(),
 		bytes.NewReader(body),
-		r.es.Index.WithDocumentID(restaurant.ID.String()),
-		r.es.Index.WithContext(ctx),
+		r.es.Update.WithContext(ctx),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to index document: %w", err)
+		return fmt.Errorf("failed to upsert document: %w", err)
 	}
 	defer res.Body.Close()
 
 	if res.IsError() {
-		return fmt.Errorf("failed to index document: %s", res.String())
+		return fmt.Errorf("failed to upsert document: %s", res.String())
+	}
+
+	return nil
+}
+
+func (r *SearchRepository) UpdateFields(ctx context.Context, id uuid.UUID, fields index.RestaurantFields) error {
+	body, err := json.Marshal(esUpdateBody{
+		Script: esScript{
+			Source: updateFieldsScript,
+			Lang:   "painless",
+			Params: map[string]any{
+				"doc":             toESRestaurantFields(fields),
+				"updatedAtMillis": fields.UpdatedAt.UnixMilli(),
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal fields: %w", err)
+	}
+
+	res, err := r.es.Update(IndexName, id.String(), bytes.NewReader(body), r.es.Update.WithContext(ctx))
+	if err != nil {
+		return fmt.Errorf("failed to update document: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		return fmt.Errorf("failed to update document: %s", res.String())
 	}
 
 	return nil
@@ -183,6 +280,23 @@ func buildSearchQuery(q index.SearchQuery) map[string]any {
 				"boost_mode": "sum",
 			},
 		},
+	}
+}
+
+func toESRestaurantFields(f index.RestaurantFields) esRestaurantFields {
+	return esRestaurantFields{
+		Name:         f.Name,
+		Slug:         f.Slug,
+		City:         f.City,
+		Location:     esGeoPoint{Lat: f.Location.Lat, Lon: f.Location.Lon},
+		Currency:     f.Currency,
+		Pickup:       f.Pickup,
+		DeliveryType: f.DeliveryType,
+		DeliveryKm:   f.DeliveryKm,
+		Tags:         f.Tags,
+		Rating:       f.Rating,
+		TotalReviews: f.TotalReviews,
+		UpdatedAt:    f.UpdatedAt,
 	}
 }
 

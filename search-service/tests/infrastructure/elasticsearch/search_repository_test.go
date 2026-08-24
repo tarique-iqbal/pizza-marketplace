@@ -3,6 +3,7 @@ package elasticsearch_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -166,12 +167,14 @@ func TestSearchRepository_UpsertSnapshot_Overwrites(t *testing.T) {
 		Name:       "Old Name",
 		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
 		DeliveryKm: int16Ptr(10),
+		UpdatedAt:  time.Date(2026, 8, 24, 9, 0, 0, 0, time.UTC),
 	})
 	upsert(t, repo, index.IndexedRestaurant{
 		ID:         id,
 		Name:       "New Name",
 		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
 		DeliveryKm: int16Ptr(10),
+		UpdatedAt:  time.Date(2026, 8, 24, 9, 0, 1, 0, time.UTC),
 	})
 	testutil.RefreshIndex(t, es, esinfra.IndexName)
 
@@ -183,4 +186,124 @@ func TestSearchRepository_UpsertSnapshot_Overwrites(t *testing.T) {
 	require.Len(t, results, 1, "upserting the same restaurant ID must replace, not duplicate, the document")
 	assert.Equal(t, "New Name", results[0].Name)
 	assert.Equal(t, id, results[0].ID)
+}
+
+func TestSearchRepository_UpsertSnapshot_StaleRedelivery_Ignored(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	id := uuid.New()
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         id,
+		Name:       "Fresh Name",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+		UpdatedAt:  time.Date(2026, 8, 24, 9, 0, 5, 0, time.UTC),
+	})
+
+	// A stale, retried redelivery of an OLDER event must not clobber the
+	// newer write above — this is the whole point of the updatedAt guard.
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         id,
+		Name:       "Stale Name",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+		UpdatedAt:  time.Date(2026, 8, 24, 9, 0, 0, 0, time.UTC),
+	})
+	testutil.RefreshIndex(t, es, esinfra.IndexName)
+
+	results, err := repo.Search(context.Background(), index.SearchQuery{
+		Text:     "Name",
+		Location: index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+	})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	assert.Equal(t, "Fresh Name", results[0].Name, "a stale redelivery must not overwrite newer indexed data")
+}
+
+func TestSearchRepository_UpdateFields_UpdatesFieldsAndPreservesPizzas(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	id := uuid.New()
+	pizzaID := uuid.New()
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         id,
+		Name:       "Pizzeria Original",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+		UpdatedAt:  time.Date(2026, 8, 24, 9, 0, 0, 0, time.UTC),
+		Pizzas: []index.IndexedPizza{
+			{ID: pizzaID, Name: "Margherita", IsVegetarian: true},
+		},
+	})
+
+	require.NoError(t, repo.UpdateFields(context.Background(), id, index.RestaurantFields{
+		Name:       "Pizzeria Renamed",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+		UpdatedAt:  time.Date(2026, 8, 24, 9, 0, 5, 0, time.UTC),
+	}))
+	testutil.RefreshIndex(t, es, esinfra.IndexName)
+
+	results, err := repo.Search(context.Background(), index.SearchQuery{
+		Text:     "Renamed",
+		Location: index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+	})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	assert.Equal(t, "Pizzeria Renamed", results[0].Name)
+	require.Len(t, results[0].Pizzas, 1, "a restaurant-field update must never touch the indexed menu")
+	assert.Equal(t, "Margherita", results[0].Pizzas[0].Name)
+}
+
+func TestSearchRepository_UpdateFields_StaleRedelivery_Ignored(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	id := uuid.New()
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         id,
+		Name:       "Pizzeria Original",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+		UpdatedAt:  time.Date(2026, 8, 24, 9, 0, 0, 0, time.UTC),
+	})
+
+	require.NoError(t, repo.UpdateFields(context.Background(), id, index.RestaurantFields{
+		Name:       "Pizzeria Fresh",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+		UpdatedAt:  time.Date(2026, 8, 24, 9, 0, 10, 0, time.UTC),
+	}))
+
+	// A stale, retried redelivery of an OLDER restaurant.updated event must
+	// be dropped, not overwrite the fresher name set above.
+	require.NoError(t, repo.UpdateFields(context.Background(), id, index.RestaurantFields{
+		Name:       "Pizzeria Stale",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+		UpdatedAt:  time.Date(2026, 8, 24, 9, 0, 5, 0, time.UTC),
+	}))
+	testutil.RefreshIndex(t, es, esinfra.IndexName)
+
+	results, err := repo.Search(context.Background(), index.SearchQuery{
+		Text:     "Pizzeria",
+		Location: index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+	})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	assert.Equal(t, "Pizzeria Fresh", results[0].Name, "a stale redelivery must not overwrite newer indexed data")
+}
+
+func TestSearchRepository_UpdateFields_DocumentMissing_ReturnsError(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	err := repo.UpdateFields(context.Background(), uuid.New(), index.RestaurantFields{
+		Name:      "Ghost",
+		UpdatedAt: time.Now(),
+	})
+
+	require.Error(t, err, "an update for a restaurant not yet indexed by launch must not silently create one")
 }

@@ -34,3 +34,18 @@ type IndexedRestaurant struct {
 	Pizzas       []IndexedPizza `json:"pizzas"`
 	UpdatedAt    time.Time      `json:"updatedAt"`
 }
+
+type RestaurantFields struct {
+	Name         string
+	Slug         string
+	City         string
+	Location     GeoPoint
+	Currency     string
+	Pickup       bool
+	DeliveryType string
+	DeliveryKm   *int16
+	Tags         []string
+	Rating       float64
+	TotalReviews int32
+	UpdatedAt    time.Time
+}
