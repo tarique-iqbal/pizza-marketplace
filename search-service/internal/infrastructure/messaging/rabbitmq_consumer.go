@@ -21,6 +21,7 @@ const (
 var Exchanges = map[string][]string{
 	"restaurant.events": {
 		"restaurant.launched",
+		"restaurant.updated",
 	},
 }
 

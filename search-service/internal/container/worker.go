@@ -30,9 +30,11 @@ func NewWorkerContainer() (*WorkerContainer, error) {
 
 	searchRepo := elasticsearch.NewSearchRepository(es)
 	upsertSnapshot := idxapp.NewUpsertSnapshot(searchRepo)
+	updateRestaurantFields := idxapp.NewUpdateRestaurantFields(searchRepo)
 
 	dispatcher := idxapp.NewEventDispatcher()
-	dispatcher.Register(messaging.Exchanges["restaurant.events"][0], upsertSnapshot)
+	dispatcher.Register("restaurant.launched", upsertSnapshot)
+	dispatcher.Register("restaurant.updated", updateRestaurantFields)
 
 	consumer, err := messaging.NewRabbitMQConsumer(amqpURL)
 	if err != nil {
