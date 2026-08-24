@@ -135,7 +135,7 @@ func (r *Restaurant) CompleteChecklistItem(item ChecklistItem) {
 		r.events = append(r.events, RestaurantReadyForReview{
 			RestaurantID:   r.ID,
 			RestaurantName: r.Name,
-			ReadyAt:        time.Now().UTC(),
+			OccurredAt:     time.Now().UTC(),
 		})
 	}
 }
@@ -151,7 +151,7 @@ func (r *Restaurant) Approve() error {
 		RestaurantID:   r.ID,
 		RestaurantName: r.Name,
 		Email:          *r.Email,
-		ApprovedAt:     time.Now().UTC(),
+		OccurredAt:     time.Now().UTC(),
 	})
 
 	return nil
@@ -167,7 +167,7 @@ func (r *Restaurant) Launch() error {
 	r.events = append(r.events, RestaurantLaunched{
 		RestaurantID:   r.ID,
 		RestaurantName: r.Name,
-		LaunchedAt:     time.Now().UTC(),
+		OccurredAt:     time.Now().UTC(),
 	})
 
 	return nil
@@ -180,7 +180,7 @@ func (r *Restaurant) NotifyUpdated() {
 
 	r.events = append(r.events, RestaurantUpdated{
 		RestaurantID: r.ID,
-		UpdatedAt:    time.Now().UTC(),
+		OccurredAt:   time.Now().UTC(),
 	})
 }
 
@@ -191,7 +191,7 @@ func (r *Restaurant) NotifyPizzaUpdated() {
 
 	r.events = append(r.events, PizzaUpdated{
 		RestaurantID: r.ID,
-		UpdatedAt:    time.Now().UTC(),
+		OccurredAt:   time.Now().UTC(),
 	})
 }
 

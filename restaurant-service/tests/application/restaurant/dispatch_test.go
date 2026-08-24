@@ -56,7 +56,7 @@ func TestDispatchEvents_PublishesPendingEvent(t *testing.T) {
 	assert.Equal(t, res.ID, payload.RestaurantID)
 	assert.Equal(t, "Pizza Paradise", payload.RestaurantName)
 	assert.Equal(t, "restaurant.ready_for_review", payload.EventName)
-	assert.False(t, payload.ReadyAt.IsZero())
+	assert.False(t, payload.OccurredAt.IsZero())
 }
 
 func TestDispatchEvents_DrainsAggregateEvents(t *testing.T) {
@@ -85,7 +85,7 @@ func TestDispatchEvents_PublishesApprovedEvent(t *testing.T) {
 	assert.Equal(t, "Pizza Paradise", payload.RestaurantName)
 	assert.Equal(t, email, payload.Email)
 	assert.Equal(t, "restaurant.approved", payload.EventName)
-	assert.False(t, payload.ApprovedAt.IsZero())
+	assert.False(t, payload.OccurredAt.IsZero())
 }
 
 func TestDispatchEvents_DropsLaunchedEvent(t *testing.T) {

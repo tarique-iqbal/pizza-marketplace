@@ -14,7 +14,7 @@ type RestaurantReadyForReviewPayload struct {
 	RestaurantID   uuid.UUID `json:"restaurant_id"`
 	RestaurantName string    `json:"restaurant_name"`
 	EventName      string    `json:"event_name"`
-	ReadyAt        time.Time `json:"ready_at"`
+	OccurredAt     time.Time `json:"occurred_at"`
 }
 
 func (RestaurantReadyForReviewPayload) GetEventName() string {
@@ -27,7 +27,7 @@ func newRestaurantReadyForReviewPayload(
 	payload := RestaurantReadyForReviewPayload{
 		RestaurantID:   e.RestaurantID,
 		RestaurantName: e.RestaurantName,
-		ReadyAt:        e.ReadyAt,
+		OccurredAt:     e.OccurredAt,
 	}
 	payload.EventName = payload.GetEventName()
 
@@ -39,7 +39,7 @@ type RestaurantApprovedPayload struct {
 	RestaurantName string    `json:"restaurant_name"`
 	Email          string    `json:"email"`
 	EventName      string    `json:"event_name"`
-	ApprovedAt     time.Time `json:"approved_at"`
+	OccurredAt     time.Time `json:"occurred_at"`
 }
 
 func (RestaurantApprovedPayload) GetEventName() string {
@@ -51,7 +51,7 @@ func newRestaurantApprovedPayload(e restaurant.RestaurantApproved) RestaurantApp
 		RestaurantID:   e.RestaurantID,
 		RestaurantName: e.RestaurantName,
 		Email:          e.Email,
-		ApprovedAt:     e.ApprovedAt,
+		OccurredAt:     e.OccurredAt,
 	}
 	payload.EventName = payload.GetEventName()
 
@@ -76,7 +76,7 @@ type RestaurantLaunchedPayload struct {
 	OpeningHours   OpeningHoursResponse     `json:"opening_hours"`
 	Pizzas         []pizzaapp.PizzaResponse `json:"pizzas"`
 	UpdatedAt      time.Time                `json:"updated_at"`
-	LaunchedAt     time.Time                `json:"launched_at"`
+	OccurredAt     time.Time                `json:"occurred_at"`
 }
 
 func (RestaurantLaunchedPayload) GetEventName() string {
@@ -114,7 +114,7 @@ func NewRestaurantLaunchedPayload(
 		OpeningHours: r.OpeningHours,
 		Pizzas:       pizzas,
 		UpdatedAt:    *r.UpdatedAt,
-		LaunchedAt:   e.LaunchedAt,
+		OccurredAt:   e.OccurredAt,
 	}
 	payload.EventName = payload.GetEventName()
 
@@ -125,7 +125,6 @@ type RestaurantUpdatedPayload struct {
 	RestaurantID   uuid.UUID            `json:"restaurant_id"`
 	RestaurantName string               `json:"restaurant_name"`
 	EventName      string               `json:"event_name"`
-	UpdatedAt      time.Time            `json:"updated_at"`
 	Slug           string               `json:"slug"`
 	Contact        ContactResponse      `json:"contact"`
 	Address        Address              `json:"address"`
@@ -138,6 +137,8 @@ type RestaurantUpdatedPayload struct {
 	Pickup         bool                 `json:"pickup"`
 	Tags           []string             `json:"tags"`
 	OpeningHours   OpeningHoursResponse `json:"opening_hours"`
+	UpdatedAt      time.Time            `json:"updated_at"`
+	OccurredAt     time.Time            `json:"occurred_at"`
 }
 
 func (RestaurantUpdatedPayload) GetEventName() string {
@@ -151,7 +152,6 @@ func NewRestaurantUpdatedPayload(
 	payload := RestaurantUpdatedPayload{
 		RestaurantID:   e.RestaurantID,
 		RestaurantName: r.Name,
-		UpdatedAt:      *r.UpdatedAt,
 		Slug:           *r.Slug,
 		Contact: ContactResponse{
 			Email:   r.Email,
@@ -173,6 +173,8 @@ func NewRestaurantUpdatedPayload(
 		Pickup:       r.Pickup,
 		Tags:         parseTags(r.Tags),
 		OpeningHours: r.OpeningHours,
+		UpdatedAt:    *r.UpdatedAt,
+		OccurredAt:   e.OccurredAt,
 	}
 	payload.EventName = payload.GetEventName()
 
@@ -182,8 +184,8 @@ func NewRestaurantUpdatedPayload(
 type PizzaUpdatedPayload struct {
 	RestaurantID uuid.UUID              `json:"restaurant_id"`
 	EventName    string                 `json:"event_name"`
-	UpdatedAt    time.Time              `json:"updated_at"`
 	Pizza        pizzaapp.PizzaResponse `json:"pizza"`
+	OccurredAt   time.Time              `json:"occurred_at"`
 }
 
 func (PizzaUpdatedPayload) GetEventName() string {
@@ -196,8 +198,8 @@ func NewPizzaUpdatedPayload(
 ) PizzaUpdatedPayload {
 	payload := PizzaUpdatedPayload{
 		RestaurantID: e.RestaurantID,
-		UpdatedAt:    e.UpdatedAt,
 		Pizza:        pizza,
+		OccurredAt:   e.OccurredAt,
 	}
 	payload.EventName = payload.GetEventName()
 

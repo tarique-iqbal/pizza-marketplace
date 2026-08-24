@@ -38,7 +38,7 @@ func TestRestaurant_CompleteChecklistItem_TransitionsToReview(t *testing.T) {
 	assert.Equal(t, res.ID, event.RestaurantID)
 	assert.Equal(t, "Pizza Paradise", event.RestaurantName)
 	assert.Equal(t, "restaurant.ready_for_review", event.GetEventName())
-	assert.False(t, event.ReadyAt.IsZero())
+	assert.False(t, event.OccurredAt.IsZero())
 }
 
 func TestRestaurant_CompleteChecklistItem_StaysInDraftIfIncomplete(t *testing.T) {
@@ -98,7 +98,7 @@ func TestRestaurant_Approve_TransitionsToApproved(t *testing.T) {
 	assert.Equal(t, "Pizza Paradise", event.RestaurantName)
 	assert.Equal(t, email, event.Email)
 	assert.Equal(t, "restaurant.approved", event.GetEventName())
-	assert.False(t, event.ApprovedAt.IsZero())
+	assert.False(t, event.OccurredAt.IsZero())
 }
 
 func TestRestaurant_Approve_FailsIfNotPendingReview(t *testing.T) {
@@ -138,7 +138,7 @@ func TestRestaurant_Launch_TransitionsToActive(t *testing.T) {
 	assert.Equal(t, res.ID, event.RestaurantID)
 	assert.Equal(t, "Pizza Paradise", event.RestaurantName)
 	assert.Equal(t, "restaurant.launched", event.GetEventName())
-	assert.False(t, event.LaunchedAt.IsZero())
+	assert.False(t, event.OccurredAt.IsZero())
 }
 
 func TestRestaurant_Launch_FailsIfNotApproved(t *testing.T) {
@@ -174,7 +174,7 @@ func TestRestaurant_NotifyUpdated_PublishesForActiveAndInactive(t *testing.T) {
 
 		assert.Equal(t, res.ID, event.RestaurantID)
 		assert.Equal(t, "restaurant.updated", event.GetEventName())
-		assert.False(t, event.UpdatedAt.IsZero())
+		assert.False(t, event.OccurredAt.IsZero())
 	}
 }
 
@@ -211,7 +211,7 @@ func TestRestaurant_NotifyPizzaUpdated_PublishesForActiveAndInactive(t *testing.
 
 		assert.Equal(t, res.ID, event.RestaurantID)
 		assert.Equal(t, "restaurant.pizza_updated", event.GetEventName())
-		assert.False(t, event.UpdatedAt.IsZero())
+		assert.False(t, event.OccurredAt.IsZero())
 	}
 }
 

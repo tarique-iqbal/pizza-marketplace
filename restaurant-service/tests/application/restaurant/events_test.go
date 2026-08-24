@@ -19,14 +19,14 @@ func TestRestaurantReadyForReviewPayload_GetEventName(t *testing.T) {
 }
 
 func TestRestaurantReadyForReviewPayload_MarshalJSON(t *testing.T) {
-	readyAt := time.Date(2026, 8, 11, 12, 0, 0, 0, time.UTC)
+	occurredAt := time.Date(2026, 8, 11, 12, 0, 0, 0, time.UTC)
 	restaurantID := uuid.New()
 
 	payload := resapp.RestaurantReadyForReviewPayload{
 		RestaurantID:   restaurantID,
 		RestaurantName: "Pizza Paradise",
 		EventName:      "restaurant.ready_for_review",
-		ReadyAt:        readyAt,
+		OccurredAt:     occurredAt,
 	}
 
 	out, err := json.Marshal(payload)
@@ -38,7 +38,7 @@ func TestRestaurantReadyForReviewPayload_MarshalJSON(t *testing.T) {
 	assert.Equal(t, restaurantID.String(), decoded["restaurant_id"])
 	assert.Equal(t, "Pizza Paradise", decoded["restaurant_name"])
 	assert.Equal(t, "restaurant.ready_for_review", decoded["event_name"])
-	assert.Equal(t, readyAt.Format(time.RFC3339), decoded["ready_at"])
+	assert.Equal(t, occurredAt.Format(time.RFC3339), decoded["occurred_at"])
 }
 
 func TestRestaurantApprovedPayload_GetEventName(t *testing.T) {
@@ -48,7 +48,7 @@ func TestRestaurantApprovedPayload_GetEventName(t *testing.T) {
 }
 
 func TestRestaurantApprovedPayload_MarshalJSON(t *testing.T) {
-	approvedAt := time.Date(2026, 8, 11, 12, 0, 0, 0, time.UTC)
+	occurredAt := time.Date(2026, 8, 11, 12, 0, 0, 0, time.UTC)
 	restaurantID := uuid.New()
 
 	payload := resapp.RestaurantApprovedPayload{
@@ -56,7 +56,7 @@ func TestRestaurantApprovedPayload_MarshalJSON(t *testing.T) {
 		RestaurantName: "Pizza Paradise",
 		Email:          "kontakt@pizzaparadise.de",
 		EventName:      "restaurant.approved",
-		ApprovedAt:     approvedAt,
+		OccurredAt:     occurredAt,
 	}
 
 	out, err := json.Marshal(payload)
@@ -69,7 +69,7 @@ func TestRestaurantApprovedPayload_MarshalJSON(t *testing.T) {
 	assert.Equal(t, "Pizza Paradise", decoded["restaurant_name"])
 	assert.Equal(t, "kontakt@pizzaparadise.de", decoded["email"])
 	assert.Equal(t, "restaurant.approved", decoded["event_name"])
-	assert.Equal(t, approvedAt.Format(time.RFC3339), decoded["approved_at"])
+	assert.Equal(t, occurredAt.Format(time.RFC3339), decoded["occurred_at"])
 }
 
 func TestRestaurantLaunchedPayload_GetEventName(t *testing.T) {
@@ -79,7 +79,7 @@ func TestRestaurantLaunchedPayload_GetEventName(t *testing.T) {
 }
 
 func TestRestaurantLaunchedPayload_MarshalJSON(t *testing.T) {
-	launchedAt := time.Date(2026, 8, 11, 12, 0, 0, 0, time.UTC)
+	occurredAt := time.Date(2026, 8, 11, 12, 0, 0, 0, time.UTC)
 	updatedAt := time.Date(2026, 8, 11, 12, 0, 5, 0, time.UTC)
 	restaurantID := uuid.New()
 
@@ -87,7 +87,7 @@ func TestRestaurantLaunchedPayload_MarshalJSON(t *testing.T) {
 		RestaurantID:   restaurantID,
 		RestaurantName: "Pizza Paradise",
 		EventName:      "restaurant.launched",
-		LaunchedAt:     launchedAt,
+		OccurredAt:     occurredAt,
 		UpdatedAt:      updatedAt,
 	}
 
@@ -100,6 +100,6 @@ func TestRestaurantLaunchedPayload_MarshalJSON(t *testing.T) {
 	assert.Equal(t, restaurantID.String(), decoded["restaurant_id"])
 	assert.Equal(t, "Pizza Paradise", decoded["restaurant_name"])
 	assert.Equal(t, "restaurant.launched", decoded["event_name"])
-	assert.Equal(t, launchedAt.Format(time.RFC3339), decoded["launched_at"])
+	assert.Equal(t, occurredAt.Format(time.RFC3339), decoded["occurred_at"])
 	assert.Equal(t, updatedAt.Format(time.RFC3339), decoded["updated_at"])
 }

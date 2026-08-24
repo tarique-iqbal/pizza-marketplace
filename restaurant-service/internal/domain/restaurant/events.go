@@ -13,7 +13,7 @@ type DomainEvent interface {
 type RestaurantReadyForReview struct {
 	RestaurantID   uuid.UUID
 	RestaurantName string
-	ReadyAt        time.Time
+	OccurredAt     time.Time
 }
 
 func (RestaurantReadyForReview) GetEventName() string {
@@ -24,7 +24,7 @@ type RestaurantApproved struct {
 	RestaurantID   uuid.UUID
 	RestaurantName string
 	Email          string
-	ApprovedAt     time.Time
+	OccurredAt     time.Time
 }
 
 func (RestaurantApproved) GetEventName() string {
@@ -34,7 +34,7 @@ func (RestaurantApproved) GetEventName() string {
 type RestaurantLaunched struct {
 	RestaurantID   uuid.UUID
 	RestaurantName string
-	LaunchedAt     time.Time
+	OccurredAt     time.Time
 }
 
 func (RestaurantLaunched) GetEventName() string {
@@ -43,7 +43,7 @@ func (RestaurantLaunched) GetEventName() string {
 
 type RestaurantUpdated struct {
 	RestaurantID uuid.UUID
-	UpdatedAt    time.Time
+	OccurredAt   time.Time
 }
 
 func (RestaurantUpdated) GetEventName() string {
@@ -52,7 +52,7 @@ func (RestaurantUpdated) GetEventName() string {
 
 type PizzaUpdated struct {
 	RestaurantID uuid.UUID
-	UpdatedAt    time.Time
+	OccurredAt   time.Time
 }
 
 func (PizzaUpdated) GetEventName() string {
