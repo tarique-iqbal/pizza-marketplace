@@ -111,6 +111,10 @@ func (uc *SetPizzaPrices) Execute(
 		return pizzaapp.PizzaResponse{}, fmt.Errorf("failed to set pizza prices: %w", err)
 	}
 
+	if err := uc.pizzaRepo.Update(ctx, p); err != nil {
+		return pizzaapp.PizzaResponse{}, fmt.Errorf("failed to update pizza: %w", err)
+	}
+
 	updated, err := uc.pizzaPriceRepo.ListByPizza(ctx, pizzaID)
 	if err != nil {
 		return pizzaapp.PizzaResponse{}, fmt.Errorf("failed to list pizza prices: %w", err)

@@ -3,6 +3,7 @@ package commands_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
@@ -112,6 +113,14 @@ func TestSetPizzaPrices_PublishesPizzaUpdatedEvent_WhenActive(t *testing.T) {
 	assert.Equal(t, owner.ID, payload.RestaurantID)
 	assert.Equal(t, output.ID, payload.Pizza.ID)
 	require.Len(t, payload.Pizza.Prices, 1)
+
+	require.NotNil(t, output.UpdatedAt)
+	assert.Equal(t, *output.UpdatedAt, payload.UpdatedAt)
+
+	var stored pizza.Pizza
+	require.NoError(t, env.DB.Take(&stored, "id = ?", pz.ID).Error)
+	require.NotNil(t, stored.UpdatedAt)
+	assert.WithinDuration(t, time.Now(), *stored.UpdatedAt, 5*time.Second)
 }
 
 func TestSetPizzaPrices_ReportsExistingToppings(t *testing.T) {

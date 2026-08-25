@@ -197,15 +197,10 @@ func NewPizzaUpdatedPayload(
 	e restaurant.PizzaUpdated,
 	pizza pizzaapp.PizzaResponse,
 ) PizzaUpdatedPayload {
-	var updatedAt time.Time
-	if pizza.UpdatedAt != nil {
-		updatedAt = *pizza.UpdatedAt
-	}
-
 	payload := PizzaUpdatedPayload{
 		RestaurantID: e.RestaurantID,
 		Pizza:        pizza,
-		UpdatedAt:    updatedAt,
+		UpdatedAt:    *pizza.UpdatedAt,
 		OccurredAt:   e.OccurredAt,
 	}
 	payload.EventName = payload.GetEventName()
