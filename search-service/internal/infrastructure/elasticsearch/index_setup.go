@@ -34,7 +34,8 @@ const indexMapping = `{
           "id": {"type": "keyword"},
           "name": {"type": "text"},
           "isVegetarian": {"type": "boolean"},
-          "toppings": {"type": "keyword"}
+          "toppings": {"type": "keyword"},
+          "updatedAt": {"type": "date"}
         }
       },
       "updatedAt": {"type": "date"}

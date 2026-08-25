@@ -307,3 +307,202 @@ func TestSearchRepository_UpdateFields_DocumentMissing_ReturnsError(t *testing.T
 
 	require.Error(t, err, "an update for a restaurant not yet indexed by launch must not silently create one")
 }
+
+func TestSearchRepository_UpsertPizza_AddsNewPizza(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	id := uuid.New()
+	pizzaID := uuid.New()
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         id,
+		Name:       "Pizzeria Original",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+		UpdatedAt:  time.Date(2026, 8, 24, 9, 0, 0, 0, time.UTC),
+	})
+
+	require.NoError(t, repo.UpsertPizza(context.Background(), id, index.IndexedPizza{
+		ID:           pizzaID,
+		Name:         "Margherita",
+		IsVegetarian: true,
+		Toppings:     []string{"Mozzarella"},
+		UpdatedAt:    time.Date(2026, 8, 25, 9, 0, 0, 0, time.UTC),
+	}))
+	testutil.RefreshIndex(t, es, esinfra.IndexName)
+
+	results, err := repo.Search(context.Background(), index.SearchQuery{
+		Text:     "Original",
+		Location: index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+	})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.Len(t, results[0].Pizzas, 1)
+	assert.Equal(t, "Margherita", results[0].Pizzas[0].Name)
+}
+
+func TestSearchRepository_UpsertPizza_ReplacesExistingByID(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	id := uuid.New()
+	pizzaID := uuid.New()
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         id,
+		Name:       "Pizzeria Original",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+		UpdatedAt:  time.Date(2026, 8, 24, 9, 0, 0, 0, time.UTC),
+		Pizzas: []index.IndexedPizza{
+			{ID: pizzaID, Name: "Margherita", UpdatedAt: time.Date(2026, 8, 25, 9, 0, 0, 0, time.UTC)},
+		},
+	})
+
+	require.NoError(t, repo.UpsertPizza(context.Background(), id, index.IndexedPizza{
+		ID:        pizzaID,
+		Name:      "Margherita Deluxe",
+		UpdatedAt: time.Date(2026, 8, 25, 9, 0, 5, 0, time.UTC),
+	}))
+	testutil.RefreshIndex(t, es, esinfra.IndexName)
+
+	results, err := repo.Search(context.Background(), index.SearchQuery{
+		Text:     "Original",
+		Location: index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+	})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.Len(t, results[0].Pizzas, 1, "replacing an existing pizza by id must not duplicate it")
+	assert.Equal(t, "Margherita Deluxe", results[0].Pizzas[0].Name)
+}
+
+func TestSearchRepository_UpsertPizza_StaleRedelivery_Ignored(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	id := uuid.New()
+	pizzaID := uuid.New()
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         id,
+		Name:       "Pizzeria Original",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+		UpdatedAt:  time.Date(2026, 8, 24, 9, 0, 0, 0, time.UTC),
+		Pizzas: []index.IndexedPizza{
+			{ID: pizzaID, Name: "Fresh Price", UpdatedAt: time.Date(2026, 8, 25, 9, 0, 10, 0, time.UTC)},
+		},
+	})
+
+	// A stale, retried redelivery of an OLDER restaurant.pizza_updated event
+	// must not clobber the fresher pizza state set above.
+	require.NoError(t, repo.UpsertPizza(context.Background(), id, index.IndexedPizza{
+		ID:        pizzaID,
+		Name:      "Stale Price",
+		UpdatedAt: time.Date(2026, 8, 25, 9, 0, 5, 0, time.UTC),
+	}))
+	testutil.RefreshIndex(t, es, esinfra.IndexName)
+
+	results, err := repo.Search(context.Background(), index.SearchQuery{
+		Text:     "Original",
+		Location: index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+	})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.Len(t, results[0].Pizzas, 1)
+	assert.Equal(t, "Fresh Price", results[0].Pizzas[0].Name, "a stale redelivery must not overwrite newer pizza data")
+}
+
+func TestSearchRepository_UpsertPizza_DocumentMissing_ReturnsError(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	err := repo.UpsertPizza(context.Background(), uuid.New(), index.IndexedPizza{
+		ID:        uuid.New(),
+		Name:      "Ghost Pizza",
+		UpdatedAt: time.Now(),
+	})
+
+	require.Error(t, err, "a pizza update for a restaurant not yet indexed by launch must not silently create one")
+}
+
+func TestSearchRepository_RemovePizza_RemovesExisting(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	id := uuid.New()
+	pizzaID := uuid.New()
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         id,
+		Name:       "Pizzeria Original",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+		UpdatedAt:  time.Date(2026, 8, 24, 9, 0, 0, 0, time.UTC),
+		Pizzas: []index.IndexedPizza{
+			{ID: pizzaID, Name: "Margherita", UpdatedAt: time.Date(2026, 8, 25, 9, 0, 0, 0, time.UTC)},
+		},
+	})
+
+	require.NoError(
+		t,
+		repo.RemovePizza(context.Background(), id, pizzaID, time.Date(2026, 8, 25, 9, 0, 5, 0, time.UTC)),
+	)
+	testutil.RefreshIndex(t, es, esinfra.IndexName)
+
+	results, err := repo.Search(context.Background(), index.SearchQuery{
+		Text:     "Original",
+		Location: index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+	})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	assert.Empty(t, results[0].Pizzas, "an archived/unpriced pizza must be removed from the indexed menu")
+}
+
+func TestSearchRepository_RemovePizza_MissingPizza_Noop(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	id := uuid.New()
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         id,
+		Name:       "Pizzeria Original",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+		UpdatedAt:  time.Date(2026, 8, 24, 9, 0, 0, 0, time.UTC),
+	})
+
+	err := repo.RemovePizza(context.Background(), id, uuid.New(), time.Now())
+	require.NoError(t, err, "removing a pizza that was never indexed must be idempotent, not an error")
+}
+
+func TestSearchRepository_RemovePizza_StaleRedelivery_Ignored(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	id := uuid.New()
+	pizzaID := uuid.New()
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         id,
+		Name:       "Pizzeria Original",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+		UpdatedAt:  time.Date(2026, 8, 24, 9, 0, 0, 0, time.UTC),
+		Pizzas: []index.IndexedPizza{
+			{ID: pizzaID, Name: "Margherita", UpdatedAt: time.Date(2026, 8, 25, 9, 0, 10, 0, time.UTC)},
+		},
+	})
+
+	// A stale, retried redelivery of an OLDER removal must not drop a pizza
+	// that was re-added (a fresher upsert) after the removal was published.
+	require.NoError(
+		t,
+		repo.RemovePizza(context.Background(), id, pizzaID, time.Date(2026, 8, 25, 9, 0, 5, 0, time.UTC)),
+	)
+	testutil.RefreshIndex(t, es, esinfra.IndexName)
+
+	results, err := repo.Search(context.Background(), index.SearchQuery{
+		Text:     "Original",
+		Location: index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+	})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.Len(t, results[0].Pizzas, 1, "a stale removal must not drop a fresher pizza entry")
+}

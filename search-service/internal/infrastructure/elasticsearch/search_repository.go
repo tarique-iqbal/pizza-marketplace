@@ -26,6 +26,7 @@ type esPizza struct {
 	Name         string    `json:"name"`
 	IsVegetarian bool      `json:"isVegetarian"`
 	Toppings     []string  `json:"toppings"`
+	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
 type esGeoPoint struct {
@@ -105,6 +106,106 @@ const updateFieldsScript = `if (!ctx._source.containsKey('updatedAt') || ` +
 	`} else { ` +
 	`ctx.op = 'noop'; ` +
 	`}`
+
+// pizzaUpsertScript replaces-in-place or appends a single pizza within the
+// document's pizzas array, guarded per-pizza by its own updatedAt — a
+// restaurant-level updatedAt guard can't be reused here since pizza edits
+// (e.g. SetPizzaPrices) never touch the restaurants row, so restaurant.
+// updated's timestamp has no relation to when a given pizza last changed.
+const pizzaUpsertScript = `def idx = -1; ` +
+	`for (int i = 0; i < ctx._source.pizzas.size(); i++) { ` +
+	`if (ctx._source.pizzas[i].id == params.pizza.id) { idx = i; break; } ` +
+	`} ` +
+	`if (idx == -1) { ` +
+	`ctx._source.pizzas.add(params.pizza); ` +
+	`} else if (params.updatedAtMillis > Instant.parse(ctx._source.pizzas[idx].updatedAt).toEpochMilli()) { ` +
+	`ctx._source.pizzas[idx] = params.pizza; ` +
+	`} else { ` +
+	`ctx.op = 'noop'; ` +
+	`}`
+
+// pizzaRemoveScript drops a pizza gone archived or unpriced (no longer
+// orderable) from the indexed menu. A pizza already absent is a no-op, not
+// an error — removal must be idempotent against redelivery.
+const pizzaRemoveScript = `def idx = -1; ` +
+	`for (int i = 0; i < ctx._source.pizzas.size(); i++) { ` +
+	`if (ctx._source.pizzas[i].id == params.pizzaId) { idx = i; break; } ` +
+	`} ` +
+	`if (idx == -1) { ` +
+	`ctx.op = 'noop'; ` +
+	`} else if (params.updatedAtMillis > Instant.parse(ctx._source.pizzas[idx].updatedAt).toEpochMilli()) { ` +
+	`ctx._source.pizzas.remove(idx); ` +
+	`} else { ` +
+	`ctx.op = 'noop'; ` +
+	`}`
+
+func (r *SearchRepository) UpsertPizza(ctx context.Context, restaurantID uuid.UUID, pizza index.IndexedPizza) error {
+	doc := esPizza{
+		ID:           pizza.ID,
+		Name:         pizza.Name,
+		IsVegetarian: pizza.IsVegetarian,
+		Toppings:     pizza.Toppings,
+		UpdatedAt:    pizza.UpdatedAt,
+	}
+
+	body, err := json.Marshal(esUpdateBody{
+		Script: esScript{
+			Source: pizzaUpsertScript,
+			Lang:   "painless",
+			Params: map[string]any{
+				"pizza":           doc,
+				"updatedAtMillis": pizza.UpdatedAt.UnixMilli(),
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal pizza: %w", err)
+	}
+
+	res, err := r.es.Update(IndexName, restaurantID.String(), bytes.NewReader(body), r.es.Update.WithContext(ctx))
+	if err != nil {
+		return fmt.Errorf("failed to upsert pizza: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		return fmt.Errorf("failed to upsert pizza: %s", res.String())
+	}
+
+	return nil
+}
+
+func (r *SearchRepository) RemovePizza(
+	ctx context.Context,
+	restaurantID, pizzaID uuid.UUID,
+	updatedAt time.Time,
+) error {
+	body, err := json.Marshal(esUpdateBody{
+		Script: esScript{
+			Source: pizzaRemoveScript,
+			Lang:   "painless",
+			Params: map[string]any{
+				"pizzaId":         pizzaID.String(),
+				"updatedAtMillis": updatedAt.UnixMilli(),
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal pizza removal: %w", err)
+	}
+
+	res, err := r.es.Update(IndexName, restaurantID.String(), bytes.NewReader(body), r.es.Update.WithContext(ctx))
+	if err != nil {
+		return fmt.Errorf("failed to remove pizza: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		return fmt.Errorf("failed to remove pizza: %s", res.String())
+	}
+
+	return nil
+}
 
 func (r *SearchRepository) UpsertSnapshot(ctx context.Context, restaurant index.IndexedRestaurant) error {
 	doc := toESRestaurant(restaurant)
@@ -310,6 +411,7 @@ func toESRestaurant(r index.IndexedRestaurant) esRestaurant {
 			Name:         p.Name,
 			IsVegetarian: p.IsVegetarian,
 			Toppings:     p.Toppings,
+			UpdatedAt:    p.UpdatedAt,
 		})
 	}
 
@@ -340,6 +442,7 @@ func fromESRestaurant(id uuid.UUID, doc esRestaurant) index.IndexedRestaurant {
 			Name:         p.Name,
 			IsVegetarian: p.IsVegetarian,
 			Toppings:     p.Toppings,
+			UpdatedAt:    p.UpdatedAt,
 		})
 	}
 
