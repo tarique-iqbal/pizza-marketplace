@@ -22,6 +22,7 @@ var Exchanges = map[string][]string{
 	"restaurant.events": {
 		"restaurant.launched",
 		"restaurant.updated",
+		"restaurant.pizza_updated",
 	},
 }
 
