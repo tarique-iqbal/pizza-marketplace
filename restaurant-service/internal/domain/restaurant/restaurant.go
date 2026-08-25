@@ -165,9 +165,8 @@ func (r *Restaurant) Launch() error {
 	r.Status = StatusActive
 
 	r.events = append(r.events, RestaurantLaunched{
-		RestaurantID:   r.ID,
-		RestaurantName: r.Name,
-		OccurredAt:     time.Now().UTC(),
+		RestaurantID: r.ID,
+		OccurredAt:   time.Now().UTC(),
 	})
 
 	return nil

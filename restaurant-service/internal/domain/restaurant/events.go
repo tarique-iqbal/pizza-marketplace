@@ -32,9 +32,8 @@ func (RestaurantApproved) GetEventName() string {
 }
 
 type RestaurantLaunched struct {
-	RestaurantID   uuid.UUID
-	RestaurantName string
-	OccurredAt     time.Time
+	RestaurantID uuid.UUID
+	OccurredAt   time.Time
 }
 
 func (RestaurantLaunched) GetEventName() string {

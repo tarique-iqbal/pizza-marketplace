@@ -136,7 +136,6 @@ func TestRestaurant_Launch_TransitionsToActive(t *testing.T) {
 	require.True(t, ok)
 
 	assert.Equal(t, res.ID, event.RestaurantID)
-	assert.Equal(t, "Pizza Paradise", event.RestaurantName)
 	assert.Equal(t, "restaurant.launched", event.GetEventName())
 	assert.False(t, event.OccurredAt.IsZero())
 }

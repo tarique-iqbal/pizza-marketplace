@@ -90,7 +90,7 @@ func NewRestaurantLaunchedPayload(
 ) RestaurantLaunchedPayload {
 	payload := RestaurantLaunchedPayload{
 		RestaurantID:   e.RestaurantID,
-		RestaurantName: e.RestaurantName,
+		RestaurantName: r.Name,
 		Slug:           *r.Slug,
 		Contact: ContactResponse{
 			Email:   r.Email,
