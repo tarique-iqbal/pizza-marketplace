@@ -37,6 +37,8 @@ func getErrorMsg(fe validator.FieldError) string {
 		return "Must be a valid time in HH:MM format."
 	case "gtfield_open":
 		return "Close must be later than open."
+	case "required_if_delivery":
+		return "This field is required unless delivery type is 'none'."
 	}
 	return "Unknown error"
 }

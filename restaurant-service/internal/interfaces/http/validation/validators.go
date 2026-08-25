@@ -21,6 +21,7 @@ func init() {
 		_ = engine.RegisterValidation("hhmm", isHHMM)
 		_ = engine.RegisterValidation("phone", isPhone)
 		engine.RegisterStructValidation(validateDayRange, restaurant.DayRangeRequest{})
+		engine.RegisterStructValidation(validateDeliveryKm, restaurant.UpdateDeliveryRequest{})
 	}
 }
 
@@ -99,5 +100,13 @@ func validateDayRange(sl validator.StructLevel) {
 
 	if dr.Open >= dr.Close {
 		sl.ReportError(reflect.ValueOf(dr.Close), "Close", "Close", "gtfield_open", "")
+	}
+}
+
+func validateDeliveryKm(sl validator.StructLevel) {
+	req := sl.Current().Interface().(restaurant.UpdateDeliveryRequest)
+
+	if req.DeliveryType != "none" && req.DeliveryKm == nil {
+		sl.ReportError(reflect.ValueOf(req.DeliveryKm), "DeliveryKm", "DeliveryKm", "required_if_delivery", "")
 	}
 }

@@ -132,6 +132,44 @@ func TestDeliveryHandler_UpdateDelivery_Failure_ValidationError(t *testing.T) {
 	assert.Contains(t, recorder.Body.String(), "errors")
 }
 
+func TestDeliveryHandler_UpdateDelivery_Failure_MissingDeliveryKm(t *testing.T) {
+	h := setupDeliveryHandler(t)
+
+	var res restaurant.Restaurant
+	err := h.DB.First(&res).Error
+	require.NoError(t, err)
+
+	router := gin.Default()
+
+	router.Use(
+		MockAuthMiddleware(res.OwnerID.String(), "owner"),
+		middleware.RequireRole("owner"),
+	)
+
+	router.PATCH("/restaurants/:id/delivery", h.Handler.UpdateDelivery)
+
+	payload := `{
+		"pickup": false,
+		"deliveryType": "own",
+		"deliveryFee": "2.50",
+		"minimumOrder": "10.00"
+	}`
+
+	req, _ := http.NewRequest(
+		http.MethodPatch,
+		"/restaurants/"+res.ID.String()+"/delivery",
+		bytes.NewBufferString(payload),
+	)
+
+	req.Header.Set("Content-Type", "application/json")
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), "DeliveryKm")
+}
+
 func TestDeliveryHandler_UpdateDelivery_Failure_Unauthorized(t *testing.T) {
 	h := setupDeliveryHandler(t)
 
