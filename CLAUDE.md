@@ -17,10 +17,10 @@ Pizza Marketplace: an online pizza ordering platform built as a Go microservices
 
 This repo holds backend services only — the React frontend (`web-user`) lives in a separate repo.
 
-`search-service` only consumes `restaurant.launched` today — the rest of the originally-planned event set
-(`restaurant.updated`/`reactivated`/`deactivated`, a pizza/topping-owned event) has no publisher in
-restaurant-service yet, so don't assume those are wired up. Check `docs/services/search-service.md` before
-assuming search-service coverage beyond that.
+`search-service` consumes `restaurant.launched`, `restaurant.updated`, and `restaurant.pizza_updated` today —
+`restaurant.reactivated`/`restaurant.deactivated` still have no publisher in restaurant-service (Part A's
+`Reactivate`/`Deactivate` remain unimplemented), so don't assume those are wired up. Check
+`docs/services/search-service.md` before assuming search-service coverage beyond that.
 
 Each Go service (`identity-service`, `restaurant-service`, `email-service`, `search-service`) follows the same internal layout:
 
