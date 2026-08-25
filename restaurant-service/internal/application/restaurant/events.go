@@ -185,6 +185,7 @@ type PizzaUpdatedPayload struct {
 	RestaurantID uuid.UUID              `json:"restaurant_id"`
 	EventName    string                 `json:"event_name"`
 	Pizza        pizzaapp.PizzaResponse `json:"pizza"`
+	UpdatedAt    time.Time              `json:"updated_at"`
 	OccurredAt   time.Time              `json:"occurred_at"`
 }
 
@@ -196,9 +197,15 @@ func NewPizzaUpdatedPayload(
 	e restaurant.PizzaUpdated,
 	pizza pizzaapp.PizzaResponse,
 ) PizzaUpdatedPayload {
+	var updatedAt time.Time
+	if pizza.UpdatedAt != nil {
+		updatedAt = *pizza.UpdatedAt
+	}
+
 	payload := PizzaUpdatedPayload{
 		RestaurantID: e.RestaurantID,
 		Pizza:        pizza,
+		UpdatedAt:    updatedAt,
 		OccurredAt:   e.OccurredAt,
 	}
 	payload.EventName = payload.GetEventName()

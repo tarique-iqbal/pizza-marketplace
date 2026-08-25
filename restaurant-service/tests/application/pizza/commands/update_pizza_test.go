@@ -109,6 +109,8 @@ func TestUpdatePizza_PublishesPizzaUpdatedEvent_WhenActive(t *testing.T) {
 	assert.Equal(t, owner.ID, payload.RestaurantID)
 	assert.Equal(t, output.ID, payload.Pizza.ID)
 	assert.Equal(t, "Margherita Deluxe", payload.Pizza.Name)
+	require.NotNil(t, output.UpdatedAt)
+	assert.Equal(t, *output.UpdatedAt, payload.UpdatedAt)
 }
 
 func TestUpdatePizza_NilFields_KeepExistingValues(t *testing.T) {
