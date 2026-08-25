@@ -62,10 +62,10 @@ func (uc *RegisterCustomer) Execute(ctx context.Context, input RegisterCustomerR
 	}
 
 	event := UserRegistered{
-		Email:     newUser.Email,
-		FirstName: newUser.FirstName,
-		Role:      newUser.Role,
-		Timestamp: time.Now().UTC(),
+		Email:      newUser.Email,
+		FirstName:  newUser.FirstName,
+		Role:       newUser.Role,
+		OccurredAt: time.Now().UTC(),
 	}
 	event.EventName = event.GetEventName()
 

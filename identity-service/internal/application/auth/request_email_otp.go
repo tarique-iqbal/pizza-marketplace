@@ -75,9 +75,9 @@ func (uc *RequestEmailOTP) Execute(
 	}
 
 	event := EmailVerificationCreated{
-		Email:     email,
-		Code:      code,
-		Timestamp: time.Now().UTC(),
+		Email:      email,
+		Code:       code,
+		OccurredAt: time.Now().UTC(),
 	}
 	event.EventName = event.GetEventName()
 
