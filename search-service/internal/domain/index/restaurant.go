@@ -16,6 +16,7 @@ type IndexedPizza struct {
 	Name         string    `json:"name"`
 	IsVegetarian bool      `json:"isVegetarian"`
 	Toppings     []string  `json:"toppings"`
+	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
 type IndexedRestaurant struct {
