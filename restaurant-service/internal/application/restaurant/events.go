@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	pizzaapp "restaurant-service/internal/application/pizza"
+	toppingapp "restaurant-service/internal/application/topping"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/shared/money"
 )
@@ -59,24 +60,25 @@ func newRestaurantApprovedPayload(e restaurant.RestaurantApproved) RestaurantApp
 }
 
 type RestaurantLaunchedPayload struct {
-	RestaurantID   uuid.UUID                `json:"restaurant_id"`
-	RestaurantName string                   `json:"restaurant_name"`
-	EventName      string                   `json:"event_name"`
-	Slug           string                   `json:"slug"`
-	Contact        ContactResponse          `json:"contact"`
-	Address        Address                  `json:"address"`
-	Lat            float64                  `json:"lat"`
-	Lon            float64                  `json:"lon"`
-	Delivery       DeliveryResponse         `json:"delivery"`
-	Currency       string                   `json:"currency"`
-	Rating         float64                  `json:"rating"`
-	TotalReviews   int32                    `json:"total_reviews"`
-	Pickup         bool                     `json:"pickup"`
-	Tags           []string                 `json:"tags"`
-	OpeningHours   OpeningHoursResponse     `json:"opening_hours"`
-	Pizzas         []pizzaapp.PizzaResponse `json:"pizzas"`
-	UpdatedAt      time.Time                `json:"updated_at"`
-	OccurredAt     time.Time                `json:"occurred_at"`
+	RestaurantID   uuid.UUID                         `json:"restaurant_id"`
+	RestaurantName string                            `json:"restaurant_name"`
+	EventName      string                            `json:"event_name"`
+	Slug           string                            `json:"slug"`
+	Contact        ContactResponse                   `json:"contact"`
+	Address        Address                           `json:"address"`
+	Lat            float64                           `json:"lat"`
+	Lon            float64                           `json:"lon"`
+	Delivery       DeliveryResponse                  `json:"delivery"`
+	Currency       string                            `json:"currency"`
+	Rating         float64                           `json:"rating"`
+	TotalReviews   int32                             `json:"total_reviews"`
+	Pickup         bool                              `json:"pickup"`
+	Tags           []string                          `json:"tags"`
+	OpeningHours   OpeningHoursResponse              `json:"opening_hours"`
+	Pizzas         []pizzaapp.PizzaResponse          `json:"pizzas"`
+	ToppingPrices  []toppingapp.ToppingPriceResponse `json:"topping_prices"`
+	UpdatedAt      time.Time                         `json:"updated_at"`
+	OccurredAt     time.Time                         `json:"occurred_at"`
 }
 
 func (RestaurantLaunchedPayload) GetEventName() string {
@@ -87,6 +89,7 @@ func NewRestaurantLaunchedPayload(
 	e restaurant.RestaurantLaunched,
 	r *restaurant.Restaurant,
 	pizzas []pizzaapp.PizzaResponse,
+	toppingPrices []toppingapp.ToppingPriceResponse,
 ) RestaurantLaunchedPayload {
 	payload := RestaurantLaunchedPayload{
 		RestaurantID:   e.RestaurantID,
@@ -106,15 +109,16 @@ func NewRestaurantLaunchedPayload(
 			Fee:          money.Money(r.DeliveryFee),
 			MinimumOrder: money.Money(r.MinimumOrder),
 		},
-		Currency:     r.Currency,
-		Rating:       r.Rating,
-		TotalReviews: r.TotalReviews,
-		Pickup:       r.Pickup,
-		Tags:         parseTags(r.Tags),
-		OpeningHours: r.OpeningHours,
-		Pizzas:       pizzas,
-		UpdatedAt:    *r.UpdatedAt,
-		OccurredAt:   e.OccurredAt,
+		Currency:      r.Currency,
+		Rating:        r.Rating,
+		TotalReviews:  r.TotalReviews,
+		Pickup:        r.Pickup,
+		Tags:          parseTags(r.Tags),
+		OpeningHours:  r.OpeningHours,
+		Pizzas:        pizzas,
+		ToppingPrices: toppingPrices,
+		UpdatedAt:     *r.UpdatedAt,
+		OccurredAt:    e.OccurredAt,
 	}
 	payload.EventName = payload.GetEventName()
 
@@ -202,6 +206,34 @@ func NewPizzaUpdatedPayload(
 		Pizza:        pizza,
 		UpdatedAt:    *pizza.UpdatedAt,
 		OccurredAt:   e.OccurredAt,
+	}
+	payload.EventName = payload.GetEventName()
+
+	return payload
+}
+
+type ToppingPricesUpdatedPayload struct {
+	RestaurantID  uuid.UUID                         `json:"restaurant_id"`
+	EventName     string                            `json:"event_name"`
+	ToppingPrices []toppingapp.ToppingPriceResponse `json:"topping_prices"`
+	UpdatedAt     time.Time                         `json:"updated_at"`
+	OccurredAt    time.Time                         `json:"occurred_at"`
+}
+
+func (ToppingPricesUpdatedPayload) GetEventName() string {
+	return "restaurant.topping_prices_updated"
+}
+
+func NewToppingPricesUpdatedPayload(
+	e restaurant.ToppingPricesUpdated,
+	toppingPrices []toppingapp.ToppingPriceResponse,
+	updatedAt time.Time,
+) ToppingPricesUpdatedPayload {
+	payload := ToppingPricesUpdatedPayload{
+		RestaurantID:  e.RestaurantID,
+		ToppingPrices: toppingPrices,
+		UpdatedAt:     updatedAt,
+		OccurredAt:    e.OccurredAt,
 	}
 	payload.EventName = payload.GetEventName()
 

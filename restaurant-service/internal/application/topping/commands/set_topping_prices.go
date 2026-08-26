@@ -3,14 +3,17 @@ package commands
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
+	resapp "restaurant-service/internal/application/restaurant"
 	toppingapp "restaurant-service/internal/application/topping"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/domain/topping"
 	apperr "restaurant-service/internal/shared/errors"
+	"restaurant-service/internal/shared/event"
 )
 
 var (
@@ -22,17 +25,20 @@ type SetToppingPrices struct {
 	restaurantRepo   restaurant.RestaurantRepository
 	toppingRepo      topping.ToppingRepository
 	toppingPriceRepo topping.ToppingPriceRepository
+	publisher        event.EventPublisher
 }
 
 func NewSetToppingPrices(
 	restaurantRepo restaurant.RestaurantRepository,
 	toppingRepo topping.ToppingRepository,
 	toppingPriceRepo topping.ToppingPriceRepository,
+	publisher event.EventPublisher,
 ) *SetToppingPrices {
 	return &SetToppingPrices{
 		restaurantRepo:   restaurantRepo,
 		toppingRepo:      toppingRepo,
 		toppingPriceRepo: toppingPriceRepo,
+		publisher:        publisher,
 	}
 }
 
@@ -120,5 +126,22 @@ func (uc *SetToppingPrices) Execute(
 		)
 	}
 
+	res.NotifyToppingPricesUpdated()
+	resapp.DispatchEvents(ctx, uc.publisher, res, uc.enrichToppingPricesUpdated(responses, *prices[0].UpdatedAt))
+
 	return responses, nil
+}
+
+func (uc *SetToppingPrices) enrichToppingPricesUpdated(
+	toppingPrices []toppingapp.ToppingPriceResponse,
+	updatedAt time.Time,
+) resapp.Enricher {
+	return func(e restaurant.DomainEvent) (event.Event, bool) {
+		updated, ok := e.(restaurant.ToppingPricesUpdated)
+		if !ok {
+			return nil, false
+		}
+
+		return resapp.NewToppingPricesUpdatedPayload(updated, toppingPrices, updatedAt), true
+	}
 }

@@ -16,6 +16,7 @@ import (
 	"restaurant-service/internal/application/restaurant/commands"
 	"restaurant-service/internal/domain/pizza"
 	"restaurant-service/internal/domain/restaurant"
+	"restaurant-service/internal/domain/topping"
 	"restaurant-service/internal/infrastructure/persistence"
 	apperr "restaurant-service/internal/shared/errors"
 	"restaurant-service/internal/shared/event"
@@ -54,7 +55,9 @@ func setupLaunchRestaurant(t *testing.T) launchRestaurantSetup {
 
 	pizzaCatalog := queries.NewPizzaCatalog(pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo)
 	publisher := &fakePublisher{}
-	launchRestaurant := commands.NewLaunchRestaurant(restaurantRepo, payoutDetailsRepo, pizzaCatalog, publisher)
+	launchRestaurant := commands.NewLaunchRestaurant(
+		restaurantRepo, payoutDetailsRepo, pizzaCatalog, toppingRepo, toppingPriceRepo, publisher,
+	)
 
 	return launchRestaurantSetup{
 		DB:               db.DB,
@@ -190,6 +193,43 @@ func TestLaunchRestaurant_PublishesLaunchedEventWithMenu(t *testing.T) {
 	assert.Equal(t, restaurant.DeliveryOwn, payload.Delivery.Type)
 	assert.InDelta(t, 53.5511, payload.Lat, 0.0001)
 	assert.False(t, payload.UpdatedAt.IsZero(), "must carry the restaurant row's real write timestamp")
+}
+
+func TestLaunchRestaurant_PublishesLaunchedEventWithToppingPrices(t *testing.T) {
+	env := setupLaunchRestaurant(t)
+	require.NoError(t, fixtures.LoadPizzaFixtures(t, env.DB))
+
+	var res restaurant.Restaurant
+	require.NoError(t, env.DB.Where("slug = ?", "anatolische-kueche").Take(&res).Error)
+
+	res.Status = restaurant.StatusApproved
+	require.NoError(t, env.DB.Save(&res).Error)
+
+	var pizzas []pizza.Pizza
+	require.NoError(t, env.DB.Where("restaurant_id = ?", res.ID).Order("sort_order").Find(&pizzas).Error)
+	for _, p := range pizzas {
+		setPizzaPrice(t, env.DB, p.ID)
+	}
+
+	var t1 topping.Topping
+	require.NoError(t, env.DB.Order("name").Take(&t1).Error)
+
+	price, err := topping.NewToppingPrice(res.ID, t1.ID, decimal.RequireFromString("1.50"))
+	require.NoError(t, err)
+	require.NoError(t, persistence.NewToppingPriceRepository(env.DB).
+		UpsertPrices(context.Background(), res.ID, []topping.ToppingPrice{*price}))
+
+	_, err = env.LaunchRestaurant.Execute(context.Background(), res.ID, res.OwnerID)
+	require.NoError(t, err)
+
+	require.Len(t, env.Publisher.events, 1)
+
+	payload, ok := env.Publisher.events[0].(resapp.RestaurantLaunchedPayload)
+	require.True(t, ok)
+
+	require.Len(t, payload.ToppingPrices, 1, "topping prices set before launch must be seeded into the snapshot")
+	assert.Equal(t, t1.ID, payload.ToppingPrices[0].ToppingID)
+	assert.True(t, decimal.RequireFromString("1.50").Equal(decimal.Decimal(payload.ToppingPrices[0].ExtraPrice)))
 }
 
 func TestLaunchRestaurant_ExcludesUnpricedPizzasFromMenu(t *testing.T) {
