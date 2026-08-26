@@ -9,6 +9,7 @@ Routes served under `/restaurants` via the Traefik gateway.
 | `PATCH` | `/restaurants/{id}/contact` | JWT | Update contact info (email, phone, website) |
 | `PATCH` | `/restaurants/{id}/address` | JWT | Update address |
 | `PATCH` | `/restaurants/{id}/delivery` | JWT | Update delivery settings (pickup, delivery type, radius, fee, minimum order) |
+| `PATCH` | `/restaurants/{id}/tags` | JWT | Replace the restaurant's dietary/religious tags (full replace) |
 | `POST` | `/restaurants/{id}/payout-details` | JWT | Submit new payout bank details (account holder, IBAN, BIC, bank name) for verification |
 | `PUT` | `/restaurants/{id}/payout-details` | JWT | Replace the pending payout submission (all four fields required) |
 | `PATCH` | `/restaurants/{id}/opening-hours` | JWT | Replace the weekly opening hours (full replace, one or more `{open, close}` ranges per weekday) |
@@ -25,6 +26,8 @@ Routes served under `/restaurants` via the Traefik gateway.
 `PUT /:id/payout-details` replaces the `pending` record's fields in place — allowed because a `pending` submission hasn't been reviewed yet, so there's nothing to lose by overwriting it (unlike `active`/`superseded` rows, which are never mutated). All four fields are required. `404 Not Found` if there is no `pending` record to replace — including when the restaurant only has an `active` record, since this never touches that. Deliberately `PUT`, not `PATCH` like `address`/`delivery`: the request body is the full resulting state (not a partial diff), so `PUT`'s create-or-replace-at-known-URI contract fits; it stays conditional on `pending` existing rather than unconditionally overwriting, which is why it's not treated as a strict "resource now equals this body no matter what."
 
 `PATCH /:id/opening-hours` takes each weekday (`monday`...`sunday`) as a list of `{open, close}` ranges in `HH:MM` 24-hour format. An empty or omitted list means closed that day. Each range must stay within a single calendar day (`close` must be later than `open` — no crossing midnight in one range). A place open past midnight represents that as two entries: e.g. `monday: [{open: "15:00", close: "23:59"}]` and `tuesday: [{open: "00:00", close: "03:00"}, ...]` for the carryover, rather than one `monday` range crossing into Tuesday. Multiple ranges per day are supported natively (e.g. a lunch/dinner split), not just the overnight case.
+
+`PATCH /:id/tags` replaces the restaurant's dietary/religious tags with the full set given — omitted tags from a prior call are dropped, an empty `tags` array clears them all. Valid values are a fixed enum (`vegetarian`, `vegan`, `glutenfree`, `halal`); duplicates and unknown values are rejected with `422 Unprocessable Entity`. Tags are fully manual — the owner self-declares them — and unrelated to a pizza's or topping's own `isVegetarian` flag, which describes a single menu item rather than the restaurant as a whole. There's no checklist gate; tags can be set regardless of onboarding status.
 
 The pizza menu is a separate resource from the restaurant itself — `GET /:id/pizzas` (and the other pizza endpoints) never appear nested inside the restaurant's own response body.
 
