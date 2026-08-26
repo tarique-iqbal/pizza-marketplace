@@ -27,6 +27,7 @@ func main() {
 		AddressHandler:       app.AddressHandler,
 		ContactHandler:       app.ContactHandler,
 		DeliveryHandler:      app.DeliveryHandler,
+		TagsHandler:          app.TagsHandler,
 		PayoutHandler:        app.PayoutHandler,
 		OpeningHoursHandler:  app.OpeningHoursHandler,
 		ToppingPriceHandler:  app.ToppingPriceHandler,

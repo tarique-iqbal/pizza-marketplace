@@ -24,6 +24,7 @@ type APIContainer struct {
 	AddressHandler       *handlers.AddressHandler
 	ContactHandler       *handlers.ContactHandler
 	DeliveryHandler      *handlers.DeliveryHandler
+	TagsHandler          *handlers.TagsHandler
 	PayoutHandler        *handlers.PayoutHandler
 	OpeningHoursHandler  *handlers.OpeningHoursHandler
 	ToppingPriceHandler  *handlers.ToppingPriceHandler
@@ -58,6 +59,9 @@ func NewAPIContainer() (*APIContainer, error) {
 
 	updateDelivery := commands.NewUpdateDelivery(restaurantRepo, payoutDetailsRepo, publisher)
 	deliveryHandler := handlers.NewDeliveryHandler(updateDelivery)
+
+	updateTags := commands.NewUpdateTags(restaurantRepo, payoutDetailsRepo, publisher)
+	tagsHandler := handlers.NewTagsHandler(updateTags)
 
 	createPayout := payoutcmd.NewCreatePayout(restaurantRepo, payoutDetailsRepo, publisher)
 	updatePayout := payoutcmd.NewUpdatePayout(restaurantRepo, payoutDetailsRepo)
@@ -109,6 +113,7 @@ func NewAPIContainer() (*APIContainer, error) {
 		AddressHandler:       addressHandler,
 		ContactHandler:       contactHandler,
 		DeliveryHandler:      deliveryHandler,
+		TagsHandler:          tagsHandler,
 		PayoutHandler:        payoutHandler,
 		OpeningHoursHandler:  openingHoursHandler,
 		ToppingPriceHandler:  toppingPriceHandler,
