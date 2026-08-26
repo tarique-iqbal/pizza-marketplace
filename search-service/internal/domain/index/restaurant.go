@@ -11,12 +11,19 @@ type GeoPoint struct {
 	Lon float64 `json:"lon"`
 }
 
+type IndexedPizzaPrice struct {
+	SizeID     uuid.UUID `json:"sizeId"`
+	DiameterCm int16     `json:"diameterCm"`
+	Price      string    `json:"price"`
+}
+
 type IndexedPizza struct {
-	ID           uuid.UUID `json:"id"`
-	Name         string    `json:"name"`
-	IsVegetarian bool      `json:"isVegetarian"`
-	Toppings     []string  `json:"toppings"`
-	UpdatedAt    time.Time `json:"updatedAt"`
+	ID           uuid.UUID           `json:"id"`
+	Name         string              `json:"name"`
+	IsVegetarian bool                `json:"isVegetarian"`
+	Toppings     []string            `json:"toppings"`
+	Prices       []IndexedPizzaPrice `json:"prices"`
+	UpdatedAt    time.Time           `json:"updatedAt"`
 }
 
 type IndexedRestaurant struct {
