@@ -43,6 +43,15 @@ func SetupDeliveryRoutes(router *gin.Engine, h *handlers.DeliveryHandler, m *mid
 	protected.PATCH("/:id/delivery", h.UpdateDelivery)
 }
 
+func SetupTagsRoutes(router *gin.Engine, h *handlers.TagsHandler, m *middleware.Middleware) {
+	restaurants := router.Group("/restaurants")
+
+	protected := restaurants.Group("")
+	protected.Use(m.Auth, m.EnsureOwner)
+
+	protected.PATCH("/:id/tags", h.UpdateTags)
+}
+
 func SetupPayoutRoutes(router *gin.Engine, h *handlers.PayoutHandler, m *middleware.Middleware) {
 	restaurants := router.Group("/restaurants")
 
