@@ -45,7 +45,15 @@ const indexMapping = `{
           "updatedAt": {"type": "date"}
         }
       },
-      "updatedAt": {"type": "date"}
+      "toppingPrices": {
+        "properties": {
+          "toppingId": {"type": "keyword"},
+          "name": {"type": "keyword"},
+          "extraPrice": {"type": "keyword"}
+        }
+      },
+      "updatedAt": {"type": "date"},
+      "toppingPricesUpdatedAt": {"type": "date"}
     }
   }
 }`

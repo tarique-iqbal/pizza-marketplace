@@ -41,20 +41,28 @@ type esGeoPoint struct {
 	Lon float64 `json:"lon"`
 }
 
+type esToppingPrice struct {
+	ToppingID  uuid.UUID `json:"toppingId"`
+	Name       string    `json:"name"`
+	ExtraPrice string    `json:"extraPrice"`
+}
+
 type esRestaurant struct {
-	Name         string     `json:"name"`
-	Slug         string     `json:"slug"`
-	City         string     `json:"city"`
-	Location     esGeoPoint `json:"location"`
-	Currency     string     `json:"currency"`
-	Pickup       bool       `json:"pickup"`
-	DeliveryType string     `json:"deliveryType"`
-	DeliveryKm   *int16     `json:"deliveryKm,omitempty"`
-	Tags         []string   `json:"tags"`
-	Rating       float64    `json:"rating"`
-	TotalReviews int32      `json:"totalReviews"`
-	Pizzas       []esPizza  `json:"pizzas"`
-	UpdatedAt    time.Time  `json:"updatedAt"`
+	Name                   string           `json:"name"`
+	Slug                   string           `json:"slug"`
+	City                   string           `json:"city"`
+	Location               esGeoPoint       `json:"location"`
+	Currency               string           `json:"currency"`
+	Pickup                 bool             `json:"pickup"`
+	DeliveryType           string           `json:"deliveryType"`
+	DeliveryKm             *int16           `json:"deliveryKm,omitempty"`
+	Tags                   []string         `json:"tags"`
+	Rating                 float64          `json:"rating"`
+	TotalReviews           int32            `json:"totalReviews"`
+	Pizzas                 []esPizza        `json:"pizzas"`
+	ToppingPrices          []esToppingPrice `json:"toppingPrices"`
+	UpdatedAt              time.Time        `json:"updatedAt"`
+	ToppingPricesUpdatedAt time.Time        `json:"toppingPricesUpdatedAt"`
 }
 
 type esRestaurantFields struct {
@@ -110,6 +118,18 @@ const updateFieldsScript = `if (!ctx._source.containsKey('updatedAt') || ` +
 	`ctx._source.rating = params.doc.rating; ` +
 	`ctx._source.totalReviews = params.doc.totalReviews; ` +
 	`ctx._source.updatedAt = params.doc.updatedAt; ` +
+	`} else { ` +
+	`ctx.op = 'noop'; ` +
+	`}`
+
+// toppingPricesUpdateScript is guarded by its own toppingPricesUpdatedAt
+// field, not the restaurant-level updatedAt — SetToppingPrices never touches
+// the restaurants row (same reason pizzas need their own per-pizza guard
+// instead of sharing updatedAt).
+const toppingPricesUpdateScript = `if (!ctx._source.containsKey('toppingPricesUpdatedAt') || ` +
+	`params.updatedAtMillis > Instant.parse(ctx._source.toppingPricesUpdatedAt).toEpochMilli()) { ` +
+	`ctx._source.toppingPrices = params.toppingPrices; ` +
+	`ctx._source.toppingPricesUpdatedAt = params.updatedAt; ` +
 	`} else { ` +
 	`ctx.op = 'noop'; ` +
 	`}`
@@ -279,6 +299,40 @@ func (r *SearchRepository) UpdateFields(ctx context.Context, id uuid.UUID, field
 	return nil
 }
 
+func (r *SearchRepository) UpdateToppingPrices(
+	ctx context.Context,
+	restaurantID uuid.UUID,
+	prices []index.IndexedToppingPrice,
+	updatedAt time.Time,
+) error {
+	body, err := json.Marshal(esUpdateBody{
+		Script: esScript{
+			Source: toppingPricesUpdateScript,
+			Lang:   "painless",
+			Params: map[string]any{
+				"toppingPrices":   toESToppingPrices(prices),
+				"updatedAt":       updatedAt,
+				"updatedAtMillis": updatedAt.UnixMilli(),
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal topping prices: %w", err)
+	}
+
+	res, err := r.es.Update(IndexName, restaurantID.String(), bytes.NewReader(body), r.es.Update.WithContext(ctx))
+	if err != nil {
+		return fmt.Errorf("failed to update topping prices: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		return fmt.Errorf("failed to update topping prices: %s", res.String())
+	}
+
+	return nil
+}
+
 func (r *SearchRepository) Search(ctx context.Context, q index.SearchQuery) ([]index.IndexedRestaurant, error) {
 	body, err := json.Marshal(buildSearchQuery(q))
 	if err != nil {
@@ -427,6 +481,24 @@ func toIndexedPizzaPrices(prices []esPizzaPrice) []index.IndexedPizzaPrice {
 	return out
 }
 
+func toESToppingPrices(prices []index.IndexedToppingPrice) []esToppingPrice {
+	out := make([]esToppingPrice, 0, len(prices))
+	for _, p := range prices {
+		out = append(out, esToppingPrice{ToppingID: p.ToppingID, Name: p.Name, ExtraPrice: p.ExtraPrice})
+	}
+
+	return out
+}
+
+func toIndexedToppingPrices(prices []esToppingPrice) []index.IndexedToppingPrice {
+	out := make([]index.IndexedToppingPrice, 0, len(prices))
+	for _, p := range prices {
+		out = append(out, index.IndexedToppingPrice{ToppingID: p.ToppingID, Name: p.Name, ExtraPrice: p.ExtraPrice})
+	}
+
+	return out
+}
+
 func toESRestaurant(r index.IndexedRestaurant) esRestaurant {
 	location := esGeoPoint{Lat: r.Location.Lat, Lon: r.Location.Lon}
 
@@ -443,19 +515,21 @@ func toESRestaurant(r index.IndexedRestaurant) esRestaurant {
 	}
 
 	return esRestaurant{
-		Name:         r.Name,
-		Slug:         r.Slug,
-		City:         r.City,
-		Location:     location,
-		Currency:     r.Currency,
-		Pickup:       r.Pickup,
-		DeliveryType: r.DeliveryType,
-		DeliveryKm:   r.DeliveryKm,
-		Tags:         r.Tags,
-		Rating:       r.Rating,
-		TotalReviews: r.TotalReviews,
-		Pizzas:       pizzas,
-		UpdatedAt:    r.UpdatedAt,
+		Name:                   r.Name,
+		Slug:                   r.Slug,
+		City:                   r.City,
+		Location:               location,
+		Currency:               r.Currency,
+		Pickup:                 r.Pickup,
+		DeliveryType:           r.DeliveryType,
+		DeliveryKm:             r.DeliveryKm,
+		Tags:                   r.Tags,
+		Rating:                 r.Rating,
+		TotalReviews:           r.TotalReviews,
+		Pizzas:                 pizzas,
+		ToppingPrices:          toESToppingPrices(r.ToppingPrices),
+		UpdatedAt:              r.UpdatedAt,
+		ToppingPricesUpdatedAt: r.ToppingPricesUpdatedAt,
 	}
 }
 
@@ -475,19 +549,21 @@ func fromESRestaurant(id uuid.UUID, doc esRestaurant) index.IndexedRestaurant {
 	}
 
 	return index.IndexedRestaurant{
-		ID:           id,
-		Name:         doc.Name,
-		Slug:         doc.Slug,
-		City:         doc.City,
-		Location:     location,
-		Currency:     doc.Currency,
-		Pickup:       doc.Pickup,
-		DeliveryType: doc.DeliveryType,
-		DeliveryKm:   doc.DeliveryKm,
-		Tags:         doc.Tags,
-		Rating:       doc.Rating,
-		TotalReviews: doc.TotalReviews,
-		Pizzas:       pizzas,
-		UpdatedAt:    doc.UpdatedAt,
+		ID:                     id,
+		Name:                   doc.Name,
+		Slug:                   doc.Slug,
+		City:                   doc.City,
+		Location:               location,
+		Currency:               doc.Currency,
+		Pickup:                 doc.Pickup,
+		DeliveryType:           doc.DeliveryType,
+		DeliveryKm:             doc.DeliveryKm,
+		Tags:                   doc.Tags,
+		Rating:                 doc.Rating,
+		TotalReviews:           doc.TotalReviews,
+		Pizzas:                 pizzas,
+		ToppingPrices:          toIndexedToppingPrices(doc.ToppingPrices),
+		UpdatedAt:              doc.UpdatedAt,
+		ToppingPricesUpdatedAt: doc.ToppingPricesUpdatedAt,
 	}
 }

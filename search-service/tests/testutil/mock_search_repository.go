@@ -25,18 +25,26 @@ type RemovedPizza struct {
 	UpdatedAt    time.Time
 }
 
+type UpdatedToppingPrices struct {
+	RestaurantID uuid.UUID
+	Prices       []index.IndexedToppingPrice
+	UpdatedAt    time.Time
+}
+
 type MockSearchRepository struct {
-	Upserted       []index.IndexedRestaurant
-	UpsertErr      error
-	UpdatedFields  []UpdatedFields
-	UpdateErr      error
-	UpsertedPizzas []UpsertedPizza
-	UpsertPizzaErr error
-	RemovedPizzas  []RemovedPizza
-	RemovePizzaErr error
-	SearchResult   []index.IndexedRestaurant
-	SearchErr      error
-	LastQuery      index.SearchQuery
+	Upserted               []index.IndexedRestaurant
+	UpsertErr              error
+	UpdatedFields          []UpdatedFields
+	UpdateErr              error
+	UpsertedPizzas         []UpsertedPizza
+	UpsertPizzaErr         error
+	RemovedPizzas          []RemovedPizza
+	RemovePizzaErr         error
+	UpdatedToppingPrices   []UpdatedToppingPrices
+	UpdateToppingPricesErr error
+	SearchResult           []index.IndexedRestaurant
+	SearchErr              error
+	LastQuery              index.SearchQuery
 }
 
 var _ index.SearchRepository = (*MockSearchRepository)(nil)
@@ -67,6 +75,20 @@ func (m *MockSearchRepository) RemovePizza(
 		UpdatedAt:    updatedAt,
 	})
 	return m.RemovePizzaErr
+}
+
+func (m *MockSearchRepository) UpdateToppingPrices(
+	_ context.Context,
+	restaurantID uuid.UUID,
+	prices []index.IndexedToppingPrice,
+	updatedAt time.Time,
+) error {
+	m.UpdatedToppingPrices = append(m.UpdatedToppingPrices, UpdatedToppingPrices{
+		RestaurantID: restaurantID,
+		Prices:       prices,
+		UpdatedAt:    updatedAt,
+	})
+	return m.UpdateToppingPricesErr
 }
 
 func (m *MockSearchRepository) Search(_ context.Context, q index.SearchQuery) ([]index.IndexedRestaurant, error) {

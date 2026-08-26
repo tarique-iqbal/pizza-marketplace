@@ -308,6 +308,90 @@ func TestSearchRepository_UpdateFields_DocumentMissing_ReturnsError(t *testing.T
 	require.Error(t, err, "an update for a restaurant not yet indexed by launch must not silently create one")
 }
 
+func TestSearchRepository_UpdateToppingPrices_SetsAndPreservesPizzas(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	id := uuid.New()
+	pizzaID := uuid.New()
+	toppingID := uuid.New()
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         id,
+		Name:       "Pizzeria Original",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+		Pizzas: []index.IndexedPizza{
+			{ID: pizzaID, Name: "Margherita", IsVegetarian: true},
+		},
+	})
+
+	require.NoError(t, repo.UpdateToppingPrices(
+		context.Background(),
+		id,
+		[]index.IndexedToppingPrice{{ToppingID: toppingID, Name: "Extra Cheese", ExtraPrice: "1.50"}},
+		time.Date(2026, 8, 26, 9, 0, 0, 0, time.UTC),
+	))
+	testutil.RefreshIndex(t, es, esinfra.IndexName)
+
+	results, err := repo.Search(context.Background(), index.SearchQuery{
+		Text:     "Original",
+		Location: index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+	})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.Len(t, results[0].ToppingPrices, 1)
+	assert.Equal(t, index.IndexedToppingPrice{ToppingID: toppingID, Name: "Extra Cheese", ExtraPrice: "1.50"}, results[0].ToppingPrices[0])
+	require.Len(t, results[0].Pizzas, 1, "a topping-price update must never touch the indexed menu")
+}
+
+func TestSearchRepository_UpdateToppingPrices_StaleRedelivery_Ignored(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	id := uuid.New()
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         id,
+		Name:       "Pizzeria Original",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+	})
+
+	require.NoError(t, repo.UpdateToppingPrices(
+		context.Background(),
+		id,
+		[]index.IndexedToppingPrice{{Name: "Fresh", ExtraPrice: "2.00"}},
+		time.Date(2026, 8, 26, 9, 0, 10, 0, time.UTC),
+	))
+
+	// A stale, retried redelivery of an OLDER topping_prices_updated event
+	// must be dropped, not overwrite the fresher list set above.
+	require.NoError(t, repo.UpdateToppingPrices(
+		context.Background(),
+		id,
+		[]index.IndexedToppingPrice{{Name: "Stale", ExtraPrice: "9.00"}},
+		time.Date(2026, 8, 26, 9, 0, 5, 0, time.UTC),
+	))
+	testutil.RefreshIndex(t, es, esinfra.IndexName)
+
+	results, err := repo.Search(context.Background(), index.SearchQuery{
+		Text:     "Pizzeria",
+		Location: index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+	})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.Len(t, results[0].ToppingPrices, 1)
+	assert.Equal(t, "Fresh", results[0].ToppingPrices[0].Name, "a stale redelivery must not overwrite newer indexed data")
+}
+
+func TestSearchRepository_UpdateToppingPrices_DocumentMissing_ReturnsError(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	err := repo.UpdateToppingPrices(context.Background(), uuid.New(), nil, time.Now())
+
+	require.Error(t, err, "an update for a restaurant not yet indexed by launch must not silently create one")
+}
+
 func TestSearchRepository_UpsertPizza_AddsNewPizza(t *testing.T) {
 	es := testutil.ES(t)
 	repo := esinfra.NewSearchRepository(es)
