@@ -194,6 +194,17 @@ func (r *Restaurant) NotifyPizzaUpdated() {
 	})
 }
 
+func (r *Restaurant) NotifyToppingPricesUpdated() {
+	if r.Status != StatusActive && r.Status != StatusInactive {
+		return
+	}
+
+	r.events = append(r.events, ToppingPricesUpdated{
+		RestaurantID: r.ID,
+		OccurredAt:   time.Now().UTC(),
+	})
+}
+
 func (r *Restaurant) PullEvents() []DomainEvent {
 	events := r.events
 	r.events = nil
