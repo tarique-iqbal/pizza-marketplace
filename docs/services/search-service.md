@@ -1,10 +1,11 @@
 # search-service — technical overview
 
-Read-only search API over restaurant/menu data, backed by Elasticsearch and kept fresh by consuming three
+Read-only search API over restaurant/pizza data, backed by Elasticsearch and kept fresh by consuming four
 restaurant-service events off RabbitMQ: `restaurant.launched` (full snapshot on first index), `restaurant.updated`
-(restaurant-field delta), and `restaurant.pizza_updated` (single-pizza delta). `restaurant.reactivated`/
-`restaurant.deactivated` and a `Delete` repository method are still not built — restaurant-service doesn't publish
-those yet (Part A's `Reactivate`/`Deactivate` remain unimplemented), so there's nothing to consume.
+(restaurant-field delta), `restaurant.pizza_updated` (single-pizza delta, including pizza pricing), and
+`restaurant.topping_prices_updated` (restaurant-wide extra-topping pricing). `restaurant.reactivated`/
+`restaurant.deactivated` and a `Delete` repository method are still not built — restaurant-service has no
+reactivate/deactivate endpoints yet to publish those events, so there's nothing to consume.
 
 ## Layered architecture
 
@@ -13,12 +14,12 @@ cmd/api                           → Gin HTTP server, GET /search only, no auth
 cmd/worker                        → RabbitMQ consumer
 cmd/worker/bootstrap              → app/runner setup (graceful shutdown, signal handling) — copied from
                                      restaurant-service's cmd/worker/bootstrap
-internal/domain/index             → IndexedRestaurant, IndexedPizza, RestaurantFields, GeoPoint,
-                                     SearchRepository, SearchQuery, Address, Geocoder, EventDispatcher,
-                                     EventHandler, EventPayload — interfaces + plain data, no business logic
-                                     of its own
-internal/application/index        → UpsertSnapshot, UpdateRestaurantFields, SyncPizza (one handler per
-                                     consumed event), EventDispatcher impl
+internal/domain/index             → IndexedRestaurant, IndexedPizza, IndexedPizzaPrice, IndexedToppingPrice,
+                                     RestaurantFields, GeoPoint, SearchRepository, SearchQuery, Address,
+                                     Geocoder, EventDispatcher, EventHandler, EventPayload — interfaces +
+                                     plain data, no business logic of its own
+internal/application/index        → UpsertSnapshot, UpdateRestaurantFields, SyncPizza, SyncToppingPrices
+                                     (one handler per consumed event), EventDispatcher impl
 internal/application/query        → SearchRestaurants (the /search use case — resolves address, then searches)
 internal/infrastructure/elasticsearch → client wrapper, index_setup.go (EnsureIndex, both indices),
                                      search_repository.go, geocode_repository.go (CachingGeocoder)
@@ -50,19 +51,35 @@ type IndexedRestaurant struct {
     Rating       float64
     TotalReviews int32
     Pizzas       []IndexedPizza
-    UpdatedAt    time.Time // guards restaurant.updated redelivery — see "Events" below
+    ToppingPrices []IndexedToppingPrice // restaurant-wide extra-topping prices, unrelated to any one pizza
+    UpdatedAt    time.Time // guards restaurant.updated/restaurant.launched redelivery — see "Events" below
+    ToppingPricesUpdatedAt time.Time // separate guard for ToppingPrices — see "Events" below for why
 }
 
 type IndexedPizza struct {
     ID           uuid.UUID
     Name         string
     IsVegetarian bool
-    Toppings     []string  // topping names, not IDs — this is a search document, not a menu-editing DTO
+    Toppings     []string  // topping names, not IDs — this is a search document, not a pizza-editing DTO
+    Prices       []IndexedPizzaPrice // active sizes/prices only — see below
     UpdatedAt    time.Time // guards restaurant.pizza_updated redelivery, per-pizza — see "Events" below
 }
 
-// RestaurantFields is IndexedRestaurant minus Pizzas — restaurant.updated never carries menu data,
-// so this type has no slot for it at all (not a shared struct with an ignored field).
+type IndexedPizzaPrice struct {
+    SizeID     uuid.UUID
+    DiameterCm int16
+    Price      string // wire-format decimal string, matching restaurant-service's Money — never computed on,
+                       // only displayed, so no decimal dependency was added just for this
+}
+
+type IndexedToppingPrice struct {
+    ToppingID  uuid.UUID
+    Name       string
+    ExtraPrice string // same wire-format-string convention as IndexedPizzaPrice.Price
+}
+
+// RestaurantFields is IndexedRestaurant minus Pizzas/ToppingPrices — restaurant.updated never carries pizza
+// or topping-pricing data, so this type has no slot for either (not a shared struct with an ignored field).
 type RestaurantFields struct {
     Name, Slug, City string
     Location     GeoPoint
@@ -77,11 +94,15 @@ type RestaurantFields struct {
 }
 ```
 
-All three domain structs (`IndexedRestaurant`, `IndexedPizza`, `GeoPoint`) carry explicit camelCase `json` tags,
-matching every other response type in this repo — without them, Gin's default marshaling emits Go's capitalized
-field names instead.
+All domain structs (`IndexedRestaurant`, `IndexedPizza`, `IndexedPizzaPrice`, `IndexedToppingPrice`, `GeoPoint`)
+carry explicit camelCase `json` tags, matching every other response type in this repo — without them, Gin's
+default marshaling emits Go's capitalized field names instead.
 
-No `Price` field on `IndexedPizza` — this slice indexes for text/geo search, not for showing prices in results.
+`IndexedPizza.Prices` only ever holds a pizza's currently-*active* prices — `SyncPizza`/`UpsertSnapshot` filter
+out inactive sizes before mapping, the same way a whole pizza with no active price at all gets excluded/removed
+rather than indexed unorderable. `IndexedToppingPrice` is restaurant-scoped, not per-pizza (`ToppingPriceRepository.
+ListByRestaurant` in restaurant-service is not keyed by pizza) — it lives directly on `IndexedRestaurant`, not
+nested inside `IndexedPizza.Toppings` (which stays plain topping names, unchanged).
 
 `Location` is a plain value, not a pointer — `restaurant-service`'s `Lat`/`Lon` are nullable `*float64` at the
 domain/DB level (a `draft` restaurant that hasn't completed its `address` checklist item yet has neither), but
@@ -101,6 +122,7 @@ type SearchRepository interface {
     UpdateFields(ctx context.Context, id uuid.UUID, fields RestaurantFields) error
     UpsertPizza(ctx context.Context, restaurantID uuid.UUID, pizza IndexedPizza) error
     RemovePizza(ctx context.Context, restaurantID, pizzaID uuid.UUID, updatedAt time.Time) error
+    UpdateToppingPrices(ctx context.Context, restaurantID uuid.UUID, prices []IndexedToppingPrice, updatedAt time.Time) error
     Search(ctx context.Context, q SearchQuery) ([]IndexedRestaurant, error)
 }
 ```
@@ -110,8 +132,8 @@ coordinates before querying (see "Geocoding" and "`GET /search`" below), so ther
 model. There's no `RadiusKm` on `SearchQuery` either — coverage is judged per-restaurant against its own
 `DeliveryKm`, not a value the caller supplies.
 
-`Delete` (the plan's method for pulling a restaurant back out of the index on `restaurant.deactivated`) is not
-implemented — restaurant-service doesn't publish `deactivated`/`reactivated` yet, so it would have zero callers.
+A `Delete` method for pulling a restaurant back out of the index on `restaurant.deactivated` is not implemented —
+restaurant-service doesn't publish `deactivated`/`reactivated` yet, so it would have zero callers.
 
 ## Elasticsearch index
 
@@ -123,10 +145,12 @@ called at both API and worker startup:
   `multi_match` can search directly with no `nested` query. Trade-off: this loses precise per-pizza cross-field
   matching (e.g. "vegetarian AND has pepperoni" could match two *different* pizzas on the same restaurant
   document rather than one pizza satisfying both) — accepted at this index's current scope, revisit if that
-  precision is ever needed. `deliveryKm` is mapped `short` — see "`GET /search`" for how it's used. Both the
-  top-level `updatedAt` and the nested `pizzas.updatedAt` are mapped `date` — two separate ordering guards (one
-  per restaurant, one per pizza), not one shared field; see "Events" below for why a pizza edit can't reuse the
-  restaurant-level guard.
+  precision is ever needed. `deliveryKm` is mapped `short` — see "`GET /search`" for how it's used.
+  `pizzas.prices`/`toppingPrices` are both plain object arrays too, each price kept as a `keyword` (a wire-format
+  decimal string, not `float` — display-only, never range-queried or sorted on in this slice). The top-level
+  `updatedAt`, the nested `pizzas.updatedAt`, and the top-level `toppingPricesUpdatedAt` are all mapped `date` —
+  three separate ordering guards (restaurant, per-pizza, and topping-prices-as-a-whole), not one shared field; see
+  "Events" below for why a pizza edit or a topping-price edit can't reuse the restaurant-level guard.
 - **`geocode`** — a disposable key/value cache for resolved addresses, unrelated to search. See "Geocoding"
   below.
 
@@ -155,21 +179,23 @@ see "Testing" below.
 
 ```mermaid
 flowchart LR
-    E1["restaurant.launched\n(full snapshot — restaurant\nfields + priced pizzas)"] --> H1["UpsertSnapshot"]
-    E2["restaurant.updated\n(restaurant-field delta,\nno pizzas)"] --> H2["UpdateRestaurantFields"]
-    E3["restaurant.pizza_updated\n(single-pizza delta)"] --> H3["SyncPizza"]
+    E1["restaurant.launched\n(full snapshot — restaurant\nfields + priced pizzas +\ntopping prices)"] --> H1["UpsertSnapshot"]
+    E2["restaurant.updated\n(restaurant-field delta,\nno pizzas/topping prices)"] --> H2["UpdateRestaurantFields"]
+    E3["restaurant.pizza_updated\n(single-pizza delta,\nincl. pricing)"] --> H3["SyncPizza"]
+    E4["restaurant.topping_prices_updated\n(restaurant-wide extra-\ntopping price list)"] --> H4["SyncToppingPrices"]
     H1 --> ES[("Elasticsearch\nrestaurants index")]
     H2 --> ES
     H3 --> ES
+    H4 --> ES
     API["GET /search?house=&street=&city=&postalCode=&q="] --> GEO["Geocoder\n(cached via geocode index)"]
     GEO --> ES
 ```
 
 Each handler parses its event into a local, independent copy of restaurant-service's payload shape
-(`restaurantLaunchedPayload`, `restaurantUpdatedPayload`, `pizzaUpdatedPayload`) — search-service never imports
-restaurant-service's Go code, the two services only agree on the JSON wire contract. All three routing keys are
-bound in `messaging.Exchanges["restaurant.events"]`; `restaurant.reactivated`/`restaurant.deactivated` are not,
-since restaurant-service doesn't publish them yet.
+(`restaurantLaunchedPayload`, `restaurantUpdatedPayload`, `pizzaUpdatedPayload`, `toppingPricesUpdatedPayload`) —
+search-service never imports restaurant-service's Go code, the two services only agree on the JSON wire contract.
+All four routing keys are bound in `messaging.Exchanges["restaurant.events"]`; `restaurant.reactivated`/
+`restaurant.deactivated` are not, since restaurant-service doesn't publish them yet.
 
 - **`restaurant.launched`** (`internal/application/index/upsert_snapshot.go`) — restaurant-service composes the
   full snapshot in-process (`launch_restaurant.go`'s `Enricher`) and publishes it directly, so search-service
@@ -181,28 +207,45 @@ since restaurant-service doesn't publish them yet.
   post-launch edit to restaurant-level fields (address/contact/delivery/opening-hours; see restaurant-service's
   own doc for `NotifyUpdated()`'s call sites). `UpdateRestaurantFields.Handle` calls
   `SearchRepository.UpdateFields`, a field-by-field scripted update (deliberately **excluding** `pizzas` — a
-  restaurant-field edit must never touch the indexed menu) guarded the same way, by the same top-level
+  restaurant-field edit must never touch the indexed pizzas) guarded the same way, by the same top-level
   `updatedAt`. No `upsert:` fallback — a missing parent doc here is a contract violation (this event can only
   fire once `restaurant.launched` has already created it), so it 404s through to the consumer's DLX/retry path
   instead of silently creating a partial document.
 - **`restaurant.pizza_updated`** (`internal/application/index/sync_pizza.go`) — fires on pizza create/update/
-  price-change (see restaurant-service's own doc for exactly which commands publish it). `SyncPizza.Handle`
-  checks the payload's pizza status and prices: archived or with no active price row (unsellable) routes to
-  `SearchRepository.RemovePizza`; everything else routes to `SearchRepository.UpsertPizza`. Both do a **per-pizza**
-  partial merge into the document's `pizzas` array (find-by-id, then replace-in-place-or-append / remove) via
-  their own Painless scripts, guarded by that one pizza's own `pizzas[i].updatedAt` — **not** the restaurant-level
-  `updatedAt` guard, since a pizza edit (e.g. a price-only change) never touches the `restaurants` row in
-  restaurant-service, so the two timestamps are unrelated. Same no-`upsert:`-fallback contract as
-  `UpdateFields`, and `RemovePizza` is additionally idempotent against a pizza that's already absent
-  (`ctx.op = 'noop'` when not found, not an error) — redelivery-safe either way.
+  price-change (see restaurant-service's own doc for exactly which commands publish it). The payload carries the
+  pizza's full current price list (`sizeId`/`diameterCm`/`price`/`isActive` per size), already flowing through
+  the wire since it reuses restaurant-service's `PizzaResponse` shape. `SyncPizza.Handle` checks the payload's
+  pizza status and prices: archived or with no active price row (unsellable) routes to
+  `SearchRepository.RemovePizza`; everything else routes to `SearchRepository.UpsertPizza`, mapping only the
+  *active* prices into `IndexedPizza.Prices` (an inactive size isn't orderable, so it's dropped the same way an
+  entirely-unpriced pizza is). Both do a **per-pizza** partial merge into the document's `pizzas` array
+  (find-by-id, then replace-in-place-or-append / remove) via their own Painless scripts, guarded by that one
+  pizza's own `pizzas[i].updatedAt` — **not** the restaurant-level `updatedAt` guard, since a pizza edit (e.g. a
+  price-only change) never touches the `restaurants` row in restaurant-service, so the two timestamps are
+  unrelated. Same no-`upsert:`-fallback contract as `UpdateFields`, and `RemovePizza` is additionally idempotent
+  against a pizza that's already absent (`ctx.op = 'noop'` when not found, not an error) — redelivery-safe either
+  way.
+- **`restaurant.topping_prices_updated`** (`internal/application/index/sync_topping_prices.go`) — fires whenever
+  an owner sets the restaurant's own extra-topping prices via `SetToppingPrices` (restaurant-scoped, not
+  per-pizza — `ToppingPriceRepository.ListByRestaurant`). The payload always carries the *full current* topping-
+  price list for that restaurant (not a delta), since `SetToppingPrices` re-reads the whole list after its own
+  upsert. `SyncToppingPrices.Handle` calls `SearchRepository.UpdateToppingPrices`, which wholesale-replaces
+  `IndexedRestaurant.ToppingPrices` via its own Painless script, guarded by its own top-level
+  `toppingPricesUpdatedAt` field — separate from both the restaurant-level `updatedAt` and any pizza's
+  `pizzas[i].updatedAt`, since `SetToppingPrices` touches neither the `restaurants` row nor any `pizzas` row.
+  Same no-`upsert:`-fallback contract as `UpdateFields`/`SyncPizza`. `restaurant.launched` also seeds
+  `ToppingPrices` at first-index time (if any were set pre-launch) as part of its full-document write, but
+  leaves `ToppingPricesUpdatedAt` at its zero value there — harmless, since any real future update's timestamp
+  is always later than a zero value, so the guard can only become *more* permissive, never incorrectly reject a
+  genuine update (the same reasoning already applies to launch-time pizzas' `UpdatedAt`).
 
-All three guards compare epoch milliseconds (`t.UnixMilli()` on the Go side, `Instant.parse(...).toEpochMilli()`
+All four guards compare epoch milliseconds (`t.UnixMilli()` on the Go side, `Instant.parse(...).toEpochMilli()`
 in Painless) via a strict `>`, entirely inside the scripted update — there's no read-then-write race between two
 out-of-order deliveries, since ES applies the script atomically per document. This exists because RabbitMQ
 redelivery can reorder messages: `Republish` (the consumer's retry path) re-sends a failed message to the *back*
-of the queue with an incremented `x-retry-count`, while newer messages for the same restaurant/pizza get
-processed in between — so a transient failure on an older event, followed by a newer one succeeding first, would
-otherwise let the retried older event silently clobber the newer data once it's finally reprocessed.
+of the queue with an incremented `x-retry-count`, while newer messages for the same restaurant/pizza/topping-price
+list get processed in between — so a transient failure on an older event, followed by a newer one succeeding
+first, would otherwise let the retried older event silently clobber the newer data once it's finally reprocessed.
 
 ## `GET /search`
 
@@ -245,20 +288,22 @@ design described here.)
 Mixed, not uniform: `tests/application/index/` and `tests/application/query/` mock `SearchRepository` via a
 shared `tests/testutil.MockSearchRepository` (matches email-service's plain-unit-test approach, no
 infrastructure needed) — one test file per handler (`upsert_snapshot_test.go`, `update_restaurant_fields_test.go`,
-`sync_pizza_test.go`). `tests/interfaces/http/handlers/` builds the real `SearchRestaurants` use case over that
-same mock and drives the handler through `httptest`, the same pattern restaurant-service's handler tests use
-(real use case, faked boundary dependency), just without a real DB behind it.
+`sync_pizza_test.go`, `sync_topping_prices_test.go`). `tests/interfaces/http/handlers/` builds the real
+`SearchRestaurants` use case over that same mock and drives the handler through `httptest`, the same pattern
+restaurant-service's handler tests use (real use case, faked boundary dependency), just without a real DB behind
+it.
 
 `tests/infrastructure/elasticsearch/search_repository_test.go`, though, is a **real**-Elasticsearch integration
 suite — `toESRestaurant`/`fromESRestaurant`/the Painless scripts are only meaningfully testable against a real
 cluster, not mocked. It runs against the `compose.test.yaml` `elasticsearch-test` service and must execute
 *inside* the `search-test` container (its `.env.test` uses docker-network-only hostnames), the same
-"needs a `-test` container" shape as identity/restaurant's Postgres-backed tests. Covers both ordering guards
-per event type (`UpsertSnapshot`/`UpdateFields`/`UpsertPizza`/`RemovePizza`, each with a stale-redelivery-ignored
-case), the pizzas-preserved-through-a-field-only-update case, and the document-missing-404 case for
-`UpdateFields`/`UpsertPizza`/`RemovePizza`'s no-`upsert:`-fallback contract. `tests/testutil.ES(t)` resets both
-indices before each test; `RefreshIndex` forces visibility (ES's ~1s near-realtime refresh would otherwise hide a
-just-written doc from an immediate assertion).
+"needs a `-test` container" shape as identity/restaurant's Postgres-backed tests. Covers all four ordering guards
+per event type (`UpsertSnapshot`/`UpdateFields`/`UpsertPizza`/`RemovePizza`/`UpdateToppingPrices`, each with a
+stale-redelivery-ignored case), the pizzas-preserved-through-a-field-only-update and
+pizzas-preserved-through-a-topping-price-update cases, and the document-missing-404 case for
+`UpdateFields`/`UpsertPizza`/`RemovePizza`/`UpdateToppingPrices`'s no-`upsert:`-fallback contract.
+`tests/testutil.ES(t)` resets both indices before each test; `RefreshIndex` forces visibility (ES's ~1s
+near-realtime refresh would otherwise hide a just-written doc from an immediate assertion).
 
 End-to-end path verified manually against a live stack (elasticsearch, rabbitmq, search-service, search-worker),
 including a real OpenCage account (search-service's own key, `OPENCAGE_API_KEY`): `restaurant.launched` messages
