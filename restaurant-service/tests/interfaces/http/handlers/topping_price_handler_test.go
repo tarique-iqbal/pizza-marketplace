@@ -40,7 +40,7 @@ func setupToppingPriceHandler(t *testing.T) toppingPriceHandlerSetup {
 	toppingPriceRepo := persistence.NewToppingPriceRepository(db.DB)
 
 	handler := handlers.NewToppingPriceHandler(
-		commands.NewSetToppingPrices(restaurantRepo, toppingRepo, toppingPriceRepo),
+		commands.NewSetToppingPrices(restaurantRepo, toppingRepo, toppingPriceRepo, testutil.NoopPublisher{}),
 	)
 
 	return toppingPriceHandlerSetup{DB: db.DB, Handler: handler}

@@ -69,7 +69,7 @@ func NewAPIContainer() (*APIContainer, error) {
 	toppingRepo := persistence.NewToppingRepository(base.DB)
 	toppingPriceRepo := persistence.NewToppingPriceRepository(base.DB)
 
-	setToppingPrices := toppingcmd.NewSetToppingPrices(restaurantRepo, toppingRepo, toppingPriceRepo)
+	setToppingPrices := toppingcmd.NewSetToppingPrices(restaurantRepo, toppingRepo, toppingPriceRepo, publisher)
 	toppingPriceHandler := handlers.NewToppingPriceHandler(setToppingPrices)
 
 	pizzaRepo := persistence.NewPizzaRepository(base.DB)
@@ -95,7 +95,9 @@ func NewAPIContainer() (*APIContainer, error) {
 	approveRestaurant := commands.NewApproveRestaurant(restaurantRepo, payoutDetailsRepo, publisher)
 	approveHandler := handlers.NewApproveHandler(approveRestaurant)
 
-	launchRestaurant := commands.NewLaunchRestaurant(restaurantRepo, payoutDetailsRepo, pizzaCatalog, publisher)
+	launchRestaurant := commands.NewLaunchRestaurant(
+		restaurantRepo, payoutDetailsRepo, pizzaCatalog, toppingRepo, toppingPriceRepo, publisher,
+	)
 	getLaunchReadiness := resqry.NewGetLaunchReadiness(restaurantRepo, pizzaCatalog)
 	launchHandler := handlers.NewLaunchHandler(launchRestaurant, getLaunchReadiness)
 
