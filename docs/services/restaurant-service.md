@@ -126,7 +126,8 @@ flowchart LR
         E2A["Approve()"] --> E2["restaurant.approved"]
         E3A["Launch()"] --> E3["restaurant.launched"]
         E4A["NotifyUpdated()\n(address/contact/delivery/opening-hours commands)"] --> E4["restaurant.updated"]
-        E5A["NotifyPizzaUpdated()\n(pizza commands)"] --> E5["restaurant.pizza_updated"]
+        E5A["NotifyPizzaUpdated()\n(UpdatePizza/SetPizzaPrices)"] --> E5["restaurant.pizza_updated"]
+        E6A["NotifyToppingPricesUpdated()\n(SetToppingPrices)"] --> E6["restaurant.topping_prices_updated"]
     end
 ```
 
@@ -139,23 +140,29 @@ flowchart LR
 - **Outbound**: `restaurant.ready_for_review` (consumed by `email-service`, notifies the admin inbox),
   `restaurant.approved` (consumed by `email-service`, notifies the restaurant's own contact email — the
   domain event denormalizes `Restaurant.Email` at the point `Approve()` fires, trusting the checklist
-  invariant that `contact` is complete by then), `restaurant.launched` (a full restaurant+pizzas snapshot,
-  composed in-process by `launch_restaurant.go`'s `Enricher`), `restaurant.updated` (fired by
+  invariant that `contact` is complete by then), `restaurant.launched` (a full restaurant+pizzas+topping-prices
+  snapshot, composed in-process by `launch_restaurant.go`'s `Enricher`), `restaurant.updated` (fired by
   `Restaurant.NotifyUpdated()` after `UpdateAddress`/`UpdateContact`/`UpdateDelivery`/`UpdateOpeningHours`,
-  guarded to `active`/`inactive` status only — no reindexing needed pre-launch). `restaurant.launched` and
-  `restaurant.updated` are both consumed by `search-service`'s worker, which indexes/updates the restaurant
-  in Elasticsearch; see `docs/services/search-service.md`. `restaurant.pizza_updated` (fired by
-  `Restaurant.NotifyPizzaUpdated()` from `CreatePizza`/`UpdatePizza`/`SetPizzaPrices`, same status guard) is
-  published but has **no consumer yet** — a future `search-service` handler needs to merge just the one
-  changed pizza into the indexed document's menu array, not a whole-document replace; `SetToppingPrices`
-  deliberately does not publish this event, since it never touches a specific `Pizza` row.
+  guarded to `active`/`inactive` status only — no reindexing needed pre-launch). `restaurant.pizza_updated`
+  (fired by `Restaurant.NotifyPizzaUpdated()` from `UpdatePizza`/`SetPizzaPrices`, same status guard —
+  `CreatePizza` deliberately does **not** publish this, since a pizza is always unpriced at creation, making
+  the event pointless there) carries the pizza's full current state including pricing.
+  `restaurant.topping_prices_updated` (fired by `Restaurant.NotifyToppingPricesUpdated()` from
+  `SetToppingPrices`, same status guard) carries the restaurant's full current extra-topping price list —
+  restaurant-scoped, not tied to any one `Pizza` row, so it's its own event rather than reusing
+  `PizzaUpdated`/`RestaurantUpdated`. All four of `restaurant.launched`/`restaurant.updated`/
+  `restaurant.pizza_updated`/`restaurant.topping_prices_updated` are consumed by `search-service`'s worker,
+  which indexes/updates the restaurant in Elasticsearch; see `docs/services/search-service.md`.
 - **Event timestamps**: every domain event carries a single `OccurredAt time.Time` — when the domain method
-  raised it, nothing more. `RestaurantLaunchedPayload`/`RestaurantUpdatedPayload` additionally carry their own
-  `UpdatedAt`, sourced from the restaurant row's real GORM-managed write timestamp (`*r.UpdatedAt`), not from
-  the event's `OccurredAt` — the two can differ by the gap between `NotifyUpdated()`/`Launch()` running and the
-  subsequent `restaurantRepo.Update` actually persisting. `search-service`'s redelivery-ordering guard compares
-  against `UpdatedAt` specifically, since it needs to reflect the real last-write time on the row, not when an
-  in-memory event object happened to be constructed.
+  raised it, nothing more. `RestaurantLaunchedPayload`/`RestaurantUpdatedPayload`/`PizzaUpdatedPayload`/
+  `ToppingPricesUpdatedPayload` additionally carry their own `UpdatedAt`, sourced from the real GORM-managed
+  write timestamp of whatever they're actually about (`*r.UpdatedAt` for the restaurant, `*pizza.UpdatedAt` for
+  a pizza, the just-upserted `ToppingPrice` row's own `UpdatedAt` for topping prices) — never from the event's
+  `OccurredAt`, since that only reflects when the in-memory domain method ran, which can differ from when the
+  row actually committed. `search-service`'s redelivery-ordering guards compare against these `UpdatedAt`
+  values specifically, each scoped to what it's guarding (restaurant-level, per-pizza, or the topping-price list
+  as a whole) — see `docs/services/search-service.md`'s "Events" section for why a single shared guard field
+  doesn't work once pizza/topping-price edits stop touching the `restaurants` row at all.
 
 ## Design notes worth knowing
 
