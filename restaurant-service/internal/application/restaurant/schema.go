@@ -15,6 +15,7 @@ import (
 type Address = restaurant.Address
 type DeliveryType = restaurant.DeliveryType
 type RestaurantStatus = restaurant.RestaurantStatus
+type RestaurantTag = restaurant.RestaurantTag
 type OpeningHoursResponse = restaurant.OpeningHours
 
 type UpdateAddressRequest struct {
@@ -36,6 +37,10 @@ type UpdateDeliveryRequest struct {
 	DeliveryKm   *int16          `json:"deliveryKm" binding:"omitempty,gte=1,lte=25"`
 	DeliveryFee  decimal.Decimal `json:"deliveryFee"`
 	MinimumOrder decimal.Decimal `json:"minimumOrder"`
+}
+
+type UpdateTagsRequest struct {
+	Tags []RestaurantTag `json:"tags" binding:"unique,dive,oneof=vegetarian vegan glutenfree halal"`
 }
 
 type DayRangeRequest struct {
