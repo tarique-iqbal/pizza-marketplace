@@ -5,16 +5,23 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
-	"gorm.io/datatypes"
 )
 
 type DeliveryType string
 type RestaurantStatus string
+type RestaurantTag string
 
 const (
 	DeliveryOwn      DeliveryType = "own"
 	DeliveryExternal DeliveryType = "external"
 	DeliveryNone     DeliveryType = "none"
+)
+
+const (
+	TagVegetarian RestaurantTag = "vegetarian"
+	TagVegan      RestaurantTag = "vegan"
+	TagGlutenFree RestaurantTag = "glutenfree"
+	TagHalal      RestaurantTag = "halal"
 )
 
 const (
@@ -49,7 +56,7 @@ type Restaurant struct {
 	Lat          *float64         `gorm:"type:double precision;check:lat BETWEEN -90 AND 90"`
 	Lon          *float64         `gorm:"type:double precision;check:lon BETWEEN -180 AND 180"`
 	OpeningHours OpeningHours     `gorm:"type:jsonb;serializer:json;not null;default:'{}'"`
-	Tags         datatypes.JSON   `gorm:"type:jsonb;not null;default:'[]'"`
+	Tags         []RestaurantTag  `gorm:"type:jsonb;serializer:json;not null;default:'[]'"`
 	Pickup       bool             `gorm:"not null;default:true"`
 	Currency     string           `gorm:"type:char(3);not null;default:'EUR';size:3"`
 	DeliveryKm   *int16           `gorm:"check:delivery_km BETWEEN 1 AND 25"`
@@ -123,6 +130,11 @@ func (r *Restaurant) WithDelivery(
 
 func (r *Restaurant) WithOpeningHours(openingHours OpeningHours) *Restaurant {
 	r.OpeningHours = openingHours
+	return r
+}
+
+func (r *Restaurant) WithTags(tags []RestaurantTag) *Restaurant {
+	r.Tags = tags
 	return r
 }
 

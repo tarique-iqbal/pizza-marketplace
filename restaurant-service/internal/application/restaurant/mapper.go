@@ -1,10 +1,7 @@
 package restaurant
 
 import (
-	"encoding/json"
 	"fmt"
-
-	"gorm.io/datatypes"
 
 	payoutapp "restaurant-service/internal/application/payout"
 	payoutdomain "restaurant-service/internal/domain/payout"
@@ -37,7 +34,7 @@ func ToRestaurantResponse(r *restaurant.Restaurant, pd *payoutdomain.PayoutDetai
 		Currency:     r.Currency,
 		Rating:       r.Rating,
 		TotalReviews: r.TotalReviews,
-		Tags:         parseTags(r.Tags),
+		Tags:         tagsToStrings(r.Tags),
 		OpeningHours: r.OpeningHours,
 		Status:       r.Status,
 		CreatedAt:    r.CreatedAt,
@@ -55,16 +52,11 @@ func formatAddress(a Address) string {
 	)
 }
 
-func parseTags(data datatypes.JSON) []string {
-	if len(data) == 0 {
-		return []string{}
+func tagsToStrings(tags []restaurant.RestaurantTag) []string {
+	result := make([]string, len(tags))
+	for i, tag := range tags {
+		result[i] = string(tag)
 	}
 
-	var tags []string
-
-	if err := json.Unmarshal(data, &tags); err != nil {
-		return []string{}
-	}
-
-	return tags
+	return result
 }

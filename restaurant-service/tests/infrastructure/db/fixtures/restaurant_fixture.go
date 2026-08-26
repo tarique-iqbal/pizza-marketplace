@@ -6,7 +6,6 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"restaurant-service/internal/domain/payout"
@@ -58,7 +57,7 @@ func LoadRestaurantFixtures(t *testing.T, db *gorm.DB) error {
 				Saturday:  []restaurant.DayRange{{Open: "12:00", Close: "23:00"}},
 				Sunday:    []restaurant.DayRange{{Open: "12:00", Close: "21:00"}},
 			},
-			Tags:         datatypes.JSON([]byte(`["vegetarian","vegan","halal"]`)),
+			Tags:         []restaurant.RestaurantTag{restaurant.TagVegetarian, restaurant.TagVegan, restaurant.TagHalal},
 			Pickup:       true,
 			Currency:     "EUR",
 			DeliveryType: restaurant.DeliveryOwn,
