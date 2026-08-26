@@ -35,6 +35,13 @@ const indexMapping = `{
           "name": {"type": "text"},
           "isVegetarian": {"type": "boolean"},
           "toppings": {"type": "keyword"},
+          "prices": {
+            "properties": {
+              "sizeId": {"type": "keyword"},
+              "diameterCm": {"type": "short"},
+              "price": {"type": "keyword"}
+            }
+          },
           "updatedAt": {"type": "date"}
         }
       },

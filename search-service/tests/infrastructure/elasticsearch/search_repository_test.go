@@ -322,11 +322,13 @@ func TestSearchRepository_UpsertPizza_AddsNewPizza(t *testing.T) {
 		UpdatedAt:  time.Date(2026, 8, 24, 9, 0, 0, 0, time.UTC),
 	})
 
+	sizeID := uuid.New()
 	require.NoError(t, repo.UpsertPizza(context.Background(), id, index.IndexedPizza{
 		ID:           pizzaID,
 		Name:         "Margherita",
 		IsVegetarian: true,
 		Toppings:     []string{"Mozzarella"},
+		Prices:       []index.IndexedPizzaPrice{{SizeID: sizeID, DiameterCm: 30, Price: "9.99"}},
 		UpdatedAt:    time.Date(2026, 8, 25, 9, 0, 0, 0, time.UTC),
 	}))
 	testutil.RefreshIndex(t, es, esinfra.IndexName)
@@ -339,6 +341,8 @@ func TestSearchRepository_UpsertPizza_AddsNewPizza(t *testing.T) {
 	require.Len(t, results, 1)
 	require.Len(t, results[0].Pizzas, 1)
 	assert.Equal(t, "Margherita", results[0].Pizzas[0].Name)
+	require.Len(t, results[0].Pizzas[0].Prices, 1)
+	assert.Equal(t, index.IndexedPizzaPrice{SizeID: sizeID, DiameterCm: 30, Price: "9.99"}, results[0].Pizzas[0].Prices[0])
 }
 
 func TestSearchRepository_UpsertPizza_ReplacesExistingByID(t *testing.T) {

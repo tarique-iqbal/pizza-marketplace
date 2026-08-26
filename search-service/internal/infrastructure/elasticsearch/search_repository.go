@@ -21,12 +21,19 @@ func NewSearchRepository(es *elasticsearch.Client) *SearchRepository {
 	return &SearchRepository{es: es}
 }
 
+type esPizzaPrice struct {
+	SizeID     uuid.UUID `json:"sizeId"`
+	DiameterCm int16     `json:"diameterCm"`
+	Price      string    `json:"price"`
+}
+
 type esPizza struct {
-	ID           uuid.UUID `json:"id"`
-	Name         string    `json:"name"`
-	IsVegetarian bool      `json:"isVegetarian"`
-	Toppings     []string  `json:"toppings"`
-	UpdatedAt    time.Time `json:"updatedAt"`
+	ID           uuid.UUID      `json:"id"`
+	Name         string         `json:"name"`
+	IsVegetarian bool           `json:"isVegetarian"`
+	Toppings     []string       `json:"toppings"`
+	Prices       []esPizzaPrice `json:"prices"`
+	UpdatedAt    time.Time      `json:"updatedAt"`
 }
 
 type esGeoPoint struct {
@@ -145,6 +152,7 @@ func (r *SearchRepository) UpsertPizza(ctx context.Context, restaurantID uuid.UU
 		Name:         pizza.Name,
 		IsVegetarian: pizza.IsVegetarian,
 		Toppings:     pizza.Toppings,
+		Prices:       toESPizzaPrices(pizza.Prices),
 		UpdatedAt:    pizza.UpdatedAt,
 	}
 
@@ -401,6 +409,24 @@ func toESRestaurantFields(f index.RestaurantFields) esRestaurantFields {
 	}
 }
 
+func toESPizzaPrices(prices []index.IndexedPizzaPrice) []esPizzaPrice {
+	out := make([]esPizzaPrice, 0, len(prices))
+	for _, p := range prices {
+		out = append(out, esPizzaPrice{SizeID: p.SizeID, DiameterCm: p.DiameterCm, Price: p.Price})
+	}
+
+	return out
+}
+
+func toIndexedPizzaPrices(prices []esPizzaPrice) []index.IndexedPizzaPrice {
+	out := make([]index.IndexedPizzaPrice, 0, len(prices))
+	for _, p := range prices {
+		out = append(out, index.IndexedPizzaPrice{SizeID: p.SizeID, DiameterCm: p.DiameterCm, Price: p.Price})
+	}
+
+	return out
+}
+
 func toESRestaurant(r index.IndexedRestaurant) esRestaurant {
 	location := esGeoPoint{Lat: r.Location.Lat, Lon: r.Location.Lon}
 
@@ -411,6 +437,7 @@ func toESRestaurant(r index.IndexedRestaurant) esRestaurant {
 			Name:         p.Name,
 			IsVegetarian: p.IsVegetarian,
 			Toppings:     p.Toppings,
+			Prices:       toESPizzaPrices(p.Prices),
 			UpdatedAt:    p.UpdatedAt,
 		})
 	}
@@ -442,6 +469,7 @@ func fromESRestaurant(id uuid.UUID, doc esRestaurant) index.IndexedRestaurant {
 			Name:         p.Name,
 			IsVegetarian: p.IsVegetarian,
 			Toppings:     p.Toppings,
+			Prices:       toIndexedPizzaPrices(p.Prices),
 			UpdatedAt:    p.UpdatedAt,
 		})
 	}
