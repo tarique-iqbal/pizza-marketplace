@@ -37,12 +37,14 @@ Async event flow via RabbitMQ:
                      ──► restaurant.launched
                      ──► restaurant.updated
                      ──► restaurant.pizza_updated
+                     ──► restaurant.topping_prices_updated
 
 Consumers:
   Email Service      ◄── email.verification_created, user.registered,
                           restaurant.ready_for_review, restaurant.approved
   Restaurant Service ◄── restaurant.initiated (worker)
-  Search Service     ◄── restaurant.launched, restaurant.updated (worker)
+  Search Service     ◄── restaurant.launched, restaurant.updated,
+                          restaurant.pizza_updated, restaurant.topping_prices_updated (worker)
 ```
 
 Each service owns its data store. There is no shared database.
@@ -156,7 +158,8 @@ restaurant-service   ──publishes──► restaurant.ready_for_review
                                      restaurant.approved
                                      restaurant.launched
                                      restaurant.updated
-                                     restaurant.pizza_updated   (unconsumed)
+                                     restaurant.pizza_updated
+                                     restaurant.topping_prices_updated
 
 email-service        ◄──consumes──  email.verification_created
                                      user.registered
@@ -167,9 +170,14 @@ restaurant-service   ◄──consumes──  restaurant.initiated
 
 search-service       ◄──consumes──  restaurant.launched
                                      restaurant.updated
+                                     restaurant.pizza_updated
+                                     restaurant.topping_prices_updated
 ```
 
-`restaurant.pizza_updated` is published but has no consumer yet — a future `search-service` handler needs to merge just the one changed pizza into the indexed document's menu, rather than a whole-document replace.
+`restaurant.approved` and `restaurant.ready_for_review` are the only restaurant-service events with no
+`search-service` consumer — they fire pre-launch, before there is anything to index. `restaurant.reactivated`/
+`restaurant.deactivated` don't exist yet — restaurant-service has no reactivate/deactivate endpoints to publish
+them.
 
 
 ## Project structure
