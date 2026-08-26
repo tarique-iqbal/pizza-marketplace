@@ -48,6 +48,11 @@ type restaurantLaunchedPayload struct {
 			Name string `json:"name"`
 		} `json:"toppings"`
 	} `json:"pizzas"`
+	ToppingPrices []struct {
+		ToppingID  uuid.UUID `json:"toppingId"`
+		Name       string    `json:"name"`
+		ExtraPrice string    `json:"extraPrice"`
+	} `json:"topping_prices"`
 }
 
 type UpsertSnapshot struct {
@@ -114,20 +119,30 @@ func toIndexedRestaurant(p restaurantLaunchedPayload) index.IndexedRestaurant {
 		})
 	}
 
+	toppingPrices := make([]index.IndexedToppingPrice, 0, len(p.ToppingPrices))
+	for _, tp := range p.ToppingPrices {
+		toppingPrices = append(toppingPrices, index.IndexedToppingPrice{
+			ToppingID:  tp.ToppingID,
+			Name:       tp.Name,
+			ExtraPrice: tp.ExtraPrice,
+		})
+	}
+
 	return index.IndexedRestaurant{
-		ID:           p.RestaurantID,
-		Name:         p.RestaurantName,
-		Slug:         slug,
-		City:         p.Address.City,
-		Location:     location,
-		Currency:     p.Currency,
-		Pickup:       p.Pickup,
-		DeliveryType: p.Delivery.Type,
-		DeliveryKm:   p.Delivery.RadiusKm,
-		Tags:         p.Tags,
-		Rating:       p.Rating,
-		TotalReviews: p.TotalReviews,
-		Pizzas:       pizzas,
-		UpdatedAt:    p.UpdatedAt,
+		ID:            p.RestaurantID,
+		Name:          p.RestaurantName,
+		Slug:          slug,
+		City:          p.Address.City,
+		Location:      location,
+		Currency:      p.Currency,
+		Pickup:        p.Pickup,
+		DeliveryType:  p.Delivery.Type,
+		DeliveryKm:    p.Delivery.RadiusKm,
+		Tags:          p.Tags,
+		Rating:        p.Rating,
+		TotalReviews:  p.TotalReviews,
+		Pizzas:        pizzas,
+		ToppingPrices: toppingPrices,
+		UpdatedAt:     p.UpdatedAt,
 	}
 }

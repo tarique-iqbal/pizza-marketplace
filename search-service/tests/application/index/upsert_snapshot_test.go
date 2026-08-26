@@ -15,6 +15,7 @@ import (
 )
 
 const launchedPizzaSizeID = "b6f5f7de-2b0d-4b6b-9f2b-7c1f7e3f5a01"
+const launchedToppingID = "c7a6e8ef-3c1e-4c7c-af3c-8d2f8f4f6b12"
 
 func launchedPayload(t *testing.T, restaurantID uuid.UUID) []byte {
 	t.Helper()
@@ -44,6 +45,9 @@ func launchedPayload(t *testing.T, restaurantID uuid.UUID) []byte {
 				],
 				"toppings": [{"name": "Mozzarella"}, {"name": "Basil"}]
 			}
+		],
+		"topping_prices": [
+			{"toppingId": "` + launchedToppingID + `", "name": "Extra Cheese", "extraPrice": "1.50"}
 		]
 	}`)
 }
@@ -91,6 +95,13 @@ func TestUpsertSnapshot_Success(t *testing.T) {
 		DiameterCm: 30,
 		Price:      "9.99",
 	}, got.Pizzas[0].Prices[0])
+
+	require.Len(t, got.ToppingPrices, 1, "topping prices set before launch must be seeded into the snapshot")
+	assert.Equal(t, index.IndexedToppingPrice{
+		ToppingID:  uuid.MustParse(launchedToppingID),
+		Name:       "Extra Cheese",
+		ExtraPrice: "1.50",
+	}, got.ToppingPrices[0])
 }
 
 func TestUpsertSnapshot_MissingLatLon_ReturnsError(t *testing.T) {
