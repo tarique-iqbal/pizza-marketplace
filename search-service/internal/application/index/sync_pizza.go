@@ -23,7 +23,10 @@ type pizzaUpdatedPayload struct {
 		IsVegetarian bool      `json:"isVegetarian"`
 		Status       string    `json:"status"`
 		Prices       []struct {
-			IsActive bool `json:"isActive"`
+			SizeID     uuid.UUID `json:"sizeId"`
+			DiameterCm int16     `json:"diameterCm"`
+			Price      string    `json:"price"`
+			IsActive   bool      `json:"isActive"`
 		} `json:"prices"`
 		Toppings []struct {
 			Name string `json:"name"`
@@ -82,11 +85,25 @@ func toIndexedPizza(p pizzaUpdatedPayload) index.IndexedPizza {
 		toppings = append(toppings, t.Name)
 	}
 
+	prices := make([]index.IndexedPizzaPrice, 0, len(p.Pizza.Prices))
+	for _, price := range p.Pizza.Prices {
+		if !price.IsActive {
+			continue
+		}
+
+		prices = append(prices, index.IndexedPizzaPrice{
+			SizeID:     price.SizeID,
+			DiameterCm: price.DiameterCm,
+			Price:      price.Price,
+		})
+	}
+
 	return index.IndexedPizza{
 		ID:           p.Pizza.ID,
 		Name:         p.Pizza.Name,
 		IsVegetarian: p.Pizza.IsVegetarian,
 		Toppings:     toppings,
+		Prices:       prices,
 		UpdatedAt:    p.UpdatedAt,
 	}
 }

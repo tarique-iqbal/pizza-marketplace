@@ -14,6 +14,8 @@ import (
 	"search-service/tests/testutil"
 )
 
+const launchedPizzaSizeID = "b6f5f7de-2b0d-4b6b-9f2b-7c1f7e3f5a01"
+
 func launchedPayload(t *testing.T, restaurantID uuid.UUID) []byte {
 	t.Helper()
 
@@ -36,6 +38,10 @@ func launchedPayload(t *testing.T, restaurantID uuid.UUID) []byte {
 				"id": "` + uuid.New().String() + `",
 				"name": "Margherita",
 				"isVegetarian": true,
+				"prices": [
+					{"sizeId": "` + launchedPizzaSizeID + `", "diameterCm": 30, "price": "9.99", "isActive": true},
+					{"sizeId": "` + uuid.New().String() + `", "diameterCm": 40, "price": "13.99", "isActive": false}
+				],
 				"toppings": [{"name": "Mozzarella"}, {"name": "Basil"}]
 			}
 		]
@@ -78,6 +84,13 @@ func TestUpsertSnapshot_Success(t *testing.T) {
 	assert.Equal(t, "Margherita", got.Pizzas[0].Name)
 	assert.True(t, got.Pizzas[0].IsVegetarian)
 	assert.Equal(t, []string{"Mozzarella", "Basil"}, got.Pizzas[0].Toppings)
+
+	require.Len(t, got.Pizzas[0].Prices, 1, "inactive prices must not be indexed")
+	assert.Equal(t, index.IndexedPizzaPrice{
+		SizeID:     uuid.MustParse(launchedPizzaSizeID),
+		DiameterCm: 30,
+		Price:      "9.99",
+	}, got.Pizzas[0].Prices[0])
 }
 
 func TestUpsertSnapshot_MissingLatLon_ReturnsError(t *testing.T) {

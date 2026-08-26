@@ -42,10 +42,14 @@ func TestSyncPizza_AvailableAndPriced_Upserts(t *testing.T) {
 
 	restaurantID := uuid.New()
 	pizzaID := uuid.New()
+	sizeID := uuid.New()
 
 	err := handler.Handle(index.EventPayload{
 		Name: "restaurant.pizza_updated",
-		Data: pizzaUpdatedPayload(t, restaurantID, pizzaID, "available", `[{"isActive": true}]`),
+		Data: pizzaUpdatedPayload(t, restaurantID, pizzaID, "available", `[
+			{"sizeId": "`+sizeID.String()+`", "diameterCm": 30, "price": "9.99", "isActive": true},
+			{"sizeId": "`+uuid.New().String()+`", "diameterCm": 40, "price": "13.99", "isActive": false}
+		]`),
 	})
 	require.NoError(t, err)
 
@@ -59,6 +63,9 @@ func TestSyncPizza_AvailableAndPriced_Upserts(t *testing.T) {
 	assert.True(t, got.Pizza.IsVegetarian)
 	assert.Equal(t, []string{"Mozzarella", "Basil"}, got.Pizza.Toppings)
 	assert.True(t, got.Pizza.UpdatedAt.Equal(time.Date(2026, 8, 25, 9, 0, 0, 0, time.UTC)))
+
+	require.Len(t, got.Pizza.Prices, 1, "inactive prices must not be indexed")
+	assert.Equal(t, index.IndexedPizzaPrice{SizeID: sizeID, DiameterCm: 30, Price: "9.99"}, got.Pizza.Prices[0])
 }
 
 func TestSyncPizza_Archived_Removes(t *testing.T) {

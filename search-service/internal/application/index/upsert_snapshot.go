@@ -38,7 +38,13 @@ type restaurantLaunchedPayload struct {
 		ID           uuid.UUID `json:"id"`
 		Name         string    `json:"name"`
 		IsVegetarian bool      `json:"isVegetarian"`
-		Toppings     []struct {
+		Prices       []struct {
+			SizeID     uuid.UUID `json:"sizeId"`
+			DiameterCm int16     `json:"diameterCm"`
+			Price      string    `json:"price"`
+			IsActive   bool      `json:"isActive"`
+		} `json:"prices"`
+		Toppings []struct {
 			Name string `json:"name"`
 		} `json:"toppings"`
 	} `json:"pizzas"`
@@ -86,11 +92,25 @@ func toIndexedRestaurant(p restaurantLaunchedPayload) index.IndexedRestaurant {
 			toppings = append(toppings, t.Name)
 		}
 
+		prices := make([]index.IndexedPizzaPrice, 0, len(pz.Prices))
+		for _, price := range pz.Prices {
+			if !price.IsActive {
+				continue
+			}
+
+			prices = append(prices, index.IndexedPizzaPrice{
+				SizeID:     price.SizeID,
+				DiameterCm: price.DiameterCm,
+				Price:      price.Price,
+			})
+		}
+
 		pizzas = append(pizzas, index.IndexedPizza{
 			ID:           pz.ID,
 			Name:         pz.Name,
 			IsVegetarian: pz.IsVegetarian,
 			Toppings:     toppings,
+			Prices:       prices,
 		})
 	}
 
