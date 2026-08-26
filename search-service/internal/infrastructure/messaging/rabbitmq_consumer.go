@@ -23,6 +23,7 @@ var Exchanges = map[string][]string{
 		"restaurant.launched",
 		"restaurant.updated",
 		"restaurant.pizza_updated",
+		"restaurant.topping_prices_updated",
 	},
 }
 

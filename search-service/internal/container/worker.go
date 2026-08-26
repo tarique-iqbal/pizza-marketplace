@@ -32,11 +32,13 @@ func NewWorkerContainer() (*WorkerContainer, error) {
 	upsertSnapshot := idxapp.NewUpsertSnapshot(searchRepo)
 	updateRestaurantFields := idxapp.NewUpdateRestaurantFields(searchRepo)
 	syncPizza := idxapp.NewSyncPizza(searchRepo)
+	syncToppingPrices := idxapp.NewSyncToppingPrices(searchRepo)
 
 	dispatcher := idxapp.NewEventDispatcher()
 	dispatcher.Register("restaurant.launched", upsertSnapshot)
 	dispatcher.Register("restaurant.updated", updateRestaurantFields)
 	dispatcher.Register("restaurant.pizza_updated", syncPizza)
+	dispatcher.Register("restaurant.topping_prices_updated", syncToppingPrices)
 
 	consumer, err := messaging.NewRabbitMQConsumer(amqpURL)
 	if err != nil {
