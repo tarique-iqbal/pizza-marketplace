@@ -17,5 +17,6 @@ type SearchRepository interface {
 	UpdateFields(ctx context.Context, id uuid.UUID, fields RestaurantFields) error
 	UpsertPizza(ctx context.Context, restaurantID uuid.UUID, pizza IndexedPizza) error
 	RemovePizza(ctx context.Context, restaurantID, pizzaID uuid.UUID, updatedAt time.Time) error
+	UpdateToppingPrices(ctx context.Context, restaurantID uuid.UUID, prices []IndexedToppingPrice, updatedAt time.Time) error
 	Search(ctx context.Context, q SearchQuery) ([]IndexedRestaurant, error)
 }

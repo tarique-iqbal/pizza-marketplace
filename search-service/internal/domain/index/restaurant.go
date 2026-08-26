@@ -26,21 +26,29 @@ type IndexedPizza struct {
 	UpdatedAt    time.Time           `json:"updatedAt"`
 }
 
+type IndexedToppingPrice struct {
+	ToppingID  uuid.UUID `json:"toppingId"`
+	Name       string    `json:"name"`
+	ExtraPrice string    `json:"extraPrice"`
+}
+
 type IndexedRestaurant struct {
-	ID           uuid.UUID      `json:"id"`
-	Name         string         `json:"name"`
-	Slug         string         `json:"slug"`
-	City         string         `json:"city"`
-	Location     GeoPoint       `json:"location"`
-	Currency     string         `json:"currency"`
-	Pickup       bool           `json:"pickup"`
-	DeliveryType string         `json:"deliveryType"`
-	DeliveryKm   *int16         `json:"deliveryKm,omitempty"`
-	Tags         []string       `json:"tags"`
-	Rating       float64        `json:"rating"`
-	TotalReviews int32          `json:"totalReviews"`
-	Pizzas       []IndexedPizza `json:"pizzas"`
-	UpdatedAt    time.Time      `json:"updatedAt"`
+	ID                     uuid.UUID             `json:"id"`
+	Name                   string                `json:"name"`
+	Slug                   string                `json:"slug"`
+	City                   string                `json:"city"`
+	Location               GeoPoint              `json:"location"`
+	Currency               string                `json:"currency"`
+	Pickup                 bool                  `json:"pickup"`
+	DeliveryType           string                `json:"deliveryType"`
+	DeliveryKm             *int16                `json:"deliveryKm,omitempty"`
+	Tags                   []string              `json:"tags"`
+	Rating                 float64               `json:"rating"`
+	TotalReviews           int32                 `json:"totalReviews"`
+	Pizzas                 []IndexedPizza        `json:"pizzas"`
+	ToppingPrices          []IndexedToppingPrice `json:"toppingPrices"`
+	UpdatedAt              time.Time             `json:"updatedAt"`
+	ToppingPricesUpdatedAt time.Time             `json:"toppingPricesUpdatedAt"`
 }
 
 type RestaurantFields struct {
