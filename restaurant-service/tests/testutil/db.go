@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	TableRestaurant = "restaurants"
-	TablePizzaSize  = "pizza_sizes"
+	TableRestaurant  = "restaurants"
+	TablePizzaSize   = "pizza_sizes"
+	TableOutboxEvent = "outbox_events"
 )
 
 type TestDB struct {
