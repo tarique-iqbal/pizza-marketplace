@@ -15,7 +15,9 @@ const (
 	StatusProcessed  OutboxStatus = "processed"
 	StatusFailed     OutboxStatus = "failed"
 
-	EventRestaurantInitiated = "restaurant.initiated"
+	EventRestaurantInitiated      = "restaurant.initiated"
+	EventUserRegistered           = "user.registered"
+	EventEmailVerificationCreated = "email.verification_created"
 )
 
 type OutboxEvent struct {
