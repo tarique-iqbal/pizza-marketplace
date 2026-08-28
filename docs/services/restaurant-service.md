@@ -180,6 +180,11 @@ flowchart LR
   values specifically, each scoped to what it's guarding (restaurant-level, per-pizza, or the topping-price list
   as a whole) — see `docs/services/search-service.md`'s "Events" section for why a single shared guard field
   doesn't work once pizza/topping-price edits stop touching the `restaurants` row at all.
+- **Not implemented**: `restaurant.reactivated`/`restaurant.deactivated`/`restaurant.rejected` don't exist —
+  they'd correspond to the `rejected`/`inactive`/`disabled` status transitions noted as having no code path yet
+  in the status workflow above (`Restaurant.Reject()`/`Deactivate()`/`Reactivate()` aren't implemented, so
+  nothing raises them). `search-service` has no delete/de-index path for a restaurant either, since there's
+  nothing that would ever trigger one today.
 
 ## Design notes worth knowing
 
