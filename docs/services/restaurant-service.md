@@ -1,24 +1,29 @@
 # restaurant-service — technical overview
 
 Owns restaurant records, their onboarding checklist, and their menu (pizzas, toppings, pricing). The only
-service with a Postgres database (`restaurant_db`) and the only caller of the OpenCage geocoding API. Does
-**not** implement the outbox pattern — its `cmd/worker` is a plain RabbitMQ consumer, not an outbox relay.
+service with a Postgres database (`restaurant_db`) and the only caller of the OpenCage geocoding API.
+Implements the transactional outbox pattern (ported from `identity-service`) for **every** event it raises —
+its `cmd/worker` runs two goroutines: the original inbound `restaurant.initiated` consumer, and an outbox relay
+that polls `outbox_events` and publishes to RabbitMQ. There is no best-effort/direct-publish path left anywhere
+in this service.
 
 ## Layered architecture
 
 ```
 cmd/api                         → Gin HTTP server
-cmd/worker                      → RabbitMQ consumer for identity events — not started by compose.yaml, run manually
-cmd/worker/bootstrap            → this service's app/runner setup (graceful shutdown, signal handling)
+cmd/worker                      → inbound restaurant.initiated consumer + outbox relay — not started by compose.yaml, run manually
+cmd/worker/bootstrap            → this service's app/runner setup (graceful shutdown, signal handling, both worker goroutines)
 internal/domain/restaurant      → Restaurant aggregate, Checklist, OpeningHours, events, repository interface
 internal/domain/payout          → PayoutDetails
 internal/domain/pizza           → Pizza, PizzaPrice, PizzaSize
 internal/domain/topping         → Topping, ToppingPrice
-internal/application/restaurant → commands/, queries/ (ListPizzas), dispatch.go, mapper.go, schema.go, money.go
+internal/domain/outbox          → OutboxEvent, OutboxStatus, repository interface
+internal/application/restaurant → commands/, queries/ (ListPizzas), dispatch.go (DispatchEventsTx), mapper.go, schema.go, money.go
 internal/application/payout     → CreatePayout, UpdatePayout
 internal/application/pizza      → CreatePizza, UpdatePizza, SetPizzaPrices, ListPizzas
 internal/application/topping    → SetToppingPrices
-internal/infrastructure         → GORM persistence, RabbitMQ consumer, OpenCage geocoder, observability
+internal/application/outbox     → Worker (poller), Relay
+internal/infrastructure         → GORM persistence (incl. outbox), RabbitMQ consumer + publisher, OpenCage geocoder, observability
 internal/interfaces/http        → Gin handlers, X-User-ID/X-User-Role middleware (no local JWT parsing)
 internal/container              → shared.go → api.go / worker.go
 ```
@@ -128,6 +133,8 @@ flowchart LR
         E4A["NotifyUpdated()\n(address/contact/delivery/opening-hours commands)"] --> E4["restaurant.updated"]
         E5A["NotifyPizzaUpdated()\n(UpdatePizza/SetPizzaPrices)"] --> E5["restaurant.pizza_updated"]
         E6A["NotifyToppingPricesUpdated()\n(SetToppingPrices)"] --> E6["restaurant.topping_prices_updated"]
+        E1 & E2 & E3 & E4 & E5 & E6 --> OB["outbox_events row\n(same db.Transaction as the write)"]
+        OB --> RL["cmd/worker outbox relay\n(polls + publishes to RabbitMQ)"]
     end
 ```
 
@@ -137,6 +144,16 @@ flowchart LR
   `x-retry-count` header (linear backoff, discard after 3 attempts). `Run`/`runOnce` are package-level functions
   taking a `messageSource` interface parameter rather than methods on `*RabbitMQConsumer`, specifically so tests
   can inject a fake source with no test-only production API surface.
+- **Outbox relay**: every outbound event (all six below) is written as an `outbox_events` row inside the same
+  `db.Transaction` as the business write that raised it — `dispatch.go`'s `DispatchEventsTx` does this
+  unconditionally, with no best-effort fallback and no per-event classification (a design ported from
+  `identity-service`, then widened here to cover every event, not just the cross-service-critical ones). The
+  API request's job stops at writing that row; it never touches RabbitMQ itself. `cmd/worker`'s outbox relay
+  (`internal/application/outbox.Worker`, `DefaultConfig()`: 2s poll interval, batch 50, concurrency 5, 3 retries
+  with exponential backoff) is the only thing that ever calls `publisher.PublishRaw`, claiming pending rows with
+  `SELECT ... FOR UPDATE SKIP LOCKED`. A row that exhausts its retries is marked `failed` and sits for manual
+  inspection rather than being retried forever or silently dropped. This means an HTTP request only depends on
+  Postgres being up, not RabbitMQ — a broker outage no longer loses events, it just delays them.
 - **Outbound**: `restaurant.ready_for_review` (consumed by `email-service`, notifies the admin inbox),
   `restaurant.approved` (consumed by `email-service`, notifies the restaurant's own contact email — the
   domain event denormalizes `Restaurant.Email` at the point `Approve()` fires, trusting the checklist
