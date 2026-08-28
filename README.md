@@ -28,28 +28,15 @@ Traefik API Gateway (:80)
   ├── /restaurants   ──► Restaurant Service  (JWT protected)
   └── /search        ──► Search Service      (no auth)
 
-Async event flow via RabbitMQ:
-  Identity Service   ──► email.verification_created
-                     ──► user.registered
-                     ──► restaurant.initiated
-  Restaurant Service ──► restaurant.ready_for_review
-                     ──► restaurant.approved
-                     ──► restaurant.launched
-                     ──► restaurant.updated
-                     ──► restaurant.pizza_updated
-                     ──► restaurant.topping_prices_updated
-
-Consumers:
-  Email Service      ◄── email.verification_created, user.registered,
-                          restaurant.ready_for_review, restaurant.approved
-  Restaurant Service ◄── restaurant.initiated (worker)
-  Search Service     ◄── restaurant.launched, restaurant.updated,
-                          restaurant.pizza_updated, restaurant.topping_prices_updated (worker)
+RabbitMQ (async events, publish/consume — see Event flow below)
+  ├── Identity Service
+  ├── Restaurant Service
+  ├── Search Service
+  └── Email Service      (worker only — no HTTP route, reached only via RabbitMQ)
 ```
 
-Each service owns its data store. There is no shared database.
-
-See the system architecture diagram: [Architecture diagram](docs/architecture.md)
+Each service owns its data store. There is no shared database. See the
+[Architecture diagram](docs/architecture.md) for the full picture.
 
 
 ## Services
@@ -105,9 +92,9 @@ cp search-service/.env.example     search-service/.env
 docker compose up --build
 ```
 
-The gateway is available at `http://localhost:80`.  
-The Traefik dashboard is at `http://localhost:8080`.  
-The RabbitMQ management UI is at `http://localhost:15672`.
+The gateway is available at `http://localhost:80`  
+The Traefik dashboard is at `http://localhost:8080`  
+The RabbitMQ management UI is at `http://localhost:15672`
 
 ### Stop services
 
@@ -147,7 +134,7 @@ Architecture, domain model, and design decisions for each implemented service:
 
 ## Event flow
 
-Events are published to RabbitMQ and consumed asynchronously. The outbox pattern is used in producer services for at-least-once delivery.
+Events are published to RabbitMQ and consumed asynchronously. `identity-service` and `restaurant-service` both use the transactional outbox pattern for at-least-once delivery, but at different scope: `identity-service` outboxes only its one cross-service-critical event (`restaurant.initiated`) — `user.registered`/`email.verification_created` are still published directly/best-effort. `restaurant-service` outboxes every event it raises.
 
 ```
 identity-service     ──publishes──► email.verification_created
@@ -175,9 +162,7 @@ search-service       ◄──consumes──  restaurant.launched
 ```
 
 `restaurant.approved` and `restaurant.ready_for_review` are the only restaurant-service events with no
-`search-service` consumer — they fire pre-launch, before there is anything to index. `restaurant.reactivated`/
-`restaurant.deactivated` don't exist yet — restaurant-service has no reactivate/deactivate endpoints to publish
-them.
+`search-service` consumer — they fire pre-launch, before there is anything to index.
 
 
 ## Project structure
