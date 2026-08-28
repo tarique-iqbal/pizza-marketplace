@@ -2,62 +2,41 @@ package auth_test
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	authapp "identity-service/internal/application/auth"
 	"identity-service/internal/domain/auth"
+	"identity-service/internal/domain/outbox"
 	"identity-service/internal/domain/user"
 	"identity-service/internal/infrastructure/persistence"
 	"identity-service/internal/infrastructure/security"
-	"identity-service/internal/shared/event"
 	"identity-service/tests/infrastructure/db/fixtures"
 	"identity-service/tests/testutil"
 )
 
 var emailOTP *authapp.RequestEmailOTP
-var mockPublisher *MockEventPublisher
 var repo auth.EmailVerificationRepository
-
-type MockEventPublisher struct {
-	PublishedEvents []event.Event
-	PublishedRaw    [][]byte
-	ShouldFail      bool
-}
-
-func (m *MockEventPublisher) PublishEvent(ctx context.Context, e event.Event) error {
-	m.PublishedEvents = append(m.PublishedEvents, e)
-	if m.ShouldFail {
-		return errors.New("mock publish failure")
-	}
-	return nil
-}
-
-func (m *MockEventPublisher) PublishRaw(ctx context.Context, topic string, jsonData []byte) error {
-	m.PublishedRaw = append(m.PublishedRaw, jsonData)
-	if m.ShouldFail {
-		return errors.New("mock raw publish failure")
-	}
-	return nil
-}
 
 func requestEmailOTP(t *testing.T) *authapp.RequestEmailOTP {
 	db := testutil.DB(t)
-	db.TruncateTables(t, testutil.TableUser, testutil.TableEmailVerification)
+	db.TruncateTables(t, testutil.TableUser, testutil.TableEmailVerification, testutil.TableOutboxEvent)
 
 	_ = fixtures.LoadUserFixtures(t, db.DB)
 
 	repo = persistence.NewEmailVerificationRepository(db.DB)
 	userRepo := persistence.NewUserRepository(db.DB)
+	outboxRepo := persistence.NewOutboxRepository(db.DB)
 	otp := security.NewOTPGenerator()
-	mockPublisher = &MockEventPublisher{}
 
-	return authapp.NewRequestEmailOTP(repo, userRepo, otp, mockPublisher)
+	return authapp.NewRequestEmailOTP(db.DB, repo, userRepo, otp, outboxRepo)
 }
 
 func TestCreateEmailVerification_Success(t *testing.T) {
+	db := testutil.DB(t)
 	emailOTP = requestEmailOTP(t)
 
 	input := authapp.EmailVerificationRequest{
@@ -73,15 +52,20 @@ func TestCreateEmailVerification_Success(t *testing.T) {
 	assert.Equal(t, "adam.dangelo@example.com", emailVerification.Email)
 	assert.InDelta(t, 15, diff.Minutes(), 0.001, "Delta threshold exceeded")
 
-	createdEvent, ok := mockPublisher.PublishedEvents[0].(authapp.EmailVerificationCreated)
-	assert.True(t, ok)
-	assert.Equal(t, "adam.dangelo@example.com", createdEvent.Email)
-	assert.Equal(t, emailVerification.Code, createdEvent.Code)
-	assert.Equal(t, "email.verification_created", createdEvent.GetEventName())
-	assert.Len(t, mockPublisher.PublishedEvents, 1)
+	var outboxEvent outbox.OutboxEvent
+	require.NoError(t, db.DB.Where("event_name = ?", "email.verification_created").First(&outboxEvent).Error)
+
+	var payload struct {
+		Email string `json:"email"`
+		Code  string `json:"code"`
+	}
+	require.NoError(t, json.Unmarshal(outboxEvent.Payload, &payload))
+	assert.Equal(t, "adam.dangelo@example.com", payload.Email)
+	assert.Equal(t, emailVerification.Code, payload.Code)
 }
 
 func TestCreateEmailVerification_EmailAlreadyRegistered(t *testing.T) {
+	db := testutil.DB(t)
 	emailOTP = requestEmailOTP(t)
 
 	input := authapp.EmailVerificationRequest{
@@ -91,5 +75,9 @@ func TestCreateEmailVerification_EmailAlreadyRegistered(t *testing.T) {
 	err := emailOTP.Execute(context.Background(), input)
 
 	assert.ErrorIs(t, err, user.ErrEmailAlreadyExists)
-	assert.Empty(t, mockPublisher.PublishedEvents)
+
+	var count int64
+	require.NoError(t, db.DB.Model(&outbox.OutboxEvent{}).
+		Where("event_name = ?", "email.verification_created").Count(&count).Error)
+	assert.Zero(t, count)
 }
