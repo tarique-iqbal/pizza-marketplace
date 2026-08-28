@@ -32,7 +32,8 @@ func setupCreatePayout(t *testing.T) createPayoutSetup {
 
 	restaurantRepo := persistence.NewRestaurantRepository(db.DB)
 	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(db.DB)
-	createPayout := commands.NewCreatePayout(restaurantRepo, payoutDetailsRepo, testutil.NoopPublisher{})
+	outboxRepo := persistence.NewOutboxRepository(db.DB)
+	createPayout := commands.NewCreatePayout(db.DB, restaurantRepo, payoutDetailsRepo, outboxRepo)
 
 	return createPayoutSetup{
 		DB:           db.DB,

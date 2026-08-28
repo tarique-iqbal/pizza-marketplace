@@ -31,7 +31,8 @@ func setupApproveRestaurant(t *testing.T) approveRestaurantSetup {
 
 	restaurantRepo := persistence.NewRestaurantRepository(db.DB)
 	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(db.DB)
-	approveRestaurant := commands.NewApproveRestaurant(restaurantRepo, payoutDetailsRepo, testutil.NoopPublisher{})
+	outboxRepo := persistence.NewOutboxRepository(db.DB)
+	approveRestaurant := commands.NewApproveRestaurant(db.DB, restaurantRepo, payoutDetailsRepo, outboxRepo)
 
 	return approveRestaurantSetup{
 		DB:                db.DB,
@@ -97,8 +98,8 @@ func TestApproveRestaurant_FailsIfNoPendingPayout(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(
-		t, restaurant.StatusApproved, unchanged.Status,
-		"restaurant status is already saved before payout promotion is attempted",
+		t, restaurant.StatusReview, unchanged.Status,
+		"restaurant status write and payout promotion are atomic",
 	)
 }
 

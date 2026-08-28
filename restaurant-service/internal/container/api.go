@@ -63,7 +63,7 @@ func NewAPIContainer() (*APIContainer, error) {
 	updateTags := commands.NewUpdateTags(base.DB, restaurantRepo, payoutDetailsRepo, base.OutboxRepo)
 	tagsHandler := handlers.NewTagsHandler(updateTags)
 
-	createPayout := payoutcmd.NewCreatePayout(restaurantRepo, payoutDetailsRepo, publisher)
+	createPayout := payoutcmd.NewCreatePayout(base.DB, restaurantRepo, payoutDetailsRepo, base.OutboxRepo)
 	updatePayout := payoutcmd.NewUpdatePayout(restaurantRepo, payoutDetailsRepo)
 	payoutHandler := handlers.NewPayoutHandler(createPayout, updatePayout)
 
@@ -96,7 +96,7 @@ func NewAPIContainer() (*APIContainer, error) {
 	getRestaurant := resqry.NewGetRestaurant(restaurantRepo, payoutDetailsRepo, pizzaCatalog)
 	getRestaurantHandler := handlers.NewGetRestaurantHandler(getRestaurant)
 
-	approveRestaurant := commands.NewApproveRestaurant(restaurantRepo, payoutDetailsRepo, publisher)
+	approveRestaurant := commands.NewApproveRestaurant(base.DB, restaurantRepo, payoutDetailsRepo, base.OutboxRepo)
 	approveHandler := handlers.NewApproveHandler(approveRestaurant)
 
 	launchRestaurant := commands.NewLaunchRestaurant(

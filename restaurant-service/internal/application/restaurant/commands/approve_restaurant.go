@@ -5,29 +5,33 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	resapp "restaurant-service/internal/application/restaurant"
+	"restaurant-service/internal/domain/outbox"
 	"restaurant-service/internal/domain/payout"
 	"restaurant-service/internal/domain/restaurant"
 	apperr "restaurant-service/internal/shared/errors"
-	"restaurant-service/internal/shared/event"
 )
 
 type ApproveRestaurant struct {
+	db                *gorm.DB
 	restaurantRepo    restaurant.RestaurantRepository
 	payoutDetailsRepo payout.PayoutDetailsRepository
-	publisher         event.EventPublisher
+	outboxRepo        outbox.OutboxRepository
 }
 
 func NewApproveRestaurant(
+	db *gorm.DB,
 	restaurantRepo restaurant.RestaurantRepository,
 	payoutDetailsRepo payout.PayoutDetailsRepository,
-	publisher event.EventPublisher,
+	outboxRepo outbox.OutboxRepository,
 ) *ApproveRestaurant {
 	return &ApproveRestaurant{
+		db:                db,
 		restaurantRepo:    restaurantRepo,
 		payoutDetailsRepo: payoutDetailsRepo,
-		publisher:         publisher,
+		outboxRepo:        outboxRepo,
 	}
 }
 
@@ -47,15 +51,20 @@ func (uc *ApproveRestaurant) Execute(
 		return resapp.RestaurantResponse{}, fmt.Errorf("%w: %w", err, apperr.ErrConflict)
 	}
 
-	if err := uc.restaurantRepo.Update(ctx, res); err != nil {
-		return resapp.RestaurantResponse{}, fmt.Errorf("failed to update restaurant: %w", err)
-	}
+	err = uc.db.Transaction(func(tx *gorm.DB) error {
+		if err := uc.restaurantRepo.WithTx(tx).Update(ctx, res); err != nil {
+			return fmt.Errorf("failed to update restaurant: %w", err)
+		}
 
-	if err := uc.payoutDetailsRepo.PromoteToActive(ctx, res.ID); err != nil {
-		return resapp.RestaurantResponse{}, fmt.Errorf("failed to promote payout details: %w", err)
-	}
+		if err := uc.payoutDetailsRepo.WithTx(tx).PromoteToActive(ctx, res.ID); err != nil {
+			return fmt.Errorf("failed to promote payout details: %w", err)
+		}
 
-	resapp.DispatchEvents(ctx, uc.publisher, res)
+		return resapp.DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), res)
+	})
+	if err != nil {
+		return resapp.RestaurantResponse{}, err
+	}
 
 	pd, err := uc.payoutDetailsRepo.FindActiveByRestaurant(ctx, res.ID)
 	if err != nil {
