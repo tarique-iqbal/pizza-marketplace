@@ -2,16 +2,13 @@ package http_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
-	"errors"
 	userapp "identity-service/internal/application/user"
 	"identity-service/internal/domain/user"
 	"identity-service/internal/infrastructure/auth"
 	"identity-service/internal/infrastructure/persistence"
 	"identity-service/internal/infrastructure/security"
 	httpui "identity-service/internal/interfaces/http"
-	"identity-service/internal/shared/event"
 	"identity-service/tests/infrastructure/db/fixtures"
 	"identity-service/tests/testutil"
 	"net/http"
@@ -22,30 +19,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-var mockPublisher *MockEventPublisher
-
-type MockEventPublisher struct {
-	PublishedEvents []event.Event
-	PublishedRaw    [][]byte
-	ShouldFail      bool
-}
-
-func (m *MockEventPublisher) PublishEvent(ctx context.Context, e event.Event) error {
-	m.PublishedEvents = append(m.PublishedEvents, e)
-	if m.ShouldFail {
-		return errors.New("mock publish failure")
-	}
-	return nil
-}
-
-func (m *MockEventPublisher) PublishRaw(ctx context.Context, topic string, jsonData []byte) error {
-	m.PublishedRaw = append(m.PublishedRaw, jsonData)
-	if m.ShouldFail {
-		return errors.New("mock raw publish failure")
-	}
-	return nil
-}
 
 func setupUserHandler(t *testing.T) *httpui.UserHandler {
 	db := testutil.DB(t)
@@ -59,10 +32,9 @@ func setupUserHandler(t *testing.T) *httpui.UserHandler {
 	hasher := security.NewPasswordHasher()
 	userRepo := persistence.NewUserRepository(db.DB)
 	outboxRepo := persistence.NewOutboxRepository(db.DB)
-	mockPublisher = &MockEventPublisher{}
 
-	register := userapp.NewRegisterCustomer(codeVerifier, userRepo, hasher, mockPublisher)
-	registerOwner := userapp.NewRegisterOwner(db.DB, codeVerifier, hasher, userRepo, outboxRepo, mockPublisher)
+	register := userapp.NewRegisterCustomer(db.DB, codeVerifier, userRepo, hasher, outboxRepo)
+	registerOwner := userapp.NewRegisterOwner(db.DB, codeVerifier, hasher, userRepo, outboxRepo)
 	findByID := userapp.NewFindByID(userRepo)
 
 	return httpui.NewUserHandler(register, registerOwner, findByID)

@@ -51,16 +51,16 @@ func NewAPIContainer() (*APIContainer, error) {
 	codeVerifier := authinfra.NewEmailVerifier(emailVerificationRepo)
 
 	// user
-	registerCustomer := user.NewRegisterCustomer(codeVerifier, userRepo, hasher, base.Publisher)
+	registerCustomer := user.NewRegisterCustomer(base.Postgres.DB, codeVerifier, userRepo, hasher, base.OutboxRepo)
 	registerOwner := user.NewRegisterOwner(
-		base.Postgres.DB, codeVerifier, hasher, userRepo, base.OutboxRepo, base.Publisher,
+		base.Postgres.DB, codeVerifier, hasher, userRepo, base.OutboxRepo,
 	)
 	findByID := user.NewFindByID(userRepo)
 	userHandler := http.NewUserHandler(registerCustomer, registerOwner, findByID)
 
 	// auth
 	login := authapp.NewLogin(userRepo, hasher, jwtManager, refreshTokenRepo, refreshTokenManager)
-	emailOTP := authapp.NewRequestEmailOTP(emailVerificationRepo, userRepo, otp, base.Publisher)
+	emailOTP := authapp.NewRequestEmailOTP(base.Postgres.DB, emailVerificationRepo, userRepo, otp, base.OutboxRepo)
 	refreshToken := authapp.NewRefreshToken(jwtManager, refreshTokenRepo, refreshTokenManager)
 	logout := authapp.NewLogout(refreshTokenRepo, refreshTokenManager)
 	authHandler := http.NewAuthHandler(login, emailOTP, refreshToken, logout)
