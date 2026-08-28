@@ -18,6 +18,10 @@ func NewPizzaRepository(db *gorm.DB) pizza.PizzaRepository {
 	return &PizzaRepository{db: db}
 }
 
+func (repo *PizzaRepository) WithTx(tx *gorm.DB) pizza.PizzaRepository {
+	return &PizzaRepository{db: tx}
+}
+
 func (repo *PizzaRepository) Create(
 	ctx context.Context,
 	p *pizza.Pizza,

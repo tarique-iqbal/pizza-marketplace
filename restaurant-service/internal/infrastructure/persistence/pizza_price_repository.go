@@ -19,6 +19,10 @@ func NewPizzaPriceRepository(db *gorm.DB) pizza.PizzaPriceRepository {
 	return &PizzaPriceRepository{db: db}
 }
 
+func (repo *PizzaPriceRepository) WithTx(tx *gorm.DB) pizza.PizzaPriceRepository {
+	return &PizzaPriceRepository{db: tx}
+}
+
 func (repo *PizzaPriceRepository) ReplacePrices(
 	ctx context.Context,
 	pizzaID uuid.UUID,

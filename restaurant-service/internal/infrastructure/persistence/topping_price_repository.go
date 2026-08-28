@@ -19,6 +19,10 @@ func NewToppingPriceRepository(db *gorm.DB) topping.ToppingPriceRepository {
 	return &ToppingPriceRepository{db: db}
 }
 
+func (repo *ToppingPriceRepository) WithTx(tx *gorm.DB) topping.ToppingPriceRepository {
+	return &ToppingPriceRepository{db: tx}
+}
+
 func (repo *ToppingPriceRepository) UpsertPrices(
 	ctx context.Context,
 	restaurantID uuid.UUID,

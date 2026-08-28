@@ -2,6 +2,7 @@ package persistence_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -97,4 +98,45 @@ func TestPizzaPriceRepository_ReplacePrices_EmptyDeactivatesAll(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, all, 1)
 	assert.False(t, all[0].IsActive)
+}
+
+func TestPizzaPriceRepository_WithTx_NestsAsSavepointAndRollsBackWithOuterTx(t *testing.T) {
+	db, repo, p, sizes := setupPizzaPriceRepo(t)
+
+	prices := []pizza.PizzaPrice{
+		mustNewPizzaPrice(t, p.ID, sizes[0].ID, "9.50"),
+	}
+
+	rollbackErr := errors.New("simulated outer transaction failure")
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+		if err := repo.WithTx(tx).ReplacePrices(context.Background(), p.ID, prices); err != nil {
+			return err
+		}
+		return rollbackErr
+	})
+
+	require.ErrorIs(t, err, rollbackErr)
+
+	all, err := repo.ListByPizza(context.Background(), p.ID)
+	require.NoError(t, err)
+	assert.Empty(t, all, "ReplacePrices must roll back when the outer transaction fails")
+}
+
+func TestPizzaPriceRepository_WithTx_CommitsWithOuterTx(t *testing.T) {
+	db, repo, p, sizes := setupPizzaPriceRepo(t)
+
+	prices := []pizza.PizzaPrice{
+		mustNewPizzaPrice(t, p.ID, sizes[0].ID, "9.50"),
+	}
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+		return repo.WithTx(tx).ReplacePrices(context.Background(), p.ID, prices)
+	})
+	require.NoError(t, err)
+
+	all, err := repo.ListByPizza(context.Background(), p.ID)
+	require.NoError(t, err)
+	require.Len(t, all, 1)
+	assert.True(t, all[0].IsActive)
 }
