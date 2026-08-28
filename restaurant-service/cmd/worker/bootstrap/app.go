@@ -22,7 +22,7 @@ func NewApp(logger *slog.Logger) *App {
 }
 
 func (a *App) Run() error {
-	app, err := container.NewWorkerContainer()
+	app, err := container.NewWorkerContainer(a.logger)
 	if err != nil {
 		return err
 	}

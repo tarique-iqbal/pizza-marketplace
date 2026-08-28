@@ -1,6 +1,9 @@
 package container
 
 import (
+	"log/slog"
+
+	outboxapp "restaurant-service/internal/application/outbox"
 	"restaurant-service/internal/application/restaurant/inbound"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/infrastructure/messaging"
@@ -9,11 +12,13 @@ import (
 
 type WorkerContainer struct {
 	*Shared
-	Dispatcher restaurant.EventDispatcher
-	Consumer   *messaging.RabbitMQConsumer
+	Dispatcher   restaurant.EventDispatcher
+	Consumer     *messaging.RabbitMQConsumer
+	Publisher    *messaging.RabbitMQPublisher
+	OutboxWorker *outboxapp.Worker
 }
 
-func NewWorkerContainer() (*WorkerContainer, error) {
+func NewWorkerContainer(logger *slog.Logger) (*WorkerContainer, error) {
 	base, err := NewShared()
 	if err != nil {
 		return nil, err
@@ -30,10 +35,20 @@ func NewWorkerContainer() (*WorkerContainer, error) {
 		return nil, err
 	}
 
+	publisher, err := messaging.NewRabbitMQPublisher(base.AMQPURL)
+	if err != nil {
+		return nil, err
+	}
+
+	relayer := outboxapp.NewRelay(publisher)
+	outboxWorker := outboxapp.NewWorker(base.OutboxRepo, relayer, outboxapp.DefaultConfig(), logger)
+
 	return &WorkerContainer{
-		Shared:     base,
-		Dispatcher: dispatcher,
-		Consumer:   consumer,
+		Shared:       base,
+		Dispatcher:   dispatcher,
+		Consumer:     consumer,
+		Publisher:    publisher,
+		OutboxWorker: outboxWorker,
 	}, nil
 }
 
@@ -47,5 +62,9 @@ func (c *WorkerContainer) Close() {
 
 	if c.Consumer != nil {
 		c.Consumer.Close()
+	}
+
+	if c.Publisher != nil {
+		c.Publisher.Close()
 	}
 }

@@ -35,6 +35,16 @@ func (r *runner) start(ctx context.Context, stop context.CancelFunc) {
 			stop()
 		}
 	}()
+
+	r.logger.Info("starting outbox worker")
+
+	r.wg.Add(1)
+	go func() {
+		defer r.wg.Done()
+		defer r.recoverPanic(stop)
+
+		r.app.OutboxWorker.Start(ctx)
+	}()
 }
 
 func (r *runner) done() <-chan struct{} {
