@@ -24,6 +24,10 @@ func (f *fakePublisher) PublishEvent(ctx context.Context, e event.Event) error {
 	return f.err
 }
 
+func (f *fakePublisher) PublishRaw(ctx context.Context, topic string, jsonData []byte) error {
+	return f.err
+}
+
 func restaurantReadyForReview() *restaurant.Restaurant {
 	res := &restaurant.Restaurant{
 		ID:     uuid.New(),

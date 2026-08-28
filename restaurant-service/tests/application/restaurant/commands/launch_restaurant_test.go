@@ -39,6 +39,10 @@ func (f *fakePublisher) PublishEvent(ctx context.Context, e event.Event) error {
 	return nil
 }
 
+func (f *fakePublisher) PublishRaw(ctx context.Context, topic string, jsonData []byte) error {
+	return nil
+}
+
 func setupLaunchRestaurant(t *testing.T) launchRestaurantSetup {
 	db := testutil.DB(t)
 	db.TruncateTables(t, testutil.TableRestaurant)

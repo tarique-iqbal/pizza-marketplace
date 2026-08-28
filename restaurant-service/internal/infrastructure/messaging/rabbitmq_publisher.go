@@ -88,6 +88,10 @@ func (p *RabbitMQPublisher) PublishEvent(ctx context.Context, event event.Event)
 	return p.publish(ctx, event.GetEventName(), body)
 }
 
+func (p *RabbitMQPublisher) PublishRaw(ctx context.Context, routingKey string, body []byte) error {
+	return p.publish(ctx, routingKey, body)
+}
+
 func (p *RabbitMQPublisher) publish(
 	ctx context.Context,
 	routingKey string,
