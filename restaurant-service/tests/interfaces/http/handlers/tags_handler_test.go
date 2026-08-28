@@ -35,9 +35,10 @@ func setupTagsHandler(t *testing.T) tagsHandlerSetup {
 
 	restaurantRepo := persistence.NewRestaurantRepository(db.DB)
 	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(db.DB)
+	outboxRepo := persistence.NewOutboxRepository(db.DB)
 
 	handler := handlers.NewTagsHandler(
-		commands.NewUpdateTags(restaurantRepo, payoutDetailsRepo, testutil.NoopPublisher{}),
+		commands.NewUpdateTags(db.DB, restaurantRepo, payoutDetailsRepo, outboxRepo),
 	)
 
 	return tagsHandlerSetup{DB: db.DB, Handler: handler}

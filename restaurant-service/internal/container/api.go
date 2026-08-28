@@ -51,23 +51,23 @@ func NewAPIContainer() (*APIContainer, error) {
 	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(base.DB)
 
 	geocoder := geocoder.NewOpenCageGeocoder(opencageApiKey)
-	updateAddress := commands.NewUpdateAddress(geocoder, restaurantRepo, payoutDetailsRepo, publisher)
+	updateAddress := commands.NewUpdateAddress(base.DB, geocoder, restaurantRepo, payoutDetailsRepo, base.OutboxRepo)
 	addressHandler := handlers.NewAddressHandler(updateAddress)
 
-	updateContact := commands.NewUpdateContact(restaurantRepo, payoutDetailsRepo, publisher)
+	updateContact := commands.NewUpdateContact(base.DB, restaurantRepo, payoutDetailsRepo, base.OutboxRepo)
 	contactHandler := handlers.NewContactHandler(updateContact)
 
-	updateDelivery := commands.NewUpdateDelivery(restaurantRepo, payoutDetailsRepo, publisher)
+	updateDelivery := commands.NewUpdateDelivery(base.DB, restaurantRepo, payoutDetailsRepo, base.OutboxRepo)
 	deliveryHandler := handlers.NewDeliveryHandler(updateDelivery)
 
-	updateTags := commands.NewUpdateTags(restaurantRepo, payoutDetailsRepo, publisher)
+	updateTags := commands.NewUpdateTags(base.DB, restaurantRepo, payoutDetailsRepo, base.OutboxRepo)
 	tagsHandler := handlers.NewTagsHandler(updateTags)
 
 	createPayout := payoutcmd.NewCreatePayout(restaurantRepo, payoutDetailsRepo, publisher)
 	updatePayout := payoutcmd.NewUpdatePayout(restaurantRepo, payoutDetailsRepo)
 	payoutHandler := handlers.NewPayoutHandler(createPayout, updatePayout)
 
-	updateOpeningHours := commands.NewUpdateOpeningHours(restaurantRepo, payoutDetailsRepo, publisher)
+	updateOpeningHours := commands.NewUpdateOpeningHours(base.DB, restaurantRepo, payoutDetailsRepo, base.OutboxRepo)
 	openingHoursHandler := handlers.NewOpeningHoursHandler(updateOpeningHours)
 
 	toppingRepo := persistence.NewToppingRepository(base.DB)
@@ -100,7 +100,7 @@ func NewAPIContainer() (*APIContainer, error) {
 	approveHandler := handlers.NewApproveHandler(approveRestaurant)
 
 	launchRestaurant := commands.NewLaunchRestaurant(
-		restaurantRepo, payoutDetailsRepo, pizzaCatalog, toppingRepo, toppingPriceRepo, publisher,
+		base.DB, restaurantRepo, payoutDetailsRepo, pizzaCatalog, toppingRepo, toppingPriceRepo, base.OutboxRepo,
 	)
 	getLaunchReadiness := resqry.NewGetLaunchReadiness(restaurantRepo, pizzaCatalog)
 	launchHandler := handlers.NewLaunchHandler(launchRestaurant, getLaunchReadiness)

@@ -2,6 +2,7 @@ package commands_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -14,12 +15,12 @@ import (
 	"restaurant-service/internal/application/pizza/queries"
 	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/application/restaurant/commands"
+	"restaurant-service/internal/domain/outbox"
 	"restaurant-service/internal/domain/pizza"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/domain/topping"
 	"restaurant-service/internal/infrastructure/persistence"
 	apperr "restaurant-service/internal/shared/errors"
-	"restaurant-service/internal/shared/event"
 	"restaurant-service/tests/infrastructure/db/fixtures"
 	"restaurant-service/tests/testutil"
 )
@@ -27,20 +28,6 @@ import (
 type launchRestaurantSetup struct {
 	DB               *gorm.DB
 	LaunchRestaurant *commands.LaunchRestaurant
-	Publisher        *fakePublisher
-}
-
-type fakePublisher struct {
-	events []event.Event
-}
-
-func (f *fakePublisher) PublishEvent(ctx context.Context, e event.Event) error {
-	f.events = append(f.events, e)
-	return nil
-}
-
-func (f *fakePublisher) PublishRaw(ctx context.Context, topic string, jsonData []byte) error {
-	return nil
 }
 
 func setupLaunchRestaurant(t *testing.T) launchRestaurantSetup {
@@ -58,15 +45,14 @@ func setupLaunchRestaurant(t *testing.T) launchRestaurantSetup {
 	toppingPriceRepo := persistence.NewToppingPriceRepository(db.DB)
 
 	pizzaCatalog := queries.NewPizzaCatalog(pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo)
-	publisher := &fakePublisher{}
+	outboxRepo := persistence.NewOutboxRepository(db.DB)
 	launchRestaurant := commands.NewLaunchRestaurant(
-		restaurantRepo, payoutDetailsRepo, pizzaCatalog, toppingRepo, toppingPriceRepo, publisher,
+		db.DB, restaurantRepo, payoutDetailsRepo, pizzaCatalog, toppingRepo, toppingPriceRepo, outboxRepo,
 	)
 
 	return launchRestaurantSetup{
 		DB:               db.DB,
 		LaunchRestaurant: launchRestaurant,
-		Publisher:        publisher,
 	}
 }
 
@@ -183,10 +169,11 @@ func TestLaunchRestaurant_PublishesLaunchedEventWithMenu(t *testing.T) {
 	_, err := env.LaunchRestaurant.Execute(context.Background(), res.ID, res.OwnerID)
 	require.NoError(t, err)
 
-	require.Len(t, env.Publisher.events, 1)
+	stored := firstOutboxEvent(t, env.DB, res.ID, "restaurant.launched")
+	assert.Equal(t, outbox.StatusPending, stored.Status)
 
-	payload, ok := env.Publisher.events[0].(resapp.RestaurantLaunchedPayload)
-	require.True(t, ok)
+	var payload resapp.RestaurantLaunchedPayload
+	require.NoError(t, json.Unmarshal(stored.Payload, &payload))
 
 	assert.Equal(t, "restaurant.launched", payload.EventName)
 	require.Len(t, payload.Pizzas, 2)
@@ -226,10 +213,11 @@ func TestLaunchRestaurant_PublishesLaunchedEventWithToppingPrices(t *testing.T) 
 	_, err = env.LaunchRestaurant.Execute(context.Background(), res.ID, res.OwnerID)
 	require.NoError(t, err)
 
-	require.Len(t, env.Publisher.events, 1)
+	stored := firstOutboxEvent(t, env.DB, res.ID, "restaurant.launched")
+	assert.Equal(t, outbox.StatusPending, stored.Status)
 
-	payload, ok := env.Publisher.events[0].(resapp.RestaurantLaunchedPayload)
-	require.True(t, ok)
+	var payload resapp.RestaurantLaunchedPayload
+	require.NoError(t, json.Unmarshal(stored.Payload, &payload))
 
 	require.Len(t, payload.ToppingPrices, 1, "topping prices set before launch must be seeded into the snapshot")
 	assert.Equal(t, t1.ID, payload.ToppingPrices[0].ToppingID)
@@ -259,10 +247,11 @@ func TestLaunchRestaurant_ExcludesUnpricedPizzasFromMenu(t *testing.T) {
 	_, err := env.LaunchRestaurant.Execute(context.Background(), res.ID, res.OwnerID)
 	require.NoError(t, err)
 
-	require.Len(t, env.Publisher.events, 1)
+	stored := firstOutboxEvent(t, env.DB, res.ID, "restaurant.launched")
+	assert.Equal(t, outbox.StatusPending, stored.Status)
 
-	payload, ok := env.Publisher.events[0].(resapp.RestaurantLaunchedPayload)
-	require.True(t, ok)
+	var payload resapp.RestaurantLaunchedPayload
+	require.NoError(t, json.Unmarshal(stored.Payload, &payload))
 
 	require.Len(t, payload.Pizzas, 2, "unpriced pizza must be excluded from the launched snapshot")
 
@@ -293,7 +282,10 @@ func TestLaunchRestaurant_FailsIfNotEnoughPizzas(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorIs(t, err, restaurant.ErrNotEnoughPizzas)
 	assert.ErrorIs(t, err, apperr.ErrConflict)
-	assert.Empty(t, env.Publisher.events, "no event should be published when launch is rejected")
+
+	var eventCount int64
+	require.NoError(t, env.DB.Model(&outbox.OutboxEvent{}).Where("aggregate_id = ?", res.ID).Count(&eventCount).Error)
+	assert.Zero(t, eventCount, "no outbox event should be created when launch is rejected")
 
 	var unchanged restaurant.Restaurant
 

@@ -35,7 +35,8 @@ func setupDeliveryHandler(t *testing.T) deliveryHandlerSetup {
 
 	repo := persistence.NewRestaurantRepository(db.DB)
 	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(db.DB)
-	updateDelivery := commands.NewUpdateDelivery(repo, payoutDetailsRepo, testutil.NoopPublisher{})
+	outboxRepo := persistence.NewOutboxRepository(db.DB)
+	updateDelivery := commands.NewUpdateDelivery(db.DB, repo, payoutDetailsRepo, outboxRepo)
 	handler := handlers.NewDeliveryHandler(updateDelivery)
 
 	return deliveryHandlerSetup{

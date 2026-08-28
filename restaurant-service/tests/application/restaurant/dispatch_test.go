@@ -181,16 +181,15 @@ func TestDispatchEvents_BestEffort_SwallowsPublishError(t *testing.T) {
 	assert.Len(t, publisher.events, 1)
 }
 
-func TestDispatchEventsTx_RoutesOutboxWorthyEventToOutbox(t *testing.T) {
+func TestDispatchEventsTx_WritesEventToOutbox(t *testing.T) {
 	res := &restaurant.Restaurant{ID: uuid.New(), Name: "Pizza Paradise", Status: restaurant.StatusActive}
 	res.NotifyUpdated()
 
 	outboxRepo := &fakeOutboxRepo{}
 
-	bestEffort, err := resapp.DispatchEventsTx(context.Background(), outboxRepo, res, enrichAsUpdated)
+	err := resapp.DispatchEventsTx(context.Background(), outboxRepo, res, enrichAsUpdated)
 
 	require.NoError(t, err)
-	assert.Empty(t, bestEffort)
 	require.Len(t, outboxRepo.events, 1)
 
 	stored := outboxRepo.events[0]
@@ -200,26 +199,22 @@ func TestDispatchEventsTx_RoutesOutboxWorthyEventToOutbox(t *testing.T) {
 	assert.JSONEq(t, `{"name":"restaurant.updated"}`, string(stored.Payload))
 }
 
-func TestDispatchEventsTx_ReturnsNonOutboxEventForBestEffort(t *testing.T) {
+func TestDispatchEventsTx_RoutesEveryEventToOutbox_NoBestEffortSplit(t *testing.T) {
 	res := restaurantReadyForReview()
 	outboxRepo := &fakeOutboxRepo{}
 
-	bestEffort, err := resapp.DispatchEventsTx(context.Background(), outboxRepo, res)
+	err := resapp.DispatchEventsTx(context.Background(), outboxRepo, res)
 
 	require.NoError(t, err)
-	assert.Empty(t, outboxRepo.events)
-	require.Len(t, bestEffort, 1)
-
-	payload, ok := bestEffort[0].(resapp.RestaurantReadyForReviewPayload)
-	require.True(t, ok)
-	assert.Equal(t, "restaurant.ready_for_review", payload.EventName)
+	require.Len(t, outboxRepo.events, 1)
+	assert.Equal(t, "restaurant.ready_for_review", outboxRepo.events[0].EventName)
 }
 
 func TestDispatchEventsTx_DrainsAggregateEvents(t *testing.T) {
 	res := restaurantReadyForReview()
 	outboxRepo := &fakeOutboxRepo{}
 
-	_, err := resapp.DispatchEventsTx(context.Background(), outboxRepo, res)
+	err := resapp.DispatchEventsTx(context.Background(), outboxRepo, res)
 
 	require.NoError(t, err)
 	assert.Empty(t, res.PullEvents())
@@ -231,26 +226,7 @@ func TestDispatchEventsTx_OutboxCreateError_ReturnsError(t *testing.T) {
 
 	outboxRepo := &fakeOutboxRepo{err: errors.New("db unavailable")}
 
-	_, err := resapp.DispatchEventsTx(context.Background(), outboxRepo, res, enrichAsUpdated)
+	err := resapp.DispatchEventsTx(context.Background(), outboxRepo, res, enrichAsUpdated)
 
 	require.Error(t, err)
-}
-
-func TestPublishBestEffort_PublishesEvents(t *testing.T) {
-	publisher := &fakePublisher{}
-	events := []event.Event{stubPayload{Name: "restaurant.ready_for_review"}}
-
-	resapp.PublishBestEffort(context.Background(), publisher, events)
-
-	require.Len(t, publisher.events, 1)
-	assert.Equal(t, "restaurant.ready_for_review", publisher.events[0].GetEventName())
-}
-
-func TestPublishBestEffort_SwallowsPublishError(t *testing.T) {
-	publisher := &fakePublisher{err: errors.New("broker unavailable")}
-	events := []event.Event{stubPayload{Name: "restaurant.ready_for_review"}}
-
-	assert.NotPanics(t, func() {
-		resapp.PublishBestEffort(context.Background(), publisher, events)
-	})
 }

@@ -2,6 +2,7 @@ package commands_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/google/uuid"
@@ -11,6 +12,7 @@ import (
 
 	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/application/restaurant/commands"
+	"restaurant-service/internal/domain/outbox"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/infrastructure/persistence"
 	apperr "restaurant-service/internal/shared/errors"
@@ -21,7 +23,6 @@ import (
 type updateContactSetup struct {
 	DB            *gorm.DB
 	UpdateContact *commands.UpdateContact
-	Publisher     *fakePublisher
 }
 
 func setupUpdateContact(t *testing.T) updateContactSetup {
@@ -32,13 +33,12 @@ func setupUpdateContact(t *testing.T) updateContactSetup {
 
 	restaurantRepo := persistence.NewRestaurantRepository(db.DB)
 	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(db.DB)
-	publisher := &fakePublisher{}
-	updateContact := commands.NewUpdateContact(restaurantRepo, payoutDetailsRepo, publisher)
+	outboxRepo := persistence.NewOutboxRepository(db.DB)
+	updateContact := commands.NewUpdateContact(db.DB, restaurantRepo, payoutDetailsRepo, outboxRepo)
 
 	return updateContactSetup{
 		DB:            db.DB,
 		UpdateContact: updateContact,
-		Publisher:     publisher,
 	}
 }
 
@@ -80,8 +80,6 @@ func TestUpdateContact_Success(t *testing.T) {
 	assert.Equal(t, "+49 40 12345678", *updated.Phone)
 	assert.Equal(t, "https://example.com", *updated.Website)
 	assert.False(t, updated.UpdatedAt.IsZero())
-
-	assert.Empty(t, env.Publisher.events, "no restaurant.updated event while still draft")
 }
 
 func TestUpdateContact_PublishesUpdatedEvent_WhenActive(t *testing.T) {
@@ -101,10 +99,12 @@ func TestUpdateContact_PublishesUpdatedEvent_WhenActive(t *testing.T) {
 	)
 
 	require.NoError(t, err)
-	require.Len(t, env.Publisher.events, 1)
 
-	payload, ok := env.Publisher.events[0].(resapp.RestaurantUpdatedPayload)
-	require.True(t, ok)
+	stored := firstOutboxEvent(t, env.DB, res.ID, "restaurant.updated")
+	assert.Equal(t, outbox.StatusPending, stored.Status)
+
+	var payload resapp.RestaurantUpdatedPayload
+	require.NoError(t, json.Unmarshal(stored.Payload, &payload))
 
 	assert.Equal(t, "restaurant.updated", payload.EventName)
 	assert.Equal(t, res.ID, payload.RestaurantID)

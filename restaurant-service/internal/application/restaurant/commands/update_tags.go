@@ -5,8 +5,10 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	resapp "restaurant-service/internal/application/restaurant"
+	"restaurant-service/internal/domain/outbox"
 	"restaurant-service/internal/domain/payout"
 	"restaurant-service/internal/domain/restaurant"
 	apperr "restaurant-service/internal/shared/errors"
@@ -14,20 +16,23 @@ import (
 )
 
 type UpdateTags struct {
+	db                *gorm.DB
 	restaurantRepo    restaurant.RestaurantRepository
 	payoutDetailsRepo payout.PayoutDetailsRepository
-	publisher         event.EventPublisher
+	outboxRepo        outbox.OutboxRepository
 }
 
 func NewUpdateTags(
+	db *gorm.DB,
 	restaurantRepo restaurant.RestaurantRepository,
 	payoutDetailsRepo payout.PayoutDetailsRepository,
-	publisher event.EventPublisher,
+	outboxRepo outbox.OutboxRepository,
 ) *UpdateTags {
 	return &UpdateTags{
+		db:                db,
 		restaurantRepo:    restaurantRepo,
 		payoutDetailsRepo: payoutDetailsRepo,
-		publisher:         publisher,
+		outboxRepo:        outboxRepo,
 	}
 }
 
@@ -51,11 +56,16 @@ func (uc *UpdateTags) Execute(
 	res.NotifyUpdated()
 	res.WithTags(input.Tags)
 
-	if err := uc.restaurantRepo.Update(ctx, res); err != nil {
-		return resapp.RestaurantResponse{}, fmt.Errorf("failed to update restaurant: %w", err)
-	}
+	err = uc.db.Transaction(func(tx *gorm.DB) error {
+		if err := uc.restaurantRepo.WithTx(tx).Update(ctx, res); err != nil {
+			return fmt.Errorf("failed to update restaurant: %w", err)
+		}
 
-	resapp.DispatchEvents(ctx, uc.publisher, res, uc.enrichUpdated(res))
+		return resapp.DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), res, uc.enrichUpdated(res))
+	})
+	if err != nil {
+		return resapp.RestaurantResponse{}, err
+	}
 
 	pd, err := uc.payoutDetailsRepo.FindActiveByRestaurant(ctx, res.ID)
 	if err != nil {

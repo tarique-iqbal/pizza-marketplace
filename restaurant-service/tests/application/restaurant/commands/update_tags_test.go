@@ -2,6 +2,7 @@ package commands_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/google/uuid"
@@ -11,6 +12,7 @@ import (
 
 	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/application/restaurant/commands"
+	"restaurant-service/internal/domain/outbox"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/infrastructure/persistence"
 	apperr "restaurant-service/internal/shared/errors"
@@ -21,7 +23,6 @@ import (
 type updateTagsSetup struct {
 	DB         *gorm.DB
 	UpdateTags *commands.UpdateTags
-	Publisher  *fakePublisher
 }
 
 func setupUpdateTags(t *testing.T) updateTagsSetup {
@@ -32,13 +33,12 @@ func setupUpdateTags(t *testing.T) updateTagsSetup {
 
 	restaurantRepo := persistence.NewRestaurantRepository(db.DB)
 	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(db.DB)
-	publisher := &fakePublisher{}
-	updateTags := commands.NewUpdateTags(restaurantRepo, payoutDetailsRepo, publisher)
+	outboxRepo := persistence.NewOutboxRepository(db.DB)
+	updateTags := commands.NewUpdateTags(db.DB, restaurantRepo, payoutDetailsRepo, outboxRepo)
 
 	return updateTagsSetup{
 		DB:         db.DB,
 		UpdateTags: updateTags,
-		Publisher:  publisher,
 	}
 }
 
@@ -63,8 +63,6 @@ func TestUpdateTags_Success(t *testing.T) {
 
 	assert.Equal(t, []restaurant.RestaurantTag{restaurant.TagVegan, restaurant.TagGlutenFree}, updated.Tags)
 	assert.False(t, updated.UpdatedAt.IsZero())
-
-	assert.Empty(t, env.Publisher.events, "no restaurant.updated event while still draft")
 }
 
 func TestUpdateTags_ClearsTags(t *testing.T) {
@@ -98,10 +96,12 @@ func TestUpdateTags_PublishesUpdatedEvent_WhenActive(t *testing.T) {
 	_, err := env.UpdateTags.Execute(context.Background(), res.ID, res.OwnerID, input)
 
 	require.NoError(t, err)
-	require.Len(t, env.Publisher.events, 1)
 
-	payload, ok := env.Publisher.events[0].(resapp.RestaurantUpdatedPayload)
-	require.True(t, ok)
+	stored := firstOutboxEvent(t, env.DB, res.ID, "restaurant.updated")
+	assert.Equal(t, outbox.StatusPending, stored.Status)
+
+	var payload resapp.RestaurantUpdatedPayload
+	require.NoError(t, json.Unmarshal(stored.Payload, &payload))
 
 	assert.Equal(t, "restaurant.updated", payload.EventName)
 	assert.Equal(t, res.ID, payload.RestaurantID)

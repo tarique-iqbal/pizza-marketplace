@@ -2,6 +2,7 @@ package commands_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/google/uuid"
@@ -12,6 +13,7 @@ import (
 
 	resapp "restaurant-service/internal/application/restaurant"
 	"restaurant-service/internal/application/restaurant/commands"
+	"restaurant-service/internal/domain/outbox"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/infrastructure/persistence"
 	apperr "restaurant-service/internal/shared/errors"
@@ -22,7 +24,6 @@ import (
 type updateDeliverySetup struct {
 	DB             *gorm.DB
 	UpdateDelivery *commands.UpdateDelivery
-	Publisher      *fakePublisher
 }
 
 func setupUpdateDelivery(t *testing.T) updateDeliverySetup {
@@ -33,13 +34,12 @@ func setupUpdateDelivery(t *testing.T) updateDeliverySetup {
 
 	restaurantRepo := persistence.NewRestaurantRepository(db.DB)
 	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(db.DB)
-	publisher := &fakePublisher{}
-	updateDelivery := commands.NewUpdateDelivery(restaurantRepo, payoutDetailsRepo, publisher)
+	outboxRepo := persistence.NewOutboxRepository(db.DB)
+	updateDelivery := commands.NewUpdateDelivery(db.DB, restaurantRepo, payoutDetailsRepo, outboxRepo)
 
 	return updateDeliverySetup{
 		DB:             db.DB,
 		UpdateDelivery: updateDelivery,
-		Publisher:      publisher,
 	}
 }
 
@@ -87,8 +87,6 @@ func TestUpdateDelivery_Success(t *testing.T) {
 	assert.True(t, decimal.NewFromFloat(2.50).Equal(updated.DeliveryFee))
 	assert.True(t, decimal.NewFromFloat(15.00).Equal(updated.MinimumOrder))
 	assert.False(t, updated.UpdatedAt.IsZero())
-
-	assert.Empty(t, env.Publisher.events, "no restaurant.updated event while still draft")
 }
 
 func TestUpdateDelivery_PublishesUpdatedEvent_WhenActive(t *testing.T) {
@@ -108,10 +106,12 @@ func TestUpdateDelivery_PublishesUpdatedEvent_WhenActive(t *testing.T) {
 	)
 
 	require.NoError(t, err)
-	require.Len(t, env.Publisher.events, 1)
 
-	payload, ok := env.Publisher.events[0].(resapp.RestaurantUpdatedPayload)
-	require.True(t, ok)
+	stored := firstOutboxEvent(t, env.DB, res.ID, "restaurant.updated")
+	assert.Equal(t, outbox.StatusPending, stored.Status)
+
+	var payload resapp.RestaurantUpdatedPayload
+	require.NoError(t, json.Unmarshal(stored.Payload, &payload))
 
 	assert.Equal(t, "restaurant.updated", payload.EventName)
 	assert.Equal(t, res.ID, payload.RestaurantID)

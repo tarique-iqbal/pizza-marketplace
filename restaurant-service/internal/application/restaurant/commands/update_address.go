@@ -6,8 +6,10 @@ import (
 
 	"github.com/google/uuid"
 	goslug "github.com/gosimple/slug"
+	"gorm.io/gorm"
 
 	resapp "restaurant-service/internal/application/restaurant"
+	"restaurant-service/internal/domain/outbox"
 	"restaurant-service/internal/domain/payout"
 	"restaurant-service/internal/domain/restaurant"
 	apperr "restaurant-service/internal/shared/errors"
@@ -15,23 +17,26 @@ import (
 )
 
 type UpdateAddress struct {
+	db                *gorm.DB
 	geocoder          restaurant.Geocoder
 	restaurantRepo    restaurant.RestaurantRepository
 	payoutDetailsRepo payout.PayoutDetailsRepository
-	publisher         event.EventPublisher
+	outboxRepo        outbox.OutboxRepository
 }
 
 func NewUpdateAddress(
+	db *gorm.DB,
 	geocoder restaurant.Geocoder,
 	restaurantRepo restaurant.RestaurantRepository,
 	payoutDetailsRepo payout.PayoutDetailsRepository,
-	publisher event.EventPublisher,
+	outboxRepo outbox.OutboxRepository,
 ) *UpdateAddress {
 	return &UpdateAddress{
+		db:                db,
 		geocoder:          geocoder,
 		restaurantRepo:    restaurantRepo,
 		payoutDetailsRepo: payoutDetailsRepo,
-		publisher:         publisher,
+		outboxRepo:        outboxRepo,
 	}
 }
 
@@ -82,11 +87,16 @@ func (uc *UpdateAddress) Execute(
 		WithAddress(addr).
 		WithCoordinates(lat, lon)
 
-	if err := uc.restaurantRepo.Update(ctx, res); err != nil {
-		return resapp.RestaurantResponse{}, fmt.Errorf("failed to update restaurant: %w", err)
-	}
+	err = uc.db.Transaction(func(tx *gorm.DB) error {
+		if err := uc.restaurantRepo.WithTx(tx).Update(ctx, res); err != nil {
+			return fmt.Errorf("failed to update restaurant: %w", err)
+		}
 
-	resapp.DispatchEvents(ctx, uc.publisher, res, uc.enrichUpdated(res))
+		return resapp.DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), res, uc.enrichUpdated(res))
+	})
+	if err != nil {
+		return resapp.RestaurantResponse{}, err
+	}
 
 	pd, err := uc.payoutDetailsRepo.FindActiveByRestaurant(ctx, res.ID)
 	if err != nil {

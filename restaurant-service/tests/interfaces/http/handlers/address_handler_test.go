@@ -48,7 +48,8 @@ func setupAddressHandler(t *testing.T) addressHandlerSetup {
 	mockGeo := &mockGeocoder{lat: 52.52, lon: 13.405, err: nil}
 	repo := persistence.NewRestaurantRepository(db.DB)
 	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(db.DB)
-	updateAddress := commands.NewUpdateAddress(mockGeo, repo, payoutDetailsRepo, testutil.NoopPublisher{})
+	outboxRepo := persistence.NewOutboxRepository(db.DB)
+	updateAddress := commands.NewUpdateAddress(db.DB, mockGeo, repo, payoutDetailsRepo, outboxRepo)
 	handler := handlers.NewAddressHandler(updateAddress)
 
 	return addressHandlerSetup{

@@ -2,14 +2,18 @@ package container
 
 import (
 	"os"
-	"restaurant-service/internal/infrastructure/db"
 
 	"gorm.io/gorm"
+
+	"restaurant-service/internal/domain/outbox"
+	"restaurant-service/internal/infrastructure/db"
+	"restaurant-service/internal/infrastructure/persistence"
 )
 
 type Shared struct {
-	AMQPURL string
-	DB      *gorm.DB
+	AMQPURL    string
+	DB         *gorm.DB
+	OutboxRepo outbox.OutboxRepository
 }
 
 func NewShared() (*Shared, error) {
@@ -21,7 +25,8 @@ func NewShared() (*Shared, error) {
 	amqpURL := os.Getenv("RABBITMQ_URL")
 
 	return &Shared{
-		AMQPURL: amqpURL,
-		DB:      postgres.DB,
+		AMQPURL:    amqpURL,
+		DB:         postgres.DB,
+		OutboxRepo: persistence.NewOutboxRepository(postgres.DB),
 	}, nil
 }
