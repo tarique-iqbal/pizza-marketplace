@@ -44,16 +44,17 @@ func setupPizzaHandler(t *testing.T) pizzaHandlerSetup {
 	pizzaSizeRepo := persistence.NewPizzaSizeRepository(db.DB)
 	toppingRepo := persistence.NewToppingRepository(db.DB)
 	toppingPriceRepo := persistence.NewToppingPriceRepository(db.DB)
+	outboxRepo := persistence.NewOutboxRepository(db.DB)
 
 	pizzaCatalog := queries.NewPizzaCatalog(pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo)
 
 	handler := handlers.NewPizzaHandler(
 		commands.NewCreatePizza(restaurantRepo, pizzaRepo, toppingRepo),
 		commands.NewUpdatePizza(
-			restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, testutil.NoopPublisher{},
+			db.DB, restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, outboxRepo,
 		),
 		commands.NewSetPizzaPrices(
-			restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, testutil.NoopPublisher{},
+			db.DB, restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, outboxRepo,
 		),
 		queries.NewListPizzas(restaurantRepo, pizzaCatalog),
 	)

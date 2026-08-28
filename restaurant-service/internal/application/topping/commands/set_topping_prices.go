@@ -7,9 +7,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
+	"gorm.io/gorm"
 
 	resapp "restaurant-service/internal/application/restaurant"
 	toppingapp "restaurant-service/internal/application/topping"
+	"restaurant-service/internal/domain/outbox"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/domain/topping"
 	apperr "restaurant-service/internal/shared/errors"
@@ -22,23 +24,26 @@ var (
 )
 
 type SetToppingPrices struct {
+	db               *gorm.DB
 	restaurantRepo   restaurant.RestaurantRepository
 	toppingRepo      topping.ToppingRepository
 	toppingPriceRepo topping.ToppingPriceRepository
-	publisher        event.EventPublisher
+	outboxRepo       outbox.OutboxRepository
 }
 
 func NewSetToppingPrices(
+	db *gorm.DB,
 	restaurantRepo restaurant.RestaurantRepository,
 	toppingRepo topping.ToppingRepository,
 	toppingPriceRepo topping.ToppingPriceRepository,
-	publisher event.EventPublisher,
+	outboxRepo outbox.OutboxRepository,
 ) *SetToppingPrices {
 	return &SetToppingPrices{
+		db:               db,
 		restaurantRepo:   restaurantRepo,
 		toppingRepo:      toppingRepo,
 		toppingPriceRepo: toppingPriceRepo,
-		publisher:        publisher,
+		outboxRepo:       outboxRepo,
 	}
 }
 
@@ -109,25 +114,35 @@ func (uc *SetToppingPrices) Execute(
 		prices = append(prices, *price)
 	}
 
-	if err := uc.toppingPriceRepo.UpsertPrices(ctx, restaurantID, prices); err != nil {
-		return nil, fmt.Errorf("failed to set topping prices: %w", err)
-	}
+	var responses []toppingapp.ToppingPriceResponse
 
-	updated, err := uc.toppingPriceRepo.ListByRestaurant(ctx, restaurantID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list topping prices: %w", err)
-	}
+	err = uc.db.Transaction(func(tx *gorm.DB) error {
+		if err := uc.toppingPriceRepo.WithTx(tx).UpsertPrices(ctx, restaurantID, prices); err != nil {
+			return fmt.Errorf("failed to set topping prices: %w", err)
+		}
 
-	responses := make([]toppingapp.ToppingPriceResponse, 0, len(updated))
-	for _, price := range updated {
-		responses = append(
-			responses,
-			toppingapp.ToToppingPriceResponse(price, toppingByID[price.ToppingID].Name),
+		updated, err := uc.toppingPriceRepo.WithTx(tx).ListByRestaurant(ctx, restaurantID)
+		if err != nil {
+			return fmt.Errorf("failed to list topping prices: %w", err)
+		}
+
+		responses = make([]toppingapp.ToppingPriceResponse, 0, len(updated))
+		for _, price := range updated {
+			responses = append(
+				responses,
+				toppingapp.ToToppingPriceResponse(price, toppingByID[price.ToppingID].Name),
+			)
+		}
+
+		res.NotifyToppingPricesUpdated()
+
+		return resapp.DispatchEventsTx(
+			ctx, uc.outboxRepo.WithTx(tx), res, uc.enrichToppingPricesUpdated(responses, *prices[0].UpdatedAt),
 		)
+	})
+	if err != nil {
+		return nil, err
 	}
-
-	res.NotifyToppingPricesUpdated()
-	resapp.DispatchEvents(ctx, uc.publisher, res, uc.enrichToppingPricesUpdated(responses, *prices[0].UpdatedAt))
 
 	return responses, nil
 }

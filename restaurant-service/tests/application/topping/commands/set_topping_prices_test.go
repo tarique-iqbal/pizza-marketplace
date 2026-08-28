@@ -2,6 +2,7 @@ package commands_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/google/uuid"
@@ -13,32 +14,18 @@ import (
 	resapp "restaurant-service/internal/application/restaurant"
 	toppingapp "restaurant-service/internal/application/topping"
 	"restaurant-service/internal/application/topping/commands"
+	"restaurant-service/internal/domain/outbox"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/domain/topping"
 	"restaurant-service/internal/infrastructure/persistence"
 	apperr "restaurant-service/internal/shared/errors"
-	"restaurant-service/internal/shared/event"
 	"restaurant-service/tests/infrastructure/db/fixtures"
 	"restaurant-service/tests/testutil"
 )
 
-type fakePublisher struct {
-	events []event.Event
-}
-
-func (f *fakePublisher) PublishEvent(ctx context.Context, e event.Event) error {
-	f.events = append(f.events, e)
-	return nil
-}
-
-func (f *fakePublisher) PublishRaw(ctx context.Context, topic string, jsonData []byte) error {
-	return nil
-}
-
 type setToppingPricesSetup struct {
 	DB               *gorm.DB
 	SetToppingPrices *commands.SetToppingPrices
-	Publisher        *fakePublisher
 }
 
 func setupSetToppingPrices(t *testing.T) setToppingPricesSetup {
@@ -50,15 +37,24 @@ func setupSetToppingPrices(t *testing.T) setToppingPricesSetup {
 	restaurantRepo := persistence.NewRestaurantRepository(db.DB)
 	toppingRepo := persistence.NewToppingRepository(db.DB)
 	toppingPriceRepo := persistence.NewToppingPriceRepository(db.DB)
-	publisher := &fakePublisher{}
+	outboxRepo := persistence.NewOutboxRepository(db.DB)
 
 	return setToppingPricesSetup{
 		DB: db.DB,
 		SetToppingPrices: commands.NewSetToppingPrices(
-			restaurantRepo, toppingRepo, toppingPriceRepo, publisher,
+			db.DB, restaurantRepo, toppingRepo, toppingPriceRepo, outboxRepo,
 		),
-		Publisher: publisher,
 	}
+}
+
+func firstOutboxEvent(t *testing.T, db *gorm.DB, restaurantID uuid.UUID, eventName string) outbox.OutboxEvent {
+	t.Helper()
+
+	var found outbox.OutboxEvent
+	err := db.Where("aggregate_id = ? AND event_name = ?", restaurantID, eventName).First(&found).Error
+	require.NoError(t, err)
+
+	return found
 }
 
 func TestSetToppingPrices_Success(t *testing.T) {
@@ -90,8 +86,6 @@ func TestSetToppingPrices_Success(t *testing.T) {
 
 	assert.True(t, decimal.RequireFromString("1.00").Equal(decimal.Decimal(byToppingID[toppings[0].ID].ExtraPrice)))
 	assert.True(t, decimal.RequireFromString("1.50").Equal(decimal.Decimal(byToppingID[toppings[1].ID].ExtraPrice)))
-
-	assert.Empty(t, env.Publisher.events, "no topping_prices_updated event while restaurant is still draft")
 }
 
 func TestSetToppingPrices_PublishesToppingPricesUpdatedEvent_WhenActive(t *testing.T) {
@@ -115,10 +109,11 @@ func TestSetToppingPrices_PublishesToppingPricesUpdatedEvent_WhenActive(t *testi
 	output, err := env.SetToppingPrices.Execute(context.Background(), res.ID, res.OwnerID, input)
 	require.NoError(t, err)
 
-	require.Len(t, env.Publisher.events, 1)
+	stored := firstOutboxEvent(t, env.DB, res.ID, "restaurant.topping_prices_updated")
+	assert.Equal(t, outbox.StatusPending, stored.Status)
 
-	payload, ok := env.Publisher.events[0].(resapp.ToppingPricesUpdatedPayload)
-	require.True(t, ok)
+	var payload resapp.ToppingPricesUpdatedPayload
+	require.NoError(t, json.Unmarshal(stored.Payload, &payload))
 
 	assert.Equal(t, "restaurant.topping_prices_updated", payload.EventName)
 	assert.Equal(t, res.ID, payload.RestaurantID)

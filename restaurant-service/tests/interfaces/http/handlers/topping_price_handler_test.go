@@ -38,9 +38,10 @@ func setupToppingPriceHandler(t *testing.T) toppingPriceHandlerSetup {
 	restaurantRepo := persistence.NewRestaurantRepository(db.DB)
 	toppingRepo := persistence.NewToppingRepository(db.DB)
 	toppingPriceRepo := persistence.NewToppingPriceRepository(db.DB)
+	outboxRepo := persistence.NewOutboxRepository(db.DB)
 
 	handler := handlers.NewToppingPriceHandler(
-		commands.NewSetToppingPrices(restaurantRepo, toppingRepo, toppingPriceRepo, testutil.NoopPublisher{}),
+		commands.NewSetToppingPrices(db.DB, restaurantRepo, toppingRepo, toppingPriceRepo, outboxRepo),
 	)
 
 	return toppingPriceHandlerSetup{DB: db.DB, Handler: handler}

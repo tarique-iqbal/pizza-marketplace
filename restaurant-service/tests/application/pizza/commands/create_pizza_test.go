@@ -16,23 +16,9 @@ import (
 	"restaurant-service/internal/domain/topping"
 	"restaurant-service/internal/infrastructure/persistence"
 	apperr "restaurant-service/internal/shared/errors"
-	"restaurant-service/internal/shared/event"
 	"restaurant-service/tests/infrastructure/db/fixtures"
 	"restaurant-service/tests/testutil"
 )
-
-type fakePublisher struct {
-	events []event.Event
-}
-
-func (f *fakePublisher) PublishEvent(ctx context.Context, e event.Event) error {
-	f.events = append(f.events, e)
-	return nil
-}
-
-func (f *fakePublisher) PublishRaw(ctx context.Context, topic string, jsonData []byte) error {
-	return nil
-}
 
 type createPizzaSetup struct {
 	DB          *gorm.DB

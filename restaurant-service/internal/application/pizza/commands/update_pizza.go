@@ -6,9 +6,11 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	pizzaapp "restaurant-service/internal/application/pizza"
 	resapp "restaurant-service/internal/application/restaurant"
+	"restaurant-service/internal/domain/outbox"
 	"restaurant-service/internal/domain/pizza"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/domain/topping"
@@ -17,29 +19,32 @@ import (
 )
 
 type UpdatePizza struct {
+	db             *gorm.DB
 	restaurantRepo restaurant.RestaurantRepository
 	pizzaRepo      pizza.PizzaRepository
 	pizzaPriceRepo pizza.PizzaPriceRepository
 	pizzaSizeRepo  pizza.PizzaSizeRepository
 	toppingRepo    topping.ToppingRepository
-	publisher      event.EventPublisher
+	outboxRepo     outbox.OutboxRepository
 }
 
 func NewUpdatePizza(
+	db *gorm.DB,
 	restaurantRepo restaurant.RestaurantRepository,
 	pizzaRepo pizza.PizzaRepository,
 	pizzaPriceRepo pizza.PizzaPriceRepository,
 	pizzaSizeRepo pizza.PizzaSizeRepository,
 	toppingRepo topping.ToppingRepository,
-	publisher event.EventPublisher,
+	outboxRepo outbox.OutboxRepository,
 ) *UpdatePizza {
 	return &UpdatePizza{
+		db:             db,
 		restaurantRepo: restaurantRepo,
 		pizzaRepo:      pizzaRepo,
 		pizzaPriceRepo: pizzaPriceRepo,
 		pizzaSizeRepo:  pizzaSizeRepo,
 		toppingRepo:    toppingRepo,
-		publisher:      publisher,
+		outboxRepo:     outboxRepo,
 	}
 }
 
@@ -110,10 +115,6 @@ func (uc *UpdatePizza) Execute(
 		}
 	}
 
-	if err := uc.pizzaRepo.Update(ctx, p); err != nil {
-		return pizzaapp.PizzaResponse{}, fmt.Errorf("failed to update pizza: %w", err)
-	}
-
 	toppingIDs, err := p.ToppingIDs()
 	if err != nil {
 		return pizzaapp.PizzaResponse{}, fmt.Errorf("failed to parse pizza toppings: %w", err)
@@ -134,10 +135,23 @@ func (uc *UpdatePizza) Execute(
 		sizeByID[size.ID] = size
 	}
 
-	output := pizzaapp.ToPizzaResponse(p, prices, sizeByID, toppingIDs, toppingByID, nil)
-
 	res.NotifyPizzaUpdated()
-	resapp.DispatchEvents(ctx, uc.publisher, res, uc.enrichPizzaUpdated(output))
+
+	var output pizzaapp.PizzaResponse
+
+	err = uc.db.Transaction(func(tx *gorm.DB) error {
+		if err := uc.pizzaRepo.WithTx(tx).Update(ctx, p); err != nil {
+			return fmt.Errorf("failed to update pizza: %w", err)
+		}
+
+		// p.UpdatedAt is only set once Update runs, so build the response after it.
+		output = pizzaapp.ToPizzaResponse(p, prices, sizeByID, toppingIDs, toppingByID, nil)
+
+		return resapp.DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), res, uc.enrichPizzaUpdated(output))
+	})
+	if err != nil {
+		return pizzaapp.PizzaResponse{}, err
+	}
 
 	return output, nil
 }

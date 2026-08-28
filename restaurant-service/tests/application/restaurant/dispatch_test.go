@@ -17,20 +17,6 @@ import (
 	"restaurant-service/internal/shared/event"
 )
 
-type fakePublisher struct {
-	events []event.Event
-	err    error
-}
-
-func (f *fakePublisher) PublishEvent(ctx context.Context, e event.Event) error {
-	f.events = append(f.events, e)
-	return f.err
-}
-
-func (f *fakePublisher) PublishRaw(ctx context.Context, topic string, jsonData []byte) error {
-	return f.err
-}
-
 type fakeOutboxRepo struct {
 	events []outbox.OutboxEvent
 	err    error
@@ -97,91 +83,7 @@ func restaurantReadyForReview() *restaurant.Restaurant {
 	return res
 }
 
-func TestDispatchEvents_PublishesPendingEvent(t *testing.T) {
-	res := restaurantReadyForReview()
-	publisher := &fakePublisher{}
-
-	resapp.DispatchEvents(context.Background(), publisher, res)
-
-	require.Len(t, publisher.events, 1)
-
-	payload, ok := publisher.events[0].(resapp.RestaurantReadyForReviewPayload)
-	require.True(t, ok)
-
-	assert.Equal(t, res.ID, payload.RestaurantID)
-	assert.Equal(t, "Pizza Paradise", payload.RestaurantName)
-	assert.Equal(t, "restaurant.ready_for_review", payload.EventName)
-	assert.False(t, payload.OccurredAt.IsZero())
-}
-
-func TestDispatchEvents_DrainsAggregateEvents(t *testing.T) {
-	res := restaurantReadyForReview()
-	publisher := &fakePublisher{}
-
-	resapp.DispatchEvents(context.Background(), publisher, res)
-	assert.Empty(t, res.PullEvents())
-}
-
-func TestDispatchEvents_PublishesApprovedEvent(t *testing.T) {
-	email := "kontakt@pizzaparadise.de"
-	res := &restaurant.Restaurant{ID: uuid.New(), Name: "Pizza Paradise", Email: &email, Status: restaurant.StatusReview}
-	require.NoError(t, res.Approve())
-
-	publisher := &fakePublisher{}
-
-	resapp.DispatchEvents(context.Background(), publisher, res)
-
-	require.Len(t, publisher.events, 1)
-
-	payload, ok := publisher.events[0].(resapp.RestaurantApprovedPayload)
-	require.True(t, ok)
-
-	assert.Equal(t, res.ID, payload.RestaurantID)
-	assert.Equal(t, "Pizza Paradise", payload.RestaurantName)
-	assert.Equal(t, email, payload.Email)
-	assert.Equal(t, "restaurant.approved", payload.EventName)
-	assert.False(t, payload.OccurredAt.IsZero())
-}
-
-func TestDispatchEvents_DropsLaunchedEvent(t *testing.T) {
-	// RestaurantLaunched needs the current menu attached, which only the caller
-	// (LaunchRestaurant) can fetch — it's published directly via
-	// resapp.NewRestaurantLaunchedPayload, not through this generic dispatch path.
-	res := &restaurant.Restaurant{ID: uuid.New(), Name: "Pizza Paradise", Status: restaurant.StatusApproved}
-	require.NoError(t, res.Launch())
-
-	publisher := &fakePublisher{}
-
-	resapp.DispatchEvents(context.Background(), publisher, res)
-
-	assert.Empty(t, publisher.events)
-}
-
-func TestDispatchEvents_NoOpWhenNoEvents(t *testing.T) {
-	res := &restaurant.Restaurant{
-		ID:        uuid.New(),
-		Status:    restaurant.StatusDraft,
-		Checklist: restaurant.NewChecklist(),
-	}
-	publisher := &fakePublisher{}
-
-	resapp.DispatchEvents(context.Background(), publisher, res)
-
-	assert.Empty(t, publisher.events)
-}
-
-func TestDispatchEvents_BestEffort_SwallowsPublishError(t *testing.T) {
-	res := restaurantReadyForReview()
-	publisher := &fakePublisher{err: errors.New("broker unavailable")}
-
-	assert.NotPanics(t, func() {
-		resapp.DispatchEvents(context.Background(), publisher, res)
-	})
-
-	assert.Len(t, publisher.events, 1)
-}
-
-func TestDispatchEventsTx_WritesEventToOutbox(t *testing.T) {
+func TestDispatchEventsTx_RoutesEnrichedEventToOutbox(t *testing.T) {
 	res := &restaurant.Restaurant{ID: uuid.New(), Name: "Pizza Paradise", Status: restaurant.StatusActive}
 	res.NotifyUpdated()
 
@@ -199,7 +101,7 @@ func TestDispatchEventsTx_WritesEventToOutbox(t *testing.T) {
 	assert.JSONEq(t, `{"name":"restaurant.updated"}`, string(stored.Payload))
 }
 
-func TestDispatchEventsTx_RoutesEveryEventToOutbox_NoBestEffortSplit(t *testing.T) {
+func TestDispatchEventsTx_RoutesReadyForReviewEventToOutbox(t *testing.T) {
 	res := restaurantReadyForReview()
 	outboxRepo := &fakeOutboxRepo{}
 
@@ -208,6 +110,48 @@ func TestDispatchEventsTx_RoutesEveryEventToOutbox_NoBestEffortSplit(t *testing.
 	require.NoError(t, err)
 	require.Len(t, outboxRepo.events, 1)
 	assert.Equal(t, "restaurant.ready_for_review", outboxRepo.events[0].EventName)
+}
+
+func TestDispatchEventsTx_RoutesApprovedEventToOutbox(t *testing.T) {
+	email := "kontakt@pizzaparadise.de"
+	res := &restaurant.Restaurant{ID: uuid.New(), Name: "Pizza Paradise", Email: &email, Status: restaurant.StatusReview}
+	require.NoError(t, res.Approve())
+
+	outboxRepo := &fakeOutboxRepo{}
+
+	err := resapp.DispatchEventsTx(context.Background(), outboxRepo, res)
+
+	require.NoError(t, err)
+	require.Len(t, outboxRepo.events, 1)
+	assert.Equal(t, "restaurant.approved", outboxRepo.events[0].EventName)
+}
+
+func TestDispatchEventsTx_DropsUnmappedLaunchedEvent(t *testing.T) {
+	// RestaurantLaunched needs the restaurant's priced pizzas, which only
+	// LaunchRestaurant's own enricher can fetch - not toEventPayload's fallback.
+	res := &restaurant.Restaurant{ID: uuid.New(), Name: "Pizza Paradise", Status: restaurant.StatusApproved}
+	require.NoError(t, res.Launch())
+
+	outboxRepo := &fakeOutboxRepo{}
+
+	err := resapp.DispatchEventsTx(context.Background(), outboxRepo, res)
+
+	require.NoError(t, err)
+	assert.Empty(t, outboxRepo.events)
+}
+
+func TestDispatchEventsTx_NoOpWhenNoEvents(t *testing.T) {
+	res := &restaurant.Restaurant{
+		ID:        uuid.New(),
+		Status:    restaurant.StatusDraft,
+		Checklist: restaurant.NewChecklist(),
+	}
+	outboxRepo := &fakeOutboxRepo{}
+
+	err := resapp.DispatchEventsTx(context.Background(), outboxRepo, res)
+
+	require.NoError(t, err)
+	assert.Empty(t, outboxRepo.events)
 }
 
 func TestDispatchEventsTx_DrainsAggregateEvents(t *testing.T) {

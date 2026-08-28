@@ -2,6 +2,7 @@ package commands_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	pizzaapp "restaurant-service/internal/application/pizza"
 	"restaurant-service/internal/application/pizza/commands"
 	resapp "restaurant-service/internal/application/restaurant"
+	"restaurant-service/internal/domain/outbox"
 	"restaurant-service/internal/domain/pizza"
 	"restaurant-service/internal/domain/restaurant"
 	"restaurant-service/internal/domain/topping"
@@ -26,7 +28,6 @@ import (
 type setPizzaPricesSetup struct {
 	DB             *gorm.DB
 	SetPizzaPrices *commands.SetPizzaPrices
-	Publisher      *fakePublisher
 }
 
 func setupSetPizzaPrices(t *testing.T) setPizzaPricesSetup {
@@ -41,14 +42,13 @@ func setupSetPizzaPrices(t *testing.T) setPizzaPricesSetup {
 	pizzaPriceRepo := persistence.NewPizzaPriceRepository(db.DB)
 	pizzaSizeRepo := persistence.NewPizzaSizeRepository(db.DB)
 	toppingRepo := persistence.NewToppingRepository(db.DB)
-	publisher := &fakePublisher{}
+	outboxRepo := persistence.NewOutboxRepository(db.DB)
 
 	return setPizzaPricesSetup{
 		DB: db.DB,
 		SetPizzaPrices: commands.NewSetPizzaPrices(
-			restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, publisher,
+			db.DB, restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, outboxRepo,
 		),
-		Publisher: publisher,
 	}
 }
 
@@ -82,8 +82,6 @@ func TestSetPizzaPrices_Success(t *testing.T) {
 
 	assert.True(t, decimal.RequireFromString("9.50").Equal(decimal.Decimal(byPrice[sizes[0].ID].Price)))
 	assert.True(t, decimal.RequireFromString("12.00").Equal(decimal.Decimal(byPrice[sizes[1].ID].Price)))
-
-	assert.Empty(t, env.Publisher.events, "no pizza.updated event while restaurant is still draft")
 }
 
 func TestSetPizzaPrices_PublishesPizzaUpdatedEvent_WhenActive(t *testing.T) {
@@ -104,10 +102,11 @@ func TestSetPizzaPrices_PublishesPizzaUpdatedEvent_WhenActive(t *testing.T) {
 	output, err := env.SetPizzaPrices.Execute(context.Background(), pz.RestaurantID, pz.ID, owner.OwnerID, input)
 	require.NoError(t, err)
 
-	require.Len(t, env.Publisher.events, 1)
+	stored := firstOutboxEvent(t, env.DB, owner.ID, "restaurant.pizza_updated")
+	assert.Equal(t, outbox.StatusPending, stored.Status)
 
-	payload, ok := env.Publisher.events[0].(resapp.PizzaUpdatedPayload)
-	require.True(t, ok)
+	var payload resapp.PizzaUpdatedPayload
+	require.NoError(t, json.Unmarshal(stored.Payload, &payload))
 
 	assert.Equal(t, "restaurant.pizza_updated", payload.EventName)
 	assert.Equal(t, owner.ID, payload.RestaurantID)
@@ -115,12 +114,12 @@ func TestSetPizzaPrices_PublishesPizzaUpdatedEvent_WhenActive(t *testing.T) {
 	require.Len(t, payload.Pizza.Prices, 1)
 
 	require.NotNil(t, output.UpdatedAt)
-	assert.Equal(t, *output.UpdatedAt, payload.UpdatedAt)
+	assert.True(t, output.UpdatedAt.Equal(payload.UpdatedAt))
 
-	var stored pizza.Pizza
-	require.NoError(t, env.DB.Take(&stored, "id = ?", pz.ID).Error)
-	require.NotNil(t, stored.UpdatedAt)
-	assert.WithinDuration(t, time.Now(), *stored.UpdatedAt, 5*time.Second)
+	var storedPizza pizza.Pizza
+	require.NoError(t, env.DB.Take(&storedPizza, "id = ?", pz.ID).Error)
+	require.NotNil(t, storedPizza.UpdatedAt)
+	assert.WithinDuration(t, time.Now(), *storedPizza.UpdatedAt, 5*time.Second)
 }
 
 func TestSetPizzaPrices_ReportsExistingToppings(t *testing.T) {

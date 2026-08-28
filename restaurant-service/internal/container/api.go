@@ -10,7 +10,6 @@ import (
 	resqry "restaurant-service/internal/application/restaurant/queries"
 	toppingcmd "restaurant-service/internal/application/topping/commands"
 	"restaurant-service/internal/infrastructure/geocoder"
-	"restaurant-service/internal/infrastructure/messaging"
 	"restaurant-service/internal/infrastructure/persistence"
 	"restaurant-service/internal/interfaces/http/handlers"
 	"restaurant-service/internal/interfaces/http/middleware"
@@ -19,7 +18,6 @@ import (
 type APIContainer struct {
 	*Shared
 	Middleware           *middleware.Middleware
-	Publisher            *messaging.RabbitMQPublisher
 	GetRestaurantHandler *handlers.GetRestaurantHandler
 	AddressHandler       *handlers.AddressHandler
 	ContactHandler       *handlers.ContactHandler
@@ -42,10 +40,6 @@ func NewAPIContainer() (*APIContainer, error) {
 	opencageApiKey := os.Getenv("OPENCAGE_API_KEY")
 
 	middleware := middleware.NewMiddleware()
-	publisher, err := messaging.NewRabbitMQPublisher(base.AMQPURL)
-	if err != nil {
-		return nil, err
-	}
 
 	restaurantRepo := persistence.NewRestaurantRepository(base.DB)
 	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(base.DB)
@@ -73,7 +67,9 @@ func NewAPIContainer() (*APIContainer, error) {
 	toppingRepo := persistence.NewToppingRepository(base.DB)
 	toppingPriceRepo := persistence.NewToppingPriceRepository(base.DB)
 
-	setToppingPrices := toppingcmd.NewSetToppingPrices(restaurantRepo, toppingRepo, toppingPriceRepo, publisher)
+	setToppingPrices := toppingcmd.NewSetToppingPrices(
+		base.DB, restaurantRepo, toppingRepo, toppingPriceRepo, base.OutboxRepo,
+	)
 	toppingPriceHandler := handlers.NewToppingPriceHandler(setToppingPrices)
 
 	pizzaRepo := persistence.NewPizzaRepository(base.DB)
@@ -82,10 +78,10 @@ func NewAPIContainer() (*APIContainer, error) {
 
 	createPizza := pizzacmd.NewCreatePizza(restaurantRepo, pizzaRepo, toppingRepo)
 	updatePizza := pizzacmd.NewUpdatePizza(
-		restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, publisher,
+		base.DB, restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, base.OutboxRepo,
 	)
 	setPizzaPrices := pizzacmd.NewSetPizzaPrices(
-		restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, publisher,
+		base.DB, restaurantRepo, pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, base.OutboxRepo,
 	)
 	pizzaCatalog := pizzaqry.NewPizzaCatalog(
 		pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo,
@@ -108,7 +104,6 @@ func NewAPIContainer() (*APIContainer, error) {
 	return &APIContainer{
 		Shared:               base,
 		Middleware:           middleware,
-		Publisher:            publisher,
 		GetRestaurantHandler: getRestaurantHandler,
 		AddressHandler:       addressHandler,
 		ContactHandler:       contactHandler,
@@ -129,9 +124,5 @@ func (c *APIContainer) Close() {
 		if err == nil {
 			_ = db.Close()
 		}
-	}
-
-	if c.Publisher != nil {
-		c.Publisher.Close()
 	}
 }
