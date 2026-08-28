@@ -2,42 +2,18 @@ package user_test
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
 	"identity-service/internal/application/user"
 	"identity-service/internal/infrastructure/auth"
 	"identity-service/internal/infrastructure/persistence"
 	"identity-service/internal/infrastructure/security"
-	"identity-service/internal/shared/event"
 	"identity-service/tests/infrastructure/db/fixtures"
 	"identity-service/tests/testutil"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
-
-var mockPublisher *MockEventPublisher
-
-type MockEventPublisher struct {
-	PublishedEvents []event.Event
-	PublishedRaw    [][]byte
-	ShouldFail      bool
-}
-
-func (m *MockEventPublisher) PublishEvent(ctx context.Context, e event.Event) error {
-	m.PublishedEvents = append(m.PublishedEvents, e)
-	if m.ShouldFail {
-		return errors.New("mock publish failure")
-	}
-	return nil
-}
-
-func (m *MockEventPublisher) PublishRaw(ctx context.Context, topic string, jsonData []byte) error {
-	m.PublishedRaw = append(m.PublishedRaw, jsonData)
-	if m.ShouldFail {
-		return errors.New("mock raw publish failure")
-	}
-	return nil
-}
 
 func setupRegisterCustomer(t *testing.T) *user.RegisterCustomer {
 	db := testutil.DB(t)
@@ -49,13 +25,14 @@ func setupRegisterCustomer(t *testing.T) *user.RegisterCustomer {
 	emailVerificationRepo := persistence.NewEmailVerificationRepository(db.DB)
 	codeVerifier := auth.NewEmailVerifier(emailVerificationRepo)
 	userRepo := persistence.NewUserRepository(db.DB)
+	outboxRepo := persistence.NewOutboxRepository(db.DB)
 	hasher := security.NewPasswordHasher()
-	mockPublisher = &MockEventPublisher{}
 
-	return user.NewRegisterCustomer(codeVerifier, userRepo, hasher, mockPublisher)
+	return user.NewRegisterCustomer(db.DB, codeVerifier, userRepo, hasher, outboxRepo)
 }
 
 func TestRegisterCustomer_Success(t *testing.T) {
+	db := testutil.DB(t)
 	register := setupRegisterCustomer(t)
 
 	input := user.RegisterCustomerRequest{
@@ -72,12 +49,15 @@ func TestRegisterCustomer_Success(t *testing.T) {
 	assert.NotNil(t, newUser)
 	assert.Equal(t, "Adam", newUser.Name.First)
 
-	createdEvent, ok := mockPublisher.PublishedEvents[0].(user.UserRegistered)
-	assert.True(t, ok)
-	assert.Equal(t, "Adam", createdEvent.FirstName)
-	assert.Equal(t, "adam.dangelo@example.com", createdEvent.Email)
-	assert.Equal(t, "user.registered", createdEvent.GetEventName())
-	assert.Len(t, mockPublisher.PublishedEvents, 1)
+	outboxEvent := firstOutboxEvent(t, db.DB, newUser.ID, "user.registered")
+
+	var payload struct {
+		Email     string `json:"email"`
+		FirstName string `json:"first_name"`
+	}
+	require.NoError(t, json.Unmarshal(outboxEvent.Payload, &payload))
+	assert.Equal(t, "Adam", payload.FirstName)
+	assert.Equal(t, "adam.dangelo@example.com", payload.Email)
 }
 
 func TestRegisterCustomer_Failure_EmailVerification(t *testing.T) {
@@ -95,8 +75,6 @@ func TestRegisterCustomer_Failure_EmailVerification(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Empty(t, response)
-
-	assert.Len(t, mockPublisher.PublishedEvents, 0)
 }
 
 func TestRegisterCustomer_Failure_DuplicateEmail(t *testing.T) {
@@ -114,29 +92,4 @@ func TestRegisterCustomer_Failure_DuplicateEmail(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Empty(t, response)
-
-	assert.Len(t, mockPublisher.PublishedEvents, 0)
-}
-
-func TestRegisterCustomer_PublishFails_ShouldStillSucceed(t *testing.T) {
-	register := setupRegisterCustomer(t)
-
-	// override publisher to fail
-	mockPublisher.ShouldFail = true
-
-	input := user.RegisterCustomerRequest{
-		FirstName: "Alice",
-		LastName:  "Schmidt",
-		Email:     "alice@example.com",
-		Password:  "password",
-		Code:      "347578",
-	}
-
-	response, err := register.Execute(context.Background(), input)
-
-	assert.NoError(t, err)
-	assert.NotEmpty(t, response)
-
-	// event attempted
-	assert.Len(t, mockPublisher.PublishedEvents, 1)
 }

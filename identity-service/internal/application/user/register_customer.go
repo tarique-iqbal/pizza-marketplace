@@ -2,33 +2,37 @@ package user
 
 import (
 	"context"
+	"encoding/json"
 	"identity-service/internal/domain/auth"
+	"identity-service/internal/domain/outbox"
 	"identity-service/internal/domain/user"
-	logobs "identity-service/internal/infrastructure/observability/logger"
-	"identity-service/internal/shared/event"
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type RegisterCustomer struct {
+	db            *gorm.DB
 	emailVerifier auth.EmailVerifier
 	repo          user.UserRepository
 	hasher        auth.PasswordHasher
-	publisher     event.EventPublisher
+	outboxRepo    outbox.OutboxRepository
 }
 
 func NewRegisterCustomer(
+	db *gorm.DB,
 	emailVerifier auth.EmailVerifier,
 	repo user.UserRepository,
 	hasher auth.PasswordHasher,
-	publisher event.EventPublisher,
+	outboxRepo outbox.OutboxRepository,
 ) *RegisterCustomer {
 	return &RegisterCustomer{
+		db:            db,
 		emailVerifier: emailVerifier,
 		repo:          repo,
 		hasher:        hasher,
-		publisher:     publisher,
+		outboxRepo:    outboxRepo,
 	}
 }
 
@@ -57,20 +61,29 @@ func (uc *RegisterCustomer) Execute(ctx context.Context, input RegisterCustomerR
 	}
 	newUser.ID = userID
 
-	if err := uc.repo.Create(ctx, &newUser); err != nil {
-		return Response{}, err
-	}
-
-	event := UserRegistered{
+	userRegistered := UserRegistered{
 		Email:      newUser.Email,
 		FirstName:  newUser.FirstName,
 		Role:       newUser.Role,
 		OccurredAt: time.Now().UTC(),
 	}
-	event.EventName = event.GetEventName()
+	userRegistered.EventName = userRegistered.GetEventName()
 
-	if err := uc.publisher.PublishEvent(ctx, event); err != nil {
-		logobs.FromContext(ctx).Warn("failed to publish user.registered event", "error", err)
+	payload, err := json.Marshal(userRegistered)
+	if err != nil {
+		return Response{}, err
+	}
+
+	err = uc.db.Transaction(func(tx *gorm.DB) error {
+		if err := uc.repo.WithTx(tx).Create(ctx, &newUser); err != nil {
+			return err
+		}
+
+		outboxEvent := outbox.NewOutboxEvent(newUser.ID, outbox.EventUserRegistered, payload)
+		return uc.outboxRepo.WithTx(tx).Create(ctx, &outboxEvent)
+	})
+	if err != nil {
+		return Response{}, err
 	}
 
 	return MapToResponse(&newUser), nil
