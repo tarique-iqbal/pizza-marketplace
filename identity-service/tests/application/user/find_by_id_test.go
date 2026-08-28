@@ -24,7 +24,6 @@ func setupFindByID(t *testing.T) *userapp.FindByID {
 	_ = fixtures.LoadUserFixtures(t, db.DB)
 
 	userRepo := persistence.NewUserRepository(db.DB)
-	mockPublisher = &MockEventPublisher{}
 
 	return userapp.NewFindByID(userRepo)
 }

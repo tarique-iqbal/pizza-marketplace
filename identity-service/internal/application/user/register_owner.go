@@ -6,8 +6,6 @@ import (
 	"identity-service/internal/domain/auth"
 	"identity-service/internal/domain/outbox"
 	"identity-service/internal/domain/user"
-	logobs "identity-service/internal/infrastructure/observability/logger"
-	"identity-service/internal/shared/event"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,7 +18,6 @@ type RegisterOwner struct {
 	hasher        auth.PasswordHasher
 	repo          user.UserRepository
 	outboxRepo    outbox.OutboxRepository
-	publisher     event.EventPublisher
 }
 
 func NewRegisterOwner(
@@ -29,7 +26,6 @@ func NewRegisterOwner(
 	hasher auth.PasswordHasher,
 	repo user.UserRepository,
 	outboxRepo outbox.OutboxRepository,
-	publisher event.EventPublisher,
 ) *RegisterOwner {
 	return &RegisterOwner{
 		db:            db,
@@ -37,7 +33,6 @@ func NewRegisterOwner(
 		hasher:        hasher,
 		repo:          repo,
 		outboxRepo:    outboxRepo,
-		publisher:     publisher,
 	}
 }
 
@@ -71,34 +66,11 @@ func (uc *RegisterOwner) Execute(ctx context.Context, input RegisterOwnerRequest
 		Status:    user.DefaultStatus,
 	}
 
-	payloadMap := map[string]interface{}{
+	restaurantInitiatedPayload, err := json.Marshal(map[string]interface{}{
 		"restaurant_id": restaurantID,
 		"owner_id":      userID,
 		"business_name": input.BusinessName,
 		"vat_number":    input.VATNumber,
-	}
-
-	payload, err := json.Marshal(payloadMap)
-	if err != nil {
-		return Response{}, err
-	}
-
-	err = uc.db.Transaction(func(tx *gorm.DB) error {
-		if err := uc.repo.WithTx(tx).Create(ctx, &newUser); err != nil {
-			return err
-		}
-
-		newEvent := outbox.NewOutboxEvent(
-			restaurantID,
-			outbox.EventRestaurantInitiated,
-			payload,
-		)
-
-		if err := uc.outboxRepo.WithTx(tx).Create(ctx, &newEvent); err != nil {
-			return err
-		}
-
-		return nil
 	})
 	if err != nil {
 		return Response{}, err
@@ -112,8 +84,30 @@ func (uc *RegisterOwner) Execute(ctx context.Context, input RegisterOwnerRequest
 	}
 	userRegistered.EventName = userRegistered.GetEventName()
 
-	if err := uc.publisher.PublishEvent(ctx, userRegistered); err != nil {
-		logobs.FromContext(ctx).Warn("failed to publish user.registered event", "error", err)
+	userRegisteredPayload, err := json.Marshal(userRegistered)
+	if err != nil {
+		return Response{}, err
+	}
+
+	err = uc.db.Transaction(func(tx *gorm.DB) error {
+		if err := uc.repo.WithTx(tx).Create(ctx, &newUser); err != nil {
+			return err
+		}
+
+		restaurantInitiated := outbox.NewOutboxEvent(
+			restaurantID,
+			outbox.EventRestaurantInitiated,
+			restaurantInitiatedPayload,
+		)
+		if err := uc.outboxRepo.WithTx(tx).Create(ctx, &restaurantInitiated); err != nil {
+			return err
+		}
+
+		userRegisteredEvent := outbox.NewOutboxEvent(userID, outbox.EventUserRegistered, userRegisteredPayload)
+		return uc.outboxRepo.WithTx(tx).Create(ctx, &userRegisteredEvent)
+	})
+	if err != nil {
+		return Response{}, err
 	}
 
 	return MapToResponse(&newUser), nil

@@ -2,6 +2,7 @@ package user_test
 
 import (
 	"context"
+	"encoding/json"
 	"identity-service/internal/application/user"
 	"identity-service/internal/infrastructure/auth"
 	"identity-service/internal/infrastructure/persistence"
@@ -11,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func setupRegisterOwner(t *testing.T) *user.RegisterOwner {
@@ -25,12 +27,12 @@ func setupRegisterOwner(t *testing.T) *user.RegisterOwner {
 	userRepo := persistence.NewUserRepository(db.DB)
 	outboxRepo := persistence.NewOutboxRepository(db.DB)
 	hasher := security.NewPasswordHasher()
-	mockPublisher = &MockEventPublisher{}
 
-	return user.NewRegisterOwner(db.DB, codeVerifier, hasher, userRepo, outboxRepo, mockPublisher)
+	return user.NewRegisterOwner(db.DB, codeVerifier, hasher, userRepo, outboxRepo)
 }
 
 func TestRegisterOwner_Success(t *testing.T) {
+	db := testutil.DB(t)
 	registerOwner := setupRegisterOwner(t)
 
 	input := user.RegisterOwnerRequest{
@@ -49,12 +51,15 @@ func TestRegisterOwner_Success(t *testing.T) {
 	assert.NotNil(t, newUser)
 	assert.Equal(t, "Sophie", newUser.Name.First)
 
-	createdEvent, ok := mockPublisher.PublishedEvents[0].(user.UserRegistered)
-	assert.True(t, ok)
-	assert.Equal(t, "Sophie", createdEvent.FirstName)
-	assert.Equal(t, "sophie.mueller@example.com", createdEvent.Email)
-	assert.Equal(t, "user.registered", createdEvent.GetEventName())
-	assert.Len(t, mockPublisher.PublishedEvents, 1)
+	outboxEvent := firstOutboxEvent(t, db.DB, newUser.ID, "user.registered")
+
+	var payload struct {
+		Email     string `json:"email"`
+		FirstName string `json:"first_name"`
+	}
+	require.NoError(t, json.Unmarshal(outboxEvent.Payload, &payload))
+	assert.Equal(t, "Sophie", payload.FirstName)
+	assert.Equal(t, "sophie.mueller@example.com", payload.Email)
 }
 
 func TestRegisterOwner_Failure_EmailVerification(t *testing.T) {
@@ -74,8 +79,6 @@ func TestRegisterOwner_Failure_EmailVerification(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Empty(t, res)
-
-	assert.Len(t, mockPublisher.PublishedEvents, 0)
 }
 
 func TestRegisterOwner_Failure_DuplicateEmail(t *testing.T) {
@@ -95,31 +98,4 @@ func TestRegisterOwner_Failure_DuplicateEmail(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Empty(t, res)
-
-	assert.Len(t, mockPublisher.PublishedEvents, 0)
-}
-
-func TestRegisterOwner_PublishFails_ShouldStillSucceed(t *testing.T) {
-	registerOwner := setupRegisterOwner(t)
-
-	// override publisher to fail
-	mockPublisher.ShouldFail = true
-
-	input := user.RegisterOwnerRequest{
-		FirstName:    "Alice",
-		LastName:     "Schmidt",
-		Email:        "alice@example.com",
-		Password:     "password",
-		Code:         "347578",
-		BusinessName: "Pizza Hub",
-		VATNumber:    "DE444654321",
-	}
-
-	res, err := registerOwner.Execute(context.Background(), input)
-
-	assert.NoError(t, err)
-	assert.NotEmpty(t, res)
-
-	// event attempted
-	assert.Len(t, mockPublisher.PublishedEvents, 1)
 }
