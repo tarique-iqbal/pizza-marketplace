@@ -15,6 +15,10 @@ func NewEmailVerificationRepository(db *gorm.DB) auth.EmailVerificationRepositor
 	return &emailVerificationRepo{db: db}
 }
 
+func (repo *emailVerificationRepo) WithTx(tx *gorm.DB) auth.EmailVerificationRepository {
+	return &emailVerificationRepo{db: tx}
+}
+
 func (repo *emailVerificationRepo) FindByEmail(
 	ctx context.Context,
 	email string,

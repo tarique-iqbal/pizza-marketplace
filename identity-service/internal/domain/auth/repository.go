@@ -1,8 +1,13 @@
 package auth
 
-import "context"
+import (
+	"context"
+
+	"gorm.io/gorm"
+)
 
 type EmailVerificationRepository interface {
+	WithTx(tx *gorm.DB) EmailVerificationRepository
 	Create(ctx context.Context, emailVerification *EmailVerification) error
 	Updates(ctx context.Context, emailVerification *EmailVerification) error
 	FindByEmail(ctx context.Context, email string) (*EmailVerification, error)
