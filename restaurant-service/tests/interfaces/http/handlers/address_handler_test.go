@@ -25,13 +25,17 @@ import (
 )
 
 type mockGeocoder struct {
-	lat float64
-	lon float64
-	err error
+	lat      float64
+	lon      float64
+	timezone string
+	err      error
 }
 
-func (m *mockGeocoder) GeocodeAddress(ctx context.Context, addr restaurant.Address) (float64, float64, error) {
-	return m.lat, m.lon, m.err
+func (m *mockGeocoder) GeocodeAddress(
+	ctx context.Context,
+	addr restaurant.Address,
+) (float64, float64, string, error) {
+	return m.lat, m.lon, m.timezone, m.err
 }
 
 type addressHandlerSetup struct {
@@ -45,7 +49,7 @@ func setupAddressHandler(t *testing.T) addressHandlerSetup {
 
 	_ = fixtures.LoadRestaurantFixtures(t, db.DB)
 
-	mockGeo := &mockGeocoder{lat: 52.52, lon: 13.405, err: nil}
+	mockGeo := &mockGeocoder{lat: 52.52, lon: 13.405, timezone: "Europe/Berlin", err: nil}
 	repo := persistence.NewRestaurantRepository(db.DB)
 	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(db.DB)
 	outboxRepo := persistence.NewOutboxRepository(db.DB)

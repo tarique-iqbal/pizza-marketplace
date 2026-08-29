@@ -23,16 +23,17 @@ import (
 )
 
 type mockGeocoder struct {
-	lat float64
-	lon float64
-	err error
+	lat      float64
+	lon      float64
+	timezone string
+	err      error
 }
 
 func (m *mockGeocoder) GeocodeAddress(
 	ctx context.Context,
 	addr restaurant.Address,
-) (float64, float64, error) {
-	return m.lat, m.lon, m.err
+) (float64, float64, string, error) {
+	return m.lat, m.lon, m.timezone, m.err
 }
 
 type updateAddressSetup struct {
@@ -52,9 +53,10 @@ func setupUpdateAddress(
 	_ = fixtures.LoadRestaurantFixtures(t, db.DB)
 
 	mockGeo := &mockGeocoder{
-		lat: lat,
-		lon: lon,
-		err: errGeo,
+		lat:      lat,
+		lon:      lon,
+		timezone: "Europe/Berlin",
+		err:      errGeo,
 	}
 
 	restaurantRepo := persistence.NewRestaurantRepository(db.DB)
@@ -119,6 +121,7 @@ func TestUpdateAddress_Success(t *testing.T) {
 
 	assert.Equal(t, 52.52, *updated.Lat)
 	assert.Equal(t, 13.405, *updated.Lon)
+	assert.Equal(t, "Europe/Berlin", *updated.Timezone)
 
 	assert.NotEmpty(t, updated.Slug)
 	assert.Contains(t, *updated.Slug, "cityville")
@@ -217,6 +220,7 @@ func TestUpdateAddress_GeocoderFails(t *testing.T) {
 
 	assert.Nil(t, unchanged.Lat)
 	assert.Nil(t, unchanged.Lon)
+	assert.Nil(t, unchanged.Timezone)
 
 	assert.Empty(t, unchanged.Address.Street)
 	assert.Empty(t, unchanged.Address.City)
@@ -402,6 +406,7 @@ func TestUpdateAddress_UpdatesExistingAddress(t *testing.T) {
 
 	assert.Equal(t, 11.11, *updated.Lat)
 	assert.Equal(t, 22.22, *updated.Lon)
+	assert.Equal(t, "Europe/Berlin", *updated.Timezone)
 }
 
 func TestUpdateAddress_ResponseContainsUpdatedData(t *testing.T) {

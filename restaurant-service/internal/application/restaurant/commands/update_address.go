@@ -65,11 +65,12 @@ func (uc *UpdateAddress) Execute(
 	}
 
 	var lat, lon float64
+	var timezone string
 
 	if res.Address == addr {
-		lat, lon = *res.Lat, *res.Lon
+		lat, lon, timezone = *res.Lat, *res.Lon, *res.Timezone
 	} else {
-		lat, lon, err = uc.geocoder.GeocodeAddress(ctx, addr)
+		lat, lon, timezone, err = uc.geocoder.GeocodeAddress(ctx, addr)
 		if err != nil {
 			return resapp.RestaurantResponse{}, fmt.Errorf("failed to geocode address: %w", err)
 		}
@@ -85,7 +86,7 @@ func (uc *UpdateAddress) Execute(
 
 	res.WithSlug(slug).
 		WithAddress(addr).
-		WithCoordinates(lat, lon)
+		WithCoordinates(lat, lon, timezone)
 
 	err = uc.db.Transaction(func(tx *gorm.DB) error {
 		if err := uc.restaurantRepo.WithTx(tx).Update(ctx, res); err != nil {

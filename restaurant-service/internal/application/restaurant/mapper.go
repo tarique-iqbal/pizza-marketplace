@@ -23,6 +23,7 @@ func ToRestaurantResponse(r *restaurant.Restaurant, pd *payoutdomain.PayoutDetai
 		DisplayAddress: formatAddress(r.Address),
 		Lat:            r.Lat,
 		Lon:            r.Lon,
+		Timezone:       r.Timezone,
 		Delivery: DeliveryResponse{
 			Type:         r.DeliveryType,
 			RadiusKm:     r.DeliveryKm,

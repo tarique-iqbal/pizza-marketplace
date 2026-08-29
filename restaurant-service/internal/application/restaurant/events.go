@@ -68,6 +68,7 @@ type RestaurantLaunchedPayload struct {
 	Address        Address                           `json:"address"`
 	Lat            float64                           `json:"lat"`
 	Lon            float64                           `json:"lon"`
+	Timezone       string                            `json:"timezone"`
 	Delivery       DeliveryResponse                  `json:"delivery"`
 	Currency       string                            `json:"currency"`
 	Rating         float64                           `json:"rating"`
@@ -100,9 +101,10 @@ func NewRestaurantLaunchedPayload(
 			Phone:   r.Phone,
 			Website: r.Website,
 		},
-		Address: r.Address,
-		Lat:     *r.Lat,
-		Lon:     *r.Lon,
+		Address:  r.Address,
+		Lat:      *r.Lat,
+		Lon:      *r.Lon,
+		Timezone: *r.Timezone,
 		Delivery: DeliveryResponse{
 			Type:         r.DeliveryType,
 			RadiusKm:     r.DeliveryKm,
@@ -134,6 +136,7 @@ type RestaurantUpdatedPayload struct {
 	Address        Address              `json:"address"`
 	Lat            float64              `json:"lat"`
 	Lon            float64              `json:"lon"`
+	Timezone       string               `json:"timezone"`
 	Delivery       DeliveryResponse     `json:"delivery"`
 	Currency       string               `json:"currency"`
 	Rating         float64              `json:"rating"`
@@ -162,9 +165,10 @@ func NewRestaurantUpdatedPayload(
 			Phone:   r.Phone,
 			Website: r.Website,
 		},
-		Address: r.Address,
-		Lat:     *r.Lat,
-		Lon:     *r.Lon,
+		Address:  r.Address,
+		Lat:      *r.Lat,
+		Lon:      *r.Lon,
+		Timezone: *r.Timezone,
 		Delivery: DeliveryResponse{
 			Type:         r.DeliveryType,
 			RadiusKm:     r.DeliveryKm,

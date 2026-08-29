@@ -46,8 +46,9 @@ func LoadRestaurantFixtures(t *testing.T, db *gorm.DB) error {
 				PostalCode: "20095",
 				City:       "Hamburg",
 			},
-			Lat: testutil.Float64Ptr(53.5511),
-			Lon: testutil.Float64Ptr(9.9937),
+			Lat:      testutil.Float64Ptr(53.5511),
+			Lon:      testutil.Float64Ptr(9.9937),
+			Timezone: testutil.StringPtr("Europe/Berlin"),
 			OpeningHours: restaurant.OpeningHours{
 				Monday:    []restaurant.DayRange{{Open: "11:00", Close: "22:00"}},
 				Tuesday:   []restaurant.DayRange{{Open: "11:00", Close: "22:00"}},

@@ -67,6 +67,7 @@ type RestaurantResponse struct {
 	DisplayAddress string                   `json:"displayAddress"`
 	Lat            *float64                 `json:"lat,omitempty"`
 	Lon            *float64                 `json:"lon,omitempty"`
+	Timezone       *string                  `json:"timezone,omitempty"`
 	Delivery       DeliveryResponse         `json:"delivery"`
 	Payout         payoutapp.PayoutResponse `json:"payout"`
 	Currency       string                   `json:"currency"`
