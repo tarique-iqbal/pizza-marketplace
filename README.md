@@ -48,7 +48,7 @@ Each service owns its data store. There is no shared database. See the
 | `search-service` | Search API + Elasticsearch indexing | public (no auth) |
 | `email-service` | Email notifications (background worker) | — |
 
-`identity-service`, `restaurant-service`, and `search-service` each also run a `cmd/worker` process (outbox relay / event consumer) alongside their API — not separate services. `search-service`'s worker (`search-worker`) is the only one of the three with its own container in `compose.yaml`; without it the search index stays permanently empty, so it runs by default in dev. The others are started manually when working on outbox/consumer code.
+`identity-service`, `restaurant-service`, and `search-service` each also run a `cmd/worker` process (outbox relay / event consumer) alongside their API — not separate services. `identity-service`'s and `search-service`'s workers (`identity-worker`, `search-worker`) each get their own container in `compose.yaml` and run by default in dev — without them, no outbox event ever leaves identity-service and the search index stays permanently empty, respectively. `restaurant-service`'s worker is started manually when working on its outbox/consumer code.
 
 All services are behind Traefik and not directly reachable from outside the Docker network.
 
@@ -134,7 +134,7 @@ Architecture, domain model, and design decisions for each implemented service:
 
 ## Event flow
 
-Events are published to RabbitMQ and consumed asynchronously. `identity-service` and `restaurant-service` both use the transactional outbox pattern for at-least-once delivery, but at different scope: `identity-service` outboxes only its one cross-service-critical event (`restaurant.initiated`) — `user.registered`/`email.verification_created` are still published directly/best-effort. `restaurant-service` outboxes every event it raises.
+Events are published to RabbitMQ and consumed asynchronously. `identity-service` and `restaurant-service` both use the transactional outbox pattern for at-least-once delivery — each outboxes every event it raises, with no best-effort publish path left in either service.
 
 ```
 identity-service     ──publishes──► email.verification_created
