@@ -28,7 +28,7 @@ func NewOpenCageGeocoder(apiKey string) *OpenCageGeocoder {
 func (g *OpenCageGeocoder) GeocodeAddress(
 	ctx context.Context,
 	addr restaurant.Address,
-) (float64, float64, error) {
+) (float64, float64, string, error) {
 	baseURL := "https://api.opencagedata.com/geocode/v1/json"
 
 	query := fmt.Sprintf(
@@ -41,7 +41,7 @@ func (g *OpenCageGeocoder) GeocodeAddress(
 
 	u, err := url.Parse(baseURL)
 	if err != nil {
-		return 0, 0, fmt.Errorf("invalid base url: %w", err)
+		return 0, 0, "", fmt.Errorf("invalid base url: %w", err)
 	}
 
 	q := u.Query()
@@ -58,17 +58,17 @@ func (g *OpenCageGeocoder) GeocodeAddress(
 		nil,
 	)
 	if err != nil {
-		return 0, 0, fmt.Errorf("create request failed: %w", err)
+		return 0, 0, "", fmt.Errorf("create request failed: %w", err)
 	}
 
 	resp, err := g.client.Do(req)
 	if err != nil {
-		return 0, 0, fmt.Errorf("request failed: %w", err)
+		return 0, 0, "", fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return 0, 0, fmt.Errorf("opencage geocode failed: status=%s", resp.Status)
+		return 0, 0, "", fmt.Errorf("opencage geocode failed: status=%s", resp.Status)
 	}
 
 	var data struct {
@@ -77,16 +77,27 @@ func (g *OpenCageGeocoder) GeocodeAddress(
 				Lat float64 `json:"lat"`
 				Lng float64 `json:"lng"`
 			} `json:"geometry"`
+			Annotations struct {
+				Timezone struct {
+					Name string `json:"name"`
+				} `json:"timezone"`
+			} `json:"annotations"`
 		} `json:"results"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return 0, 0, fmt.Errorf("decode response failed: %w", err)
+		return 0, 0, "", fmt.Errorf("decode response failed: %w", err)
 	}
 
 	if len(data.Results) == 0 {
-		return 0, 0, fmt.Errorf("no geocoding results found")
+		return 0, 0, "", fmt.Errorf("no geocoding results found")
 	}
 
-	return data.Results[0].Geometry.Lat, data.Results[0].Geometry.Lng, nil
+	result := data.Results[0]
+
+	if result.Annotations.Timezone.Name == "" {
+		return 0, 0, "", fmt.Errorf("no timezone found in geocoding result")
+	}
+
+	return result.Geometry.Lat, result.Geometry.Lng, result.Annotations.Timezone.Name, nil
 }
