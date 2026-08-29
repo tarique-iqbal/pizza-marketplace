@@ -17,7 +17,7 @@ Owns authentication, JWT issuance, and user (owner/customer) registration. Has i
 
 ```
 cmd/api                   → Gin HTTP server (routes, middleware)
-cmd/worker                → outbox relay poller — not started by compose.yaml, run manually
+cmd/worker                → outbox relay poller — started by compose.yaml (identity-worker container)
 internal/domain           → User, auth (credential/token/verification), OutboxEvent — no framework deps
 internal/application      → use cases: register_owner, register_customer, login, refresh, logout,
                              request_email_otp, verify_email, find_by_id; application/outbox (Relay)
@@ -65,11 +65,13 @@ collapsed into one error.
 
 ## The outbox pattern
 
-Identity-service is the only service in the monorepo using this pattern, and only for one event:
-`restaurant.initiated`. The reasoning: when an **owner** registers, a `Restaurant` record must reliably get
-created downstream in `restaurant-service` — silently losing that event would leave an owner with no restaurant
-to manage. `user.registered` and `email.verification_created` have no such hard downstream dependency, so they
-are published directly/best-effort in the same request instead.
+Identity-service outboxes every event it raises — `restaurant.initiated`, `user.registered`, and
+`email.verification_created` — with no best-effort publish path left. `restaurant-service` (see its own docs)
+uses the same pattern, at the same full scope. The original reasoning for `restaurant.initiated` specifically:
+when an **owner** registers, a `Restaurant` record must reliably get created downstream in `restaurant-service`
+— silently losing that event would leave an owner with no restaurant to manage. `user.registered` and
+`email.verification_created` don't have that same hard downstream dependency, but go through the outbox too now,
+for the same at-least-once guarantee rather than a same-request best-effort publish.
 
 ```mermaid
 sequenceDiagram
@@ -114,8 +116,8 @@ outbox (unlike the RabbitMQ-side DLX pattern used by restaurant-service/email-se
 | Event | Mechanism | Consumed by |
 |---|---|---|
 | `restaurant.initiated` | outbox (guaranteed) | `restaurant-service` worker — creates the `Restaurant` row |
-| `user.registered` | direct/best-effort | `email-service` — sends a role-based welcome email |
-| `email.verification_created` | direct/best-effort | `email-service` — sends the OTP code email |
+| `user.registered` | outbox (guaranteed) | `email-service` — sends a role-based welcome email |
+| `email.verification_created` | outbox (guaranteed) | `email-service` — sends the OTP code email |
 
 Identity-service consumes nothing — it has no inbound RabbitMQ consumer.
 
