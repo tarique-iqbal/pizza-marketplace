@@ -46,7 +46,7 @@ flowchart TD
   RS -->|owns| PGR
   SS -->|queries| ES
 
-  IS -- "restaurant.initiated (outbox)\nuser.registered, email.verification_created (best-effort)" --> BROKER
+  IS -- "restaurant.initiated, user.registered,\nemail.verification_created (outbox)" --> BROKER
   RW -- "restaurant.ready_for_review, restaurant.approved, restaurant.launched,\nrestaurant.updated, restaurant.pizza_updated, restaurant.topping_prices_updated (outbox)" --> BROKER
 
   BROKER -- "email.verification_created\nuser.registered\nrestaurant.ready_for_review\nrestaurant.approved" --> EMAIL
@@ -57,7 +57,7 @@ flowchart TD
   SW -->|indexes| ES
 ```
 
-- **`identity-service` outboxes only its one cross-service-critical event** (`restaurant.initiated`) — `user.registered`/`email.verification_created` are still published directly/best-effort in the same request.
-- **`restaurant-service` uses the outbox pattern too** — but wider in scope: it outboxes every event it raises, with no best-effort publish path left in that service at all. The relay runs as a second goroutine inside `RW` (`cmd/worker`), alongside the existing inbound `restaurant.initiated` consumer — `RS` (the API) never talks to `BROKER` directly.
+- **`identity-service` outboxes every event it raises** (`restaurant.initiated`, `user.registered`, `email.verification_created`) — no best-effort publish path left in that service.
+- **`restaurant-service` uses the outbox pattern too**, same full-scope shape as identity-service: it outboxes every event it raises. The relay runs as a second goroutine inside `RW` (`cmd/worker`), alongside the existing inbound `restaurant.initiated` consumer — `RS` (the API) never talks to `BROKER` directly.
 - **`search-service` has no Postgres database** — its only store is Elasticsearch, which doubles as the search index and a disposable geocode cache (a second index, unrelated to search, safe to delete anytime since a cache miss just re-populates it).
 - **`email-service` is a pure event-to-email pipeline** — one handler per consumed event, rendering via `text/template` and sending over SMTP. It holds no state of its own beyond what's in each event's payload, so it needs no database.
