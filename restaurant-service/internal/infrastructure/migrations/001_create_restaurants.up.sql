@@ -53,6 +53,7 @@ CREATE TABLE restaurants (
     lon DOUBLE PRECISION
         CONSTRAINT ck_restaurants_lon
         CHECK (lon BETWEEN -180 AND 180),
+    timezone VARCHAR(64),
     opening_hours JSONB NOT NULL DEFAULT '{}'::jsonb,
     tags JSONB NOT NULL DEFAULT '[]'::jsonb
         CONSTRAINT ck_restaurants_tags
