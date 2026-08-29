@@ -49,8 +49,8 @@ pointless overhead rather than a safety net.
 
 ```mermaid
 flowchart LR
-    E1["email.verification_created\n(identity-service, best-effort)"] --> H1["EmailVerificationCreated\nfixed templates"]
-    E2["user.registered\n(identity-service, best-effort)"] --> H2["UserRegistered\nrole-based templates"]
+    E1["email.verification_created\n(identity-service)"] --> H1["EmailVerificationCreated\nfixed templates"]
+    E2["user.registered\n(identity-service)"] --> H2["UserRegistered\nrole-based templates"]
     E3["restaurant.ready_for_review\n(restaurant-service)"] --> H3["RestaurantReadyForReview\n→ ADMIN_EMAIL"]
     E4["restaurant.approved\n(restaurant-service)"] --> H4["RestaurantApproved\n→ restaurant's own email"]
     H1 --> SMTP[("SMTP")]
@@ -70,9 +70,10 @@ flowchart LR
 not `identity-service` — the former is treated as an internal admin notification (fixed `ADMIN_EMAIL` recipient
 regardless of who triggered it), the latter as an owner-facing one (recipient carried on the event itself, since
 restaurant-service denormalizes the restaurant's contact email onto the `restaurant.approved` domain event at the
-point `Restaurant.Approve()` fires — see restaurant-service's technical doc). None of these four events are
-published via an outbox — all source services publish them directly/best-effort, so at-least-once delivery here
-relies entirely on the RabbitMQ consumer's own DLX/retry mechanism, not a transactional producer guarantee.
+point `Restaurant.Approve()` fires — see restaurant-service's technical doc). All four events are now published
+via their source service's own transactional outbox — identity-service's and restaurant-service's outboxes are
+both full-scope, no best-effort publish path left in either. At-least-once delivery on this consumer side still
+also relies on the RabbitMQ consumer's own DLX/retry mechanism below, independent of the producer-side guarantee.
 
 Handler wiring in `internal/container/container.go` is index-based into `messaging.Exchanges[...]` (position in
 the slice, not name) — a latent fragility: reordering or inserting into that slice without updating the
