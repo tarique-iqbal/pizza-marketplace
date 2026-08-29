@@ -180,6 +180,27 @@ services:
       - backend
       - internal
 
+  # Identity Service (worker)
+  identity-worker:
+    container_name: pizza-identity-worker
+    build:
+      context: .
+      dockerfile: identity-service/Dockerfile
+      target: dev
+    command: ["air", "-c", ".air.worker.toml"]
+    volumes:
+      - ./identity-service:/app
+    depends_on:
+      postgres-identity:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      migrate-identity:
+        condition: service_completed_successfully
+    env_file: identity-service/.env
+    networks:
+      - internal
+
   # Restaurant Service
   restaurant-service:
     container_name: pizza-restaurant-service
