@@ -55,6 +55,7 @@ type Restaurant struct {
 	Address      Address          `gorm:"type:jsonb;serializer:json;not null;default:'{}'"`
 	Lat          *float64         `gorm:"type:double precision;check:lat BETWEEN -90 AND 90"`
 	Lon          *float64         `gorm:"type:double precision;check:lon BETWEEN -180 AND 180"`
+	Timezone     *string          `gorm:"size:64"`
 	OpeningHours OpeningHours     `gorm:"type:jsonb;serializer:json;not null;default:'{}'"`
 	Tags         []RestaurantTag  `gorm:"type:jsonb;serializer:json;not null;default:'[]'"`
 	Pickup       bool             `gorm:"not null;default:true"`
@@ -107,9 +108,10 @@ func (r *Restaurant) WithAddress(address Address) *Restaurant {
 	return r
 }
 
-func (r *Restaurant) WithCoordinates(lat, lon float64) *Restaurant {
+func (r *Restaurant) WithCoordinates(lat, lon float64, timezone string) *Restaurant {
 	r.Lat = &lat
 	r.Lon = &lon
+	r.Timezone = &timezone
 	return r
 }
 
