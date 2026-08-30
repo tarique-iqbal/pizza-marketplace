@@ -2,6 +2,7 @@ package elasticsearch_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -106,7 +107,29 @@ func TestSearchRepository_Search_OutOfDeliveryRange_Excluded(t *testing.T) {
 	assert.Empty(t, results)
 }
 
-func TestSearchRepository_Search_NoDeliveryKm_Excluded(t *testing.T) {
+func TestSearchRepository_Search_NoDeliveryKm_ExcludedWhenFulfillmentIsDelivery(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         uuid.New(),
+		Name:       "Pickup Only Pizzeria",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: nil,
+		Pickup:     true,
+	})
+	testutil.RefreshIndex(t, es, esinfra.IndexName)
+
+	results, err := repo.Search(context.Background(), index.SearchQuery{
+		Text:        "Pickup",
+		Location:    index.GeoPoint{Lat: 53.5511, Lon: 9.9937}, // same coordinates
+		Fulfillment: "delivery",
+	})
+	require.NoError(t, err)
+	assert.Empty(t, results, "a restaurant with no configured delivery radius must never match delivery, even at distance 0")
+}
+
+func TestSearchRepository_Search_NoDeliveryKm_IncludedByDefault_WhenPickupAvailable(t *testing.T) {
 	es := testutil.ES(t)
 	repo := esinfra.NewSearchRepository(es)
 
@@ -121,10 +144,167 @@ func TestSearchRepository_Search_NoDeliveryKm_Excluded(t *testing.T) {
 
 	results, err := repo.Search(context.Background(), index.SearchQuery{
 		Text:     "Pickup",
-		Location: index.GeoPoint{Lat: 53.5511, Lon: 9.9937}, // same coordinates
+		Location: index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
 	})
 	require.NoError(t, err)
-	assert.Empty(t, results, "a restaurant with no configured delivery radius must never match, even at distance 0")
+	require.Len(t, results, 1, "a pickup-only restaurant must surface in a plain, filter-less search too")
+	assert.Equal(t, "Pickup Only Pizzeria", results[0].Name)
+}
+
+func TestSearchRepository_Search_FulfillmentPickup_ExcludesDeliveryOnlyNonPickup(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         uuid.New(),
+		Name:       "Delivery Only Pizzeria",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+		Pickup:     false,
+	})
+	testutil.RefreshIndex(t, es, esinfra.IndexName)
+
+	results, err := repo.Search(context.Background(), index.SearchQuery{
+		Text:        "Pizzeria",
+		Location:    index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		Fulfillment: "pickup",
+	})
+	require.NoError(t, err)
+	assert.Empty(t, results, "fulfillment=pickup must exclude a restaurant that doesn't offer pickup")
+}
+
+func TestSearchRepository_Search_TagsFilter_RequiresAllRequestedTags(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         uuid.New(),
+		Name:       "Vegan Only Pizzeria",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+		Tags:       []string{"vegan"},
+	})
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         uuid.New(),
+		Name:       "Vegan Halal Pizzeria",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+		Tags:       []string{"vegan", "halal"},
+	})
+	testutil.RefreshIndex(t, es, esinfra.IndexName)
+
+	results, err := repo.Search(context.Background(), index.SearchQuery{
+		Text:     "Pizzeria",
+		Location: index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		Tags:     []string{"vegan", "halal"},
+	})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	assert.Equal(t, "Vegan Halal Pizzeria", results[0].Name)
+}
+
+func TestSearchRepository_Search_OpenNow_FiltersByRestaurantOwnTimezone(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	now := time.Now().UTC()
+
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         uuid.New(),
+		Name:       "Always Open Pizzeria",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+		Timezone:   "UTC",
+		OpeningHours: []index.IndexedOpeningHours{
+			{Weekday: strings.ToLower(now.Weekday().String()), Open: "00:00", Close: "23:59"},
+		},
+	})
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         uuid.New(),
+		Name:       "Always Closed Pizzeria",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+		Timezone:   "UTC",
+		OpeningHours: []index.IndexedOpeningHours{
+			{Weekday: strings.ToLower(now.Weekday().String()), Open: "00:00", Close: "00:01"},
+		},
+	})
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         uuid.New(),
+		Name:       "No Timezone Pizzeria",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+	})
+	testutil.RefreshIndex(t, es, esinfra.IndexName)
+
+	results, err := repo.Search(context.Background(), index.SearchQuery{
+		Text:     "Pizzeria",
+		Location: index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		OpenNow:  true,
+	})
+	require.NoError(t, err)
+	require.Len(t, results, 1, "only the restaurant open right now, in its own timezone, must match")
+	assert.Equal(t, "Always Open Pizzeria", results[0].Name)
+}
+
+func TestSearchRepository_Search_SortByMinimumOrder_Ascending(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:           uuid.New(),
+		Name:         "Pizzeria Expensive",
+		Location:     index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm:   int16Ptr(10),
+		MinimumOrder: 25.00,
+	})
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:           uuid.New(),
+		Name:         "Pizzeria Cheap",
+		Location:     index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm:   int16Ptr(10),
+		MinimumOrder: 5.00,
+	})
+	testutil.RefreshIndex(t, es, esinfra.IndexName)
+
+	results, err := repo.Search(context.Background(), index.SearchQuery{
+		Text:     "Pizzeria",
+		Location: index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		Sort:     "minimumOrder",
+	})
+	require.NoError(t, err)
+	require.Len(t, results, 2)
+	assert.Equal(t, "Pizzeria Cheap", results[0].Name)
+	assert.Equal(t, "Pizzeria Expensive", results[1].Name)
+}
+
+func TestSearchRepository_Search_SortByDistance_Ascending(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         uuid.New(),
+		Name:       "Pizzeria Far",
+		Location:   index.GeoPoint{Lat: 53.60, Lon: 10.05}, // farther from the search point below
+		DeliveryKm: int16Ptr(25),
+	})
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         uuid.New(),
+		Name:       "Pizzeria Near",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937}, // exact match with the search point
+		DeliveryKm: int16Ptr(25),
+	})
+	testutil.RefreshIndex(t, es, esinfra.IndexName)
+
+	results, err := repo.Search(context.Background(), index.SearchQuery{
+		Text:     "Pizzeria",
+		Location: index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		Sort:     "distance",
+	})
+	require.NoError(t, err)
+	require.Len(t, results, 2)
+	assert.Equal(t, "Pizzeria Near", results[0].Name)
+	assert.Equal(t, "Pizzeria Far", results[1].Name)
 }
 
 func TestSearchRepository_Search_RatingBoostsOrdering(t *testing.T) {

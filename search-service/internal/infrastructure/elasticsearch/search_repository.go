@@ -47,16 +47,25 @@ type esToppingPrice struct {
 	ExtraPrice string    `json:"extraPrice"`
 }
 
+type esOpeningHours struct {
+	Weekday string `json:"weekday"`
+	Open    string `json:"open"`
+	Close   string `json:"close"`
+}
+
 type esRestaurant struct {
 	Name                   string           `json:"name"`
 	Slug                   string           `json:"slug"`
 	City                   string           `json:"city"`
 	Location               esGeoPoint       `json:"location"`
+	Timezone               string           `json:"timezone"`
 	Currency               string           `json:"currency"`
 	Pickup                 bool             `json:"pickup"`
 	DeliveryType           string           `json:"deliveryType"`
 	DeliveryKm             *int16           `json:"deliveryKm,omitempty"`
+	MinimumOrder           float64          `json:"minimumOrder"`
 	Tags                   []string         `json:"tags"`
+	OpeningHours           []esOpeningHours `json:"openingHours"`
 	Rating                 float64          `json:"rating"`
 	TotalReviews           int32            `json:"totalReviews"`
 	Pizzas                 []esPizza        `json:"pizzas"`
@@ -66,18 +75,21 @@ type esRestaurant struct {
 }
 
 type esRestaurantFields struct {
-	Name         string     `json:"name"`
-	Slug         string     `json:"slug"`
-	City         string     `json:"city"`
-	Location     esGeoPoint `json:"location"`
-	Currency     string     `json:"currency"`
-	Pickup       bool       `json:"pickup"`
-	DeliveryType string     `json:"deliveryType"`
-	DeliveryKm   *int16     `json:"deliveryKm,omitempty"`
-	Tags         []string   `json:"tags"`
-	Rating       float64    `json:"rating"`
-	TotalReviews int32      `json:"totalReviews"`
-	UpdatedAt    time.Time  `json:"updatedAt"`
+	Name         string           `json:"name"`
+	Slug         string           `json:"slug"`
+	City         string           `json:"city"`
+	Location     esGeoPoint       `json:"location"`
+	Timezone     string           `json:"timezone"`
+	Currency     string           `json:"currency"`
+	Pickup       bool             `json:"pickup"`
+	DeliveryType string           `json:"deliveryType"`
+	DeliveryKm   *int16           `json:"deliveryKm,omitempty"`
+	MinimumOrder float64          `json:"minimumOrder"`
+	Tags         []string         `json:"tags"`
+	OpeningHours []esOpeningHours `json:"openingHours"`
+	Rating       float64          `json:"rating"`
+	TotalReviews int32            `json:"totalReviews"`
+	UpdatedAt    time.Time        `json:"updatedAt"`
 }
 
 type esScript struct {
@@ -110,11 +122,14 @@ const updateFieldsScript = `if (!ctx._source.containsKey('updatedAt') || ` +
 	`ctx._source.slug = params.doc.slug; ` +
 	`ctx._source.city = params.doc.city; ` +
 	`ctx._source.location = params.doc.location; ` +
+	`ctx._source.timezone = params.doc.timezone; ` +
 	`ctx._source.currency = params.doc.currency; ` +
 	`ctx._source.pickup = params.doc.pickup; ` +
 	`ctx._source.deliveryType = params.doc.deliveryType; ` +
 	`ctx._source.deliveryKm = params.doc.deliveryKm; ` +
+	`ctx._source.minimumOrder = params.doc.minimumOrder; ` +
 	`ctx._source.tags = params.doc.tags; ` +
+	`ctx._source.openingHours = params.doc.openingHours; ` +
 	`ctx._source.rating = params.doc.rating; ` +
 	`ctx._source.totalReviews = params.doc.totalReviews; ` +
 	`ctx._source.updatedAt = params.doc.updatedAt; ` +
@@ -384,6 +399,26 @@ func (r *SearchRepository) Search(ctx context.Context, q index.SearchQuery) ([]i
 const deliveryRangeScript = `doc['deliveryKm'].size() != 0 && ` +
 	`doc['location'].arcDistance(params.lat, params.lon) <= doc['deliveryKm'].value * 1000`
 
+// openNowScript reads the document's own timezone (not a query param) so
+// "now" is localized per-restaurant, not per-search. A document with no
+// stored timezone is excluded rather than erroring — same "unknown state
+// excluded" convention deliveryRangeScript uses for a missing deliveryKm.
+// openingHours is a plain object array, not "nested" (same tradeoff as
+// pizzas), so its sub-fields flatten into parallel same-order doc-value
+// arrays — index i of weekdays/opens/closes all describe the same range.
+const openNowScript = `if (!doc.containsKey('timezone') || doc['timezone'].size() == 0 || doc['timezone'].value.isEmpty()) { return false; } ` +
+	`def zdt = ZonedDateTime.ofInstant(Instant.ofEpochMilli(params.nowMillis), ZoneId.of(doc['timezone'].value)); ` +
+	`def weekday = zdt.getDayOfWeek().toString().toLowerCase(); ` +
+	`def hh = zdt.getHour(); def mm = zdt.getMinute(); ` +
+	`def now = (hh < 10 ? "0" + hh : "" + hh) + ":" + (mm < 10 ? "0" + mm : "" + mm); ` +
+	`def weekdays = doc['openingHours.weekday']; ` +
+	`def opens = doc['openingHours.open']; ` +
+	`def closes = doc['openingHours.close']; ` +
+	`for (int i = 0; i < weekdays.size(); i++) { ` +
+	`if (weekdays.get(i).equals(weekday) && opens.get(i).compareTo(now) <= 0 && closes.get(i).compareTo(now) > 0) { return true; } ` +
+	`} ` +
+	`return false;`
+
 func buildSearchQuery(q index.SearchQuery) map[string]any {
 	var must []map[string]any
 	if q.Text == "" {
@@ -401,49 +436,109 @@ func buildSearchQuery(q index.SearchQuery) map[string]any {
 		})
 	}
 
-	filter := []map[string]any{
-		{
+	deliveryClause := map[string]any{
+		"script": map[string]any{
+			"script": map[string]any{
+				"source": deliveryRangeScript,
+				"params": map[string]any{
+					"lat": q.Location.Lat,
+					"lon": q.Location.Lon,
+				},
+			},
+		},
+	}
+	pickupClause := map[string]any{"term": map[string]any{"pickup": true}}
+
+	var fulfillmentClause map[string]any
+	switch q.Fulfillment {
+	case "delivery":
+		fulfillmentClause = deliveryClause
+	case "pickup":
+		fulfillmentClause = pickupClause
+	default:
+		// Neither requested: a restaurant qualifies if it can serve the
+		// customer either way — this is what surfaces a pickup-only
+		// restaurant in a plain, filter-less search too.
+		fulfillmentClause = map[string]any{
+			"bool": map[string]any{
+				"should":               []map[string]any{pickupClause, deliveryClause},
+				"minimum_should_match": 1,
+			},
+		}
+	}
+
+	filter := []map[string]any{fulfillmentClause}
+
+	for _, tag := range q.Tags {
+		filter = append(filter, map[string]any{"term": map[string]any{"tags": tag}})
+	}
+
+	if q.OpenNow {
+		filter = append(filter, map[string]any{
 			"script": map[string]any{
 				"script": map[string]any{
-					"source": deliveryRangeScript,
+					"source": openNowScript,
 					"params": map[string]any{
-						"lat": q.Location.Lat,
-						"lon": q.Location.Lon,
+						"nowMillis": time.Now().UTC().UnixMilli(),
 					},
 				},
 			},
+		})
+	}
+
+	query := map[string]any{
+		// field_value_factor nudges higher-rated restaurants up on top of
+		// text relevance (boost_mode "sum", not "multiply" or "replace")
+		// — log1p keeps a 5.0 vs 4.8 restaurant from swamping actual
+		// text-match quality, and "missing": 0 means an unrated
+		// restaurant (rating 0) gets no boost rather than being
+		// penalized relative to text-only scoring. Ranking stays
+		// relevance+rating even once the delivery-range filter narrows
+		// the candidate set — every remaining hit can already reach the
+		// customer, so which one is a few hundred meters closer matters
+		// less than which one actually matches what they're looking for.
+		"function_score": map[string]any{
+			"query": map[string]any{
+				"bool": map[string]any{
+					"must":   must,
+					"filter": filter,
+				},
+			},
+			"field_value_factor": map[string]any{
+				"field":    "rating",
+				"modifier": "log1p",
+				"factor":   1,
+				"missing":  0,
+			},
+			"boost_mode": "sum",
 		},
 	}
 
-	return map[string]any{
-		"query": map[string]any{
-			// field_value_factor nudges higher-rated restaurants up on top of
-			// text relevance (boost_mode "sum", not "multiply" or "replace")
-			// — log1p keeps a 5.0 vs 4.8 restaurant from swamping actual
-			// text-match quality, and "missing": 0 means an unrated
-			// restaurant (rating 0) gets no boost rather than being
-			// penalized relative to text-only scoring. Ranking stays
-			// relevance+rating even once the delivery-range filter narrows
-			// the candidate set — every remaining hit can already reach the
-			// customer, so which one is a few hundred meters closer matters
-			// less than which one actually matches what they're looking for.
-			"function_score": map[string]any{
-				"query": map[string]any{
-					"bool": map[string]any{
-						"must":   must,
-						"filter": filter,
-					},
+	body := map[string]any{"query": query}
+
+	// An explicit sort replaces relevance/rating ordering rather than
+	// blending with it — a customer who asks to sort by distance wants
+	// distance order, not distance-nudged-by-text-relevance. The
+	// underlying bool query (text match + every filter above) is
+	// unchanged either way.
+	switch q.Sort {
+	case "distance":
+		body["sort"] = []map[string]any{
+			{
+				"_geo_distance": map[string]any{
+					"location": map[string]any{"lat": q.Location.Lat, "lon": q.Location.Lon},
+					"order":    "asc",
+					"unit":     "km",
 				},
-				"field_value_factor": map[string]any{
-					"field":    "rating",
-					"modifier": "log1p",
-					"factor":   1,
-					"missing":  0,
-				},
-				"boost_mode": "sum",
 			},
-		},
+		}
+	case "minimumOrder":
+		body["sort"] = []map[string]any{
+			{"minimumOrder": map[string]any{"order": "asc"}},
+		}
 	}
+
+	return body
 }
 
 func toESRestaurantFields(f index.RestaurantFields) esRestaurantFields {
@@ -452,15 +547,36 @@ func toESRestaurantFields(f index.RestaurantFields) esRestaurantFields {
 		Slug:         f.Slug,
 		City:         f.City,
 		Location:     esGeoPoint{Lat: f.Location.Lat, Lon: f.Location.Lon},
+		Timezone:     f.Timezone,
 		Currency:     f.Currency,
 		Pickup:       f.Pickup,
 		DeliveryType: f.DeliveryType,
 		DeliveryKm:   f.DeliveryKm,
+		MinimumOrder: f.MinimumOrder,
 		Tags:         f.Tags,
+		OpeningHours: toESOpeningHours(f.OpeningHours),
 		Rating:       f.Rating,
 		TotalReviews: f.TotalReviews,
 		UpdatedAt:    f.UpdatedAt,
 	}
+}
+
+func toESOpeningHours(hours []index.IndexedOpeningHours) []esOpeningHours {
+	out := make([]esOpeningHours, 0, len(hours))
+	for _, h := range hours {
+		out = append(out, esOpeningHours{Weekday: h.Weekday, Open: h.Open, Close: h.Close})
+	}
+
+	return out
+}
+
+func toIndexedOpeningHours(hours []esOpeningHours) []index.IndexedOpeningHours {
+	out := make([]index.IndexedOpeningHours, 0, len(hours))
+	for _, h := range hours {
+		out = append(out, index.IndexedOpeningHours{Weekday: h.Weekday, Open: h.Open, Close: h.Close})
+	}
+
+	return out
 }
 
 func toESPizzaPrices(prices []index.IndexedPizzaPrice) []esPizzaPrice {
@@ -519,11 +635,14 @@ func toESRestaurant(r index.IndexedRestaurant) esRestaurant {
 		Slug:                   r.Slug,
 		City:                   r.City,
 		Location:               location,
+		Timezone:               r.Timezone,
 		Currency:               r.Currency,
 		Pickup:                 r.Pickup,
 		DeliveryType:           r.DeliveryType,
 		DeliveryKm:             r.DeliveryKm,
+		MinimumOrder:           r.MinimumOrder,
 		Tags:                   r.Tags,
+		OpeningHours:           toESOpeningHours(r.OpeningHours),
 		Rating:                 r.Rating,
 		TotalReviews:           r.TotalReviews,
 		Pizzas:                 pizzas,
@@ -554,11 +673,14 @@ func fromESRestaurant(id uuid.UUID, doc esRestaurant) index.IndexedRestaurant {
 		Slug:                   doc.Slug,
 		City:                   doc.City,
 		Location:               location,
+		Timezone:               doc.Timezone,
 		Currency:               doc.Currency,
 		Pickup:                 doc.Pickup,
 		DeliveryType:           doc.DeliveryType,
 		DeliveryKm:             doc.DeliveryKm,
+		MinimumOrder:           doc.MinimumOrder,
 		Tags:                   doc.Tags,
+		OpeningHours:           toIndexedOpeningHours(doc.OpeningHours),
 		Rating:                 doc.Rating,
 		TotalReviews:           doc.TotalReviews,
 		Pizzas:                 pizzas,

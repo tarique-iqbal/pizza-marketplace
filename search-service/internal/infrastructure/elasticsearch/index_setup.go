@@ -22,11 +22,20 @@ const indexMapping = `{
       "slug": {"type": "keyword"},
       "city": {"type": "keyword"},
       "location": {"type": "geo_point"},
+      "timezone": {"type": "keyword"},
       "currency": {"type": "keyword"},
       "pickup": {"type": "boolean"},
       "deliveryType": {"type": "keyword"},
       "deliveryKm": {"type": "short"},
+      "minimumOrder": {"type": "scaled_float", "scaling_factor": 100},
       "tags": {"type": "keyword"},
+      "openingHours": {
+        "properties": {
+          "weekday": {"type": "keyword"},
+          "open": {"type": "keyword"},
+          "close": {"type": "keyword"}
+        }
+      },
       "rating": {"type": "float"},
       "totalReviews": {"type": "integer"},
       "pizzas": {
