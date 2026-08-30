@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,15 +26,18 @@ type restaurantLaunchedPayload struct {
 	} `json:"address"`
 	Lat      *float64 `json:"lat"`
 	Lon      *float64 `json:"lon"`
+	Timezone string   `json:"timezone"`
 	Delivery struct {
-		Type     string `json:"type"`
-		RadiusKm *int16 `json:"radiusKm"`
+		Type         string `json:"type"`
+		RadiusKm     *int16 `json:"radiusKm"`
+		MinimumOrder string `json:"minimumOrder"`
 	} `json:"delivery"`
-	Currency     string   `json:"currency"`
-	Rating       float64  `json:"rating"`
-	TotalReviews int32    `json:"total_reviews"`
-	Pickup       bool     `json:"pickup"`
-	Tags         []string `json:"tags"`
+	Currency     string           `json:"currency"`
+	Rating       float64          `json:"rating"`
+	TotalReviews int32            `json:"total_reviews"`
+	Pickup       bool             `json:"pickup"`
+	Tags         []string         `json:"tags"`
+	OpeningHours wireOpeningHours `json:"opening_hours"`
 	Pizzas       []struct {
 		ID           uuid.UUID `json:"id"`
 		Name         string    `json:"name"`
@@ -128,17 +132,22 @@ func toIndexedRestaurant(p restaurantLaunchedPayload) index.IndexedRestaurant {
 		})
 	}
 
+	minimumOrder, _ := strconv.ParseFloat(p.Delivery.MinimumOrder, 64)
+
 	return index.IndexedRestaurant{
 		ID:            p.RestaurantID,
 		Name:          p.RestaurantName,
 		Slug:          slug,
 		City:          p.Address.City,
 		Location:      location,
+		Timezone:      p.Timezone,
 		Currency:      p.Currency,
 		Pickup:        p.Pickup,
 		DeliveryType:  p.Delivery.Type,
 		DeliveryKm:    p.Delivery.RadiusKm,
+		MinimumOrder:  minimumOrder,
 		Tags:          p.Tags,
+		OpeningHours:  flattenOpeningHours(p.OpeningHours),
 		Rating:        p.Rating,
 		TotalReviews:  p.TotalReviews,
 		Pizzas:        pizzas,

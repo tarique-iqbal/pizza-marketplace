@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,15 +22,18 @@ type restaurantUpdatedPayload struct {
 	} `json:"address"`
 	Lat      float64 `json:"lat"`
 	Lon      float64 `json:"lon"`
+	Timezone string  `json:"timezone"`
 	Delivery struct {
-		Type     string `json:"type"`
-		RadiusKm *int16 `json:"radiusKm"`
+		Type         string `json:"type"`
+		RadiusKm     *int16 `json:"radiusKm"`
+		MinimumOrder string `json:"minimumOrder"`
 	} `json:"delivery"`
-	Currency     string   `json:"currency"`
-	Rating       float64  `json:"rating"`
-	TotalReviews int32    `json:"total_reviews"`
-	Pickup       bool     `json:"pickup"`
-	Tags         []string `json:"tags"`
+	Currency     string           `json:"currency"`
+	Rating       float64          `json:"rating"`
+	TotalReviews int32            `json:"total_reviews"`
+	Pickup       bool             `json:"pickup"`
+	Tags         []string         `json:"tags"`
+	OpeningHours wireOpeningHours `json:"opening_hours"`
 }
 
 type UpdateRestaurantFields struct {
@@ -54,16 +58,21 @@ func (h *UpdateRestaurantFields) Handle(event index.EventPayload) error {
 }
 
 func toRestaurantFields(p restaurantUpdatedPayload) index.RestaurantFields {
+	minimumOrder, _ := strconv.ParseFloat(p.Delivery.MinimumOrder, 64)
+
 	return index.RestaurantFields{
 		Name:         p.RestaurantName,
 		Slug:         p.Slug,
 		City:         p.Address.City,
 		Location:     index.GeoPoint{Lat: p.Lat, Lon: p.Lon},
+		Timezone:     p.Timezone,
 		Currency:     p.Currency,
 		Pickup:       p.Pickup,
 		DeliveryType: p.Delivery.Type,
 		DeliveryKm:   p.Delivery.RadiusKm,
+		MinimumOrder: minimumOrder,
 		Tags:         p.Tags,
+		OpeningHours: flattenOpeningHours(p.OpeningHours),
 		Rating:       p.Rating,
 		TotalReviews: p.TotalReviews,
 		UpdatedAt:    p.UpdatedAt,

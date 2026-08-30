@@ -25,12 +25,16 @@ func updatedPayload(t *testing.T, restaurantID uuid.UUID) []byte {
 		"address": {"city": "Berlin"},
 		"lat": 52.5200,
 		"lon": 13.4050,
-		"delivery": {"type": "own", "radiusKm": 15},
+		"timezone": "Europe/Berlin",
+		"delivery": {"type": "own", "radiusKm": 15, "minimumOrder": "20.00"},
 		"currency": "EUR",
 		"rating": 4.8,
 		"total_reviews": 200,
 		"pickup": false,
-		"tags": ["vegan"]
+		"tags": ["vegan"],
+		"opening_hours": {
+			"tuesday": [{"open": "10:00", "close": "20:00"}]
+		}
 	}`)
 }
 
@@ -63,6 +67,9 @@ func TestUpdateRestaurantFields_Success(t *testing.T) {
 	assert.EqualValues(t, 200, got.Fields.TotalReviews)
 	assert.InDelta(t, 52.5200, got.Fields.Location.Lat, 0.0001)
 	assert.InDelta(t, 13.4050, got.Fields.Location.Lon, 0.0001)
+	assert.Equal(t, "Europe/Berlin", got.Fields.Timezone)
+	assert.InDelta(t, 20.00, got.Fields.MinimumOrder, 0.001)
+	assert.Equal(t, []index.IndexedOpeningHours{{Weekday: "tuesday", Open: "10:00", Close: "20:00"}}, got.Fields.OpeningHours)
 	assert.True(t, got.Fields.UpdatedAt.Equal(time.Date(2026, 8, 24, 9, 0, 0, 0, time.UTC)))
 }
 

@@ -28,12 +28,16 @@ func launchedPayload(t *testing.T, restaurantID uuid.UUID) []byte {
 		"address": {"city": "Hamburg"},
 		"lat": 53.5511,
 		"lon": 9.9937,
-		"delivery": {"type": "own", "radiusKm": 10},
+		"timezone": "Europe/Berlin",
+		"delivery": {"type": "own", "radiusKm": 10, "minimumOrder": "18.00"},
 		"currency": "EUR",
 		"rating": 4.7,
 		"total_reviews": 128,
 		"pickup": true,
 		"tags": ["vegetarian", "halal"],
+		"opening_hours": {
+			"monday": [{"open": "11:00", "close": "22:00"}]
+		},
 		"pizzas": [
 			{
 				"id": "` + uuid.New().String() + `",
@@ -83,6 +87,9 @@ func TestUpsertSnapshot_Success(t *testing.T) {
 
 	assert.InDelta(t, 53.5511, got.Location.Lat, 0.0001)
 	assert.InDelta(t, 9.9937, got.Location.Lon, 0.0001)
+	assert.Equal(t, "Europe/Berlin", got.Timezone)
+	assert.InDelta(t, 18.00, got.MinimumOrder, 0.001)
+	assert.Equal(t, []index.IndexedOpeningHours{{Weekday: "monday", Open: "11:00", Close: "22:00"}}, got.OpeningHours)
 
 	require.Len(t, got.Pizzas, 1)
 	assert.Equal(t, "Margherita", got.Pizzas[0].Name)
