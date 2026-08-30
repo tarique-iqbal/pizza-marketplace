@@ -32,17 +32,26 @@ type IndexedToppingPrice struct {
 	ExtraPrice string    `json:"extraPrice"`
 }
 
+type IndexedOpeningHours struct {
+	Weekday string `json:"weekday"`
+	Open    string `json:"open"`
+	Close   string `json:"close"`
+}
+
 type IndexedRestaurant struct {
 	ID                     uuid.UUID             `json:"id"`
 	Name                   string                `json:"name"`
 	Slug                   string                `json:"slug"`
 	City                   string                `json:"city"`
 	Location               GeoPoint              `json:"location"`
+	Timezone               string                `json:"timezone"`
 	Currency               string                `json:"currency"`
 	Pickup                 bool                  `json:"pickup"`
 	DeliveryType           string                `json:"deliveryType"`
 	DeliveryKm             *int16                `json:"deliveryKm,omitempty"`
+	MinimumOrder           float64               `json:"minimumOrder"`
 	Tags                   []string              `json:"tags"`
+	OpeningHours           []IndexedOpeningHours `json:"openingHours"`
 	Rating                 float64               `json:"rating"`
 	TotalReviews           int32                 `json:"totalReviews"`
 	Pizzas                 []IndexedPizza        `json:"pizzas"`
@@ -56,11 +65,14 @@ type RestaurantFields struct {
 	Slug         string
 	City         string
 	Location     GeoPoint
+	Timezone     string
 	Currency     string
 	Pickup       bool
 	DeliveryType string
 	DeliveryKm   *int16
+	MinimumOrder float64
 	Tags         []string
+	OpeningHours []IndexedOpeningHours
 	Rating       float64
 	TotalReviews int32
 	UpdatedAt    time.Time
