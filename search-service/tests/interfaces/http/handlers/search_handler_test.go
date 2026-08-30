@@ -63,6 +63,37 @@ func TestSearchHandler_MissingAddressField_Returns400(t *testing.T) {
 	assert.Zero(t, geocoder.CallCount, "must not attempt to geocode an incomplete address")
 }
 
+func TestSearchHandler_PassesFulfillmentTagsOpenNowSort_Through(t *testing.T) {
+	repo := &testutil.MockSearchRepository{}
+	geocoder := &testutil.MockGeocoder{Lat: 53.55, Lon: 9.99}
+	h := setupSearchHandler(repo, geocoder)
+
+	w := performSearch(
+		h,
+		"/search?"+validAddressQS+"&fulfillment=pickup&tags=vegan,halal&openNow=true&sort=distance",
+	)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "pickup", repo.LastQuery.Fulfillment)
+	assert.Equal(t, []string{"vegan", "halal"}, repo.LastQuery.Tags)
+	assert.True(t, repo.LastQuery.OpenNow)
+	assert.Equal(t, "distance", repo.LastQuery.Sort)
+}
+
+func TestSearchHandler_NoNewParams_LeavesThemZeroValued(t *testing.T) {
+	repo := &testutil.MockSearchRepository{}
+	geocoder := &testutil.MockGeocoder{Lat: 53.55, Lon: 9.99}
+	h := setupSearchHandler(repo, geocoder)
+
+	w := performSearch(h, "/search?"+validAddressQS)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "", repo.LastQuery.Fulfillment)
+	assert.Empty(t, repo.LastQuery.Tags)
+	assert.False(t, repo.LastQuery.OpenNow)
+	assert.Equal(t, "", repo.LastQuery.Sort)
+}
+
 func TestSearchHandler_EmptyQ_StillSearches(t *testing.T) {
 	repo := &testutil.MockSearchRepository{}
 	geocoder := &testutil.MockGeocoder{Lat: 53.55, Lon: 9.99}
