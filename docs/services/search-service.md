@@ -40,14 +40,26 @@ real-ES integration suite — see "Testing" below.
 ## Domain model
 
 ```go
+type IndexedOpeningHours struct {
+    Weekday, Open, Close string // e.g. "monday", "09:00", "22:00" — one entry per range, flattened across
+                                 // the whole week (restaurant-service's own shape is day-keyed instead;
+                                 // flattening lets one Painless script branch check "is it open right now"
+                                 // for any weekday without picking a field name dynamically)
+}
+
 type IndexedRestaurant struct {
     ID, Name, Slug, City string
     Location     GeoPoint // always present — see note below
+    Timezone     string   // IANA name (e.g. "Europe/Berlin"), sourced from OpenCage's own geocoding
+                           // response — see "GET /search" below for how it drives openNow
     Currency     string
     Pickup       bool
     DeliveryType string
     DeliveryKm   *int16 // nil when DeliveryType is "none" — see "GET /search" below for what that means for matching
+    MinimumOrder float64 // real numeric field, not a display-only keyword string like the price fields
+                          // below — needed for actual range/sort, see "Elasticsearch index" below
     Tags         []string
+    OpeningHours []IndexedOpeningHours
     Rating       float64
     TotalReviews int32
     Pizzas       []IndexedPizza
@@ -83,11 +95,14 @@ type IndexedToppingPrice struct {
 type RestaurantFields struct {
     Name, Slug, City string
     Location     GeoPoint
+    Timezone     string
     Currency     string
     Pickup       bool
     DeliveryType string
     DeliveryKm   *int16
+    MinimumOrder float64
     Tags         []string
+    OpeningHours []IndexedOpeningHours
     Rating       float64
     TotalReviews int32
     UpdatedAt    time.Time
@@ -130,7 +145,10 @@ type SearchRepository interface {
 `SearchQuery.Location` is a plain `GeoPoint`, not optional — every search resolves a customer address to
 coordinates before querying (see "Geocoding" and "`GET /search`" below), so there's no "no location" case to
 model. There's no `RadiusKm` on `SearchQuery` either — coverage is judged per-restaurant against its own
-`DeliveryKm`, not a value the caller supplies.
+`DeliveryKm`, not a value the caller supplies. `SearchQuery` also carries `Fulfillment string` (`"delivery"` \|
+`"pickup"` \| `""`), `Tags []string`, `OpenNow bool`, and `Sort string` (`"distance"` \| `"minimumOrder"` \| `""`)
+— all zero-value by default, so an old-style request with none of them behaves exactly as before. See
+"`GET /search`" below for how each shapes the query.
 
 A `Delete` method for pulling a restaurant back out of the index on `restaurant.deactivated` is not implemented —
 restaurant-service doesn't publish `deactivated`/`reactivated` yet, so it would have zero callers.
@@ -147,10 +165,16 @@ called at both API and worker startup:
   document rather than one pizza satisfying both) — accepted at this index's current scope, revisit if that
   precision is ever needed. `deliveryKm` is mapped `short` — see "`GET /search`" for how it's used.
   `pizzas.prices`/`toppingPrices` are both plain object arrays too, each price kept as a `keyword` (a wire-format
-  decimal string, not `float` — display-only, never range-queried or sorted on in this slice). The top-level
-  `updatedAt`, the nested `pizzas.updatedAt`, and the top-level `toppingPricesUpdatedAt` are all mapped `date` —
-  three separate ordering guards (restaurant, per-pizza, and topping-prices-as-a-whole), not one shared field; see
-  "Events" below for why a pizza edit or a topping-price edit can't reuse the restaurant-level guard.
+  decimal string, not `float` — display-only, never range-queried or sorted on in this slice). `timezone` is
+  `keyword` (an IANA name, compared exactly, never analyzed). `minimumOrder` is the one deliberate departure from
+  that display-only-string convention: `scaled_float` (`scaling_factor: 100`) — a real numeric field, because
+  unlike every other price in this index it needs to be sorted (`sort=minimumOrder`), and a plain `keyword` would
+  sort `"10.00"` before `"9.00"` lexicographically. `openingHours` is a plain object array (same non-`nested`
+  tradeoff as `pizzas`) with `weekday`/`open`/`close` all `keyword` — flattened this way, the three sub-fields
+  become parallel same-order doc-value arrays, which is what the `openNow` filter script below relies on. The
+  top-level `updatedAt`, the nested `pizzas.updatedAt`, and the top-level `toppingPricesUpdatedAt` are all mapped
+  `date` — three separate ordering guards (restaurant, per-pizza, and topping-prices-as-a-whole), not one shared
+  field; see "Events" below for why a pizza edit or a topping-price edit can't reuse the restaurant-level guard.
 - **`geocode`** — a disposable key/value cache for resolved addresses, unrelated to search. See "Geocoding"
   below.
 
@@ -187,7 +211,7 @@ flowchart LR
     H2 --> ES
     H3 --> ES
     H4 --> ES
-    API["GET /search?house=&street=&city=&postalCode=&q="] --> GEO["Geocoder\n(cached via geocode index)"]
+    API["GET /search?house=&street=&city=&postalCode=&q=\n&fulfillment=&tags=&openNow=&sort="] --> GEO["Geocoder\n(cached via geocode index)"]
     GEO --> ES
 ```
 
@@ -251,24 +275,38 @@ first, would otherwise let the retried older event silently clobber the newer da
 
 Query params: `house`, `street`, `city`, `postalCode` (all **required** — a full delivery address, not raw
 coordinates the caller has to already know), `q` (free text, optional — empty means "browse everything
-deliverable to this address"). A request missing any address field is a `400`, not silently ignored. No auth —
-public by design, matching the marketplace's core purpose. No `/health` route, matching restaurant-service's own
-precedent (it has none either, unlike identity-service).
+deliverable to this address"), `fulfillment` (`delivery` \| `pickup`, optional), `tags` (comma-separated,
+optional), `openNow` (bool, optional), `sort` (`distance` \| `minimumOrder`, optional). A request missing any
+address field is a `400`, not silently ignored. No auth — public by design, matching the marketplace's core
+purpose. No `/health` route, matching restaurant-service's own precedent (it has none either, unlike
+identity-service).
 
-`SearchHandler` binds the address via `ShouldBindQuery` (`form` tags, `binding:"required"`), builds an
-`index.Address`, and hands off to `SearchRestaurants.Execute`, which resolves it to `lat`/`lon` via the geocoder
-(cached — see "Geocoding") before ever touching `SearchRepository`. A geocode failure (address doesn't resolve,
-OpenCage unreachable) surfaces as a `500` — there's no fallback to an unscoped, address-less search.
+`SearchHandler` binds the address and new params via `ShouldBindQuery` (`form` tags, `binding:"required"` on the
+address fields only), splits `tags` on `,`, builds an `index.Address` plus a `query.SearchRestaurantsRequest`, and
+hands off to `SearchRestaurants.Execute`, which resolves the address to `lat`/`lon` via the geocoder (cached —
+see "Geocoding") before ever touching `SearchRepository`. A geocode failure (address doesn't resolve, OpenCage
+unreachable) surfaces as a `500` — there's no fallback to an unscoped, address-less search.
 
-**Coverage is decided by each restaurant's own delivery radius, not a caller-supplied one.** The query filters
-with a Painless script comparing `doc['location'].arcDistance(customerLat, customerLon)` (meters) against
-`doc['deliveryKm'].value * 1000` — a restaurant with no `deliveryKm` set (`DeliveryType: "none"`) is excluded
-outright, on the theory that "no delivery configured" shouldn't default to "unlimited range." Pickup-only
-restaurants (`Pickup: true` with no delivery configured) are a known gap: they never match any address-scoped
-search today, even though a customer might reasonably want to find them for pickup regardless of distance. Not
-addressed in this slice.
+**Fulfillment coverage defaults to "either way works."** `deliveryClause` is a Painless script comparing
+`doc['location'].arcDistance(customerLat, customerLon)` (meters) against `doc['deliveryKm'].value * 1000` —
+excluded outright if the restaurant has no `deliveryKm` (`DeliveryType: "none"`), same "unknown state excluded"
+convention `openNow` uses below. `pickupClause` is a plain `{"term": {"pickup": true}}`. With no `fulfillment`
+param, the query filters on `should: [pickupClause, deliveryClause]` with `minimum_should_match: 1` — a restaurant
+qualifies if it can serve the customer *either* way, which is what lets a pickup-only restaurant surface in a
+plain, filter-less search (an earlier version of this endpoint excluded pickup-only restaurants from every
+search outright; that gap is closed). `fulfillment=delivery`/`fulfillment=pickup` narrow to just one clause
+instead of the `should`.
 
-Within whatever passes that filter, relevance is not plain keyword matching:
+**`tags`** adds one `{"term": {"tags": <tag>}}` filter per requested tag (implicit AND — requesting `vegan` and
+`halal` means both, not either).
+
+**`openNow`** adds a script filter that reads the *document's own* `timezone` field, not a query param, so "now"
+is localized per-restaurant: `ZonedDateTime.ofInstant(Instant.ofEpochMilli(nowMillis), ZoneId.of(doc['timezone']
+.value))`, then a linear scan of the flattened `openingHours` arrays for a range on the current weekday where
+`open <= now < close` (zero-padded `"HH:mm"` string comparison). A restaurant with no stored timezone is excluded,
+not treated as always-open or always-closed.
+
+Within whatever passes those filters, relevance is not plain keyword matching:
 
 - **Typo tolerance**: the `multi_match` query carries `"fuzziness": "AUTO"` across `name`/`pizzas.name`/
   `pizzas.toppings`, so e.g. `q=Pizzeriaa` still matches `Pizzeria Roma`.
@@ -277,11 +315,15 @@ Within whatever passes that filter, relevance is not plain keyword matching:
   restaurant with a weak text match still can't outrank a 3.2-rated restaurant with a strong one) and
   `"missing": 0` (an unrated restaurant gets no boost rather than being penalized).
 
-Ranking stays relevance+rating even after the delivery-range filter narrows the candidate set — every remaining
-hit can already reach the customer, so which one is a few hundred meters closer matters less than which one
-actually matches what they're looking for. (An earlier version of this endpoint took raw `lat`/`lon`/`radiusKm`
-and sorted geo-scoped results by distance; that was replaced by the address-required, delivery-radius-filtered
-design described here.)
+Ranking stays relevance+rating by default even after the fulfillment/tags/openNow filters narrow the candidate
+set — every remaining hit already matches what was asked for, so which one is a few hundred meters closer
+matters less than which one actually matches what the customer typed. **`sort=distance`/`sort=minimumOrder`
+replace that ordering outright** rather than blending with it (`_geo_distance` ascending, or the `minimumOrder`
+field ascending) — a customer who explicitly asks to sort by distance wants distance order, not
+distance-nudged-by-text-relevance. The underlying `bool` query (text match + every filter above) is unchanged
+either way, only the ordering differs. (An earlier version of this endpoint took raw `lat`/`lon`/`radiusKm` and
+always sorted geo-scoped results by distance; that was replaced by the address-required, filter-based design
+described here, with distance-sort now opt-in via `sort=distance`.)
 
 ## Testing
 
