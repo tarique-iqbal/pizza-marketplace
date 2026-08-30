@@ -22,7 +22,7 @@ func TestSearchRestaurants_ResolvesAddressThenSearches(t *testing.T) {
 
 	addr := index.Address{House: "1", Street: "Main St", City: "Hamburg", PostalCode: "12345"}
 
-	results, err := uc.Execute(context.Background(), addr, "pizza")
+	results, err := uc.Execute(context.Background(), query.SearchRestaurantsRequest{Address: addr, Text: "pizza"})
 	require.NoError(t, err)
 
 	assert.Equal(t, addr, geocoder.LastAddr)
@@ -34,12 +34,33 @@ func TestSearchRestaurants_ResolvesAddressThenSearches(t *testing.T) {
 	assert.Equal(t, "Anatolische Kueche", results[0].Name)
 }
 
+func TestSearchRestaurants_PassesFiltersAndSortThrough(t *testing.T) {
+	repo := &testutil.MockSearchRepository{}
+	geocoder := &testutil.MockGeocoder{Lat: 53.5511, Lon: 9.9937}
+	uc := query.NewSearchRestaurants(repo, geocoder)
+
+	_, err := uc.Execute(context.Background(), query.SearchRestaurantsRequest{
+		Address:     index.Address{House: "1", Street: "Main St", City: "Hamburg", PostalCode: "12345"},
+		Text:        "pizza",
+		Fulfillment: "pickup",
+		Tags:        []string{"vegan", "halal"},
+		OpenNow:     true,
+		Sort:        "distance",
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, "pickup", repo.LastQuery.Fulfillment)
+	assert.Equal(t, []string{"vegan", "halal"}, repo.LastQuery.Tags)
+	assert.True(t, repo.LastQuery.OpenNow)
+	assert.Equal(t, "distance", repo.LastQuery.Sort)
+}
+
 func TestSearchRestaurants_GeocodeError_PropagatesAndSkipsSearch(t *testing.T) {
 	repo := &testutil.MockSearchRepository{}
 	geocoder := &testutil.MockGeocoder{Err: errors.New("no geocoding results found")}
 	uc := query.NewSearchRestaurants(repo, geocoder)
 
-	_, err := uc.Execute(context.Background(), index.Address{}, "pizza")
+	_, err := uc.Execute(context.Background(), query.SearchRestaurantsRequest{Text: "pizza"})
 
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "no geocoding results found")
@@ -51,7 +72,7 @@ func TestSearchRestaurants_PropagatesRepositoryError(t *testing.T) {
 	geocoder := &testutil.MockGeocoder{Lat: 53.5511, Lon: 9.9937}
 	uc := query.NewSearchRestaurants(repo, geocoder)
 
-	_, err := uc.Execute(context.Background(), index.Address{}, "pizza")
+	_, err := uc.Execute(context.Background(), query.SearchRestaurantsRequest{Text: "pizza"})
 
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "es unreachable")
