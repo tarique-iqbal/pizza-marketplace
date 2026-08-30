@@ -8,8 +8,12 @@ import (
 )
 
 type SearchQuery struct {
-	Text     string
-	Location GeoPoint
+	Text        string
+	Location    GeoPoint
+	Fulfillment string
+	Tags        []string
+	OpenNow     bool
+	Sort        string
 }
 
 type SearchRepository interface {
