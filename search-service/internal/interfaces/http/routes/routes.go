@@ -7,9 +7,11 @@ import (
 )
 
 type Handlers struct {
-	SearchHandler *handlers.SearchHandler
+	SearchHandler        *handlers.SearchHandler
+	GetRestaurantHandler *handlers.GetRestaurantHandler
 }
 
 func SetupRoutes(router *gin.Engine, h *Handlers) {
 	router.GET("/search", h.SearchHandler.Search)
+	router.GET("/search/restaurant/:id", h.GetRestaurantHandler.Get)
 }

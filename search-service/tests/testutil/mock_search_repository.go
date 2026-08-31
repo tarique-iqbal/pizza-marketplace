@@ -32,6 +32,8 @@ type UpdatedToppingPrices struct {
 }
 
 type MockSearchRepository struct {
+	FindByIDResult         index.IndexedRestaurant
+	FindByIDErr            error
 	Upserted               []index.IndexedRestaurant
 	UpsertErr              error
 	UpdatedFields          []UpdatedFields
@@ -48,6 +50,10 @@ type MockSearchRepository struct {
 }
 
 var _ index.SearchRepository = (*MockSearchRepository)(nil)
+
+func (m *MockSearchRepository) FindByID(_ context.Context, _ uuid.UUID) (index.IndexedRestaurant, error) {
+	return m.FindByIDResult, m.FindByIDErr
+}
 
 func (m *MockSearchRepository) UpsertSnapshot(_ context.Context, r index.IndexedRestaurant) error {
 	m.Upserted = append(m.Upserted, r)

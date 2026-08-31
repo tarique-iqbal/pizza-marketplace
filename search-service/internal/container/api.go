@@ -11,7 +11,8 @@ import (
 )
 
 type APIContainer struct {
-	SearchHandler *handlers.SearchHandler
+	SearchHandler        *handlers.SearchHandler
+	GetRestaurantHandler *handlers.GetRestaurantHandler
 }
 
 func NewAPIContainer() (*APIContainer, error) {
@@ -36,7 +37,10 @@ func NewAPIContainer() (*APIContainer, error) {
 	searchRestaurants := query.NewSearchRestaurants(searchRepo, cachingGeocoder)
 	searchHandler := handlers.NewSearchHandler(searchRestaurants)
 
-	return &APIContainer{SearchHandler: searchHandler}, nil
+	getRestaurant := query.NewGetRestaurant(searchRepo)
+	getRestaurantHandler := handlers.NewGetRestaurantHandler(getRestaurant)
+
+	return &APIContainer{SearchHandler: searchHandler, GetRestaurantHandler: getRestaurantHandler}, nil
 }
 
 func (c *APIContainer) Close() {}

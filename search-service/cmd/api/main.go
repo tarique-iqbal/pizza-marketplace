@@ -23,7 +23,8 @@ func main() {
 	router.Use(gin.Recovery(), observability.Middleware(logger))
 
 	handlers := &routes.Handlers{
-		SearchHandler: app.SearchHandler,
+		SearchHandler:        app.SearchHandler,
+		GetRestaurantHandler: app.GetRestaurantHandler,
 	}
 
 	routes.SetupRoutes(router, handlers)
