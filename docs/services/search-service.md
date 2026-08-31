@@ -56,6 +56,12 @@ type IndexedRestaurant struct {
     Pickup       bool
     DeliveryType string
     DeliveryKm   *int16 // nil when DeliveryType is "none" — see "GET /search" below for what that means for matching
+    DeliveryTimeMin, DeliveryTimeMax *int16 // owner-set estimated delivery range in minutes (e.g. 30/45); nil
+                                             // for a pickup-only restaurant. Raw numbers only — no formatted
+                                             // "35-50 min" string here, unlike restaurant-service's own API
+                                             // response (its RestaurantResponse.EstimatedDelivery), since
+                                             // IndexedRestaurant is plain data with no formatting logic of
+                                             // its own and /search marshals it directly
     MinimumOrder float64 // real numeric field, not a display-only keyword string like the price fields
                           // below — needed for actual range/sort, see "Elasticsearch index" below
     Tags         []string
@@ -100,6 +106,7 @@ type RestaurantFields struct {
     Pickup       bool
     DeliveryType string
     DeliveryKm   *int16
+    DeliveryTimeMin, DeliveryTimeMax *int16
     MinimumOrder float64
     Tags         []string
     OpeningHours []IndexedOpeningHours
@@ -276,7 +283,7 @@ first, would otherwise let the retried older event silently clobber the newer da
 Query params: `house`, `street`, `city`, `postalCode` (all **required** — a full delivery address, not raw
 coordinates the caller has to already know), `q` (free text, optional — empty means "browse everything
 deliverable to this address"), `fulfillment` (`delivery` \| `pickup`, optional), `tags` (comma-separated,
-optional), `openNow` (bool, optional), `sort` (`distance` \| `minimumOrder`, optional). A request missing any
+optional), `openNow` (bool, optional), `sort` (`distance` \| `minimumOrder` \| `deliveryTime`, optional). A request missing any
 address field is a `400`, not silently ignored. No auth — public by design, matching the marketplace's core
 purpose. No `/health` route, matching restaurant-service's own precedent (it has none either, unlike
 identity-service).
@@ -317,13 +324,16 @@ Within whatever passes those filters, relevance is not plain keyword matching:
 
 Ranking stays relevance+rating by default even after the fulfillment/tags/openNow filters narrow the candidate
 set — every remaining hit already matches what was asked for, so which one is a few hundred meters closer
-matters less than which one actually matches what the customer typed. **`sort=distance`/`sort=minimumOrder`
-replace that ordering outright** rather than blending with it (`_geo_distance` ascending, or the `minimumOrder`
-field ascending) — a customer who explicitly asks to sort by distance wants distance order, not
-distance-nudged-by-text-relevance. The underlying `bool` query (text match + every filter above) is unchanged
-either way, only the ordering differs. (An earlier version of this endpoint took raw `lat`/`lon`/`radiusKm` and
-always sorted geo-scoped results by distance; that was replaced by the address-required, filter-based design
-described here, with distance-sort now opt-in via `sort=distance`.)
+matters less than which one actually matches what the customer typed. **`sort=distance`/`sort=minimumOrder`/
+`sort=deliveryTime` replace that ordering outright** rather than blending with it (`_geo_distance` ascending, the
+`minimumOrder` field ascending, or `deliveryTimeMin` ascending — the fastest-case estimate) — a customer who
+explicitly asks to sort by distance wants distance order, not distance-nudged-by-text-relevance.
+`sort=deliveryTime` relies on Elasticsearch's default `missing: "_last"` behavior for an ascending sort, so a
+pickup-only restaurant with no delivery-time estimate naturally sorts last rather than first. The underlying
+`bool` query (text match + every filter above) is unchanged either way, only the ordering differs. (An earlier
+version of this endpoint took raw `lat`/`lon`/`radiusKm` and always sorted geo-scoped results by distance; that
+was replaced by the address-required, filter-based design described here, with distance-sort now opt-in via
+`sort=distance`.)
 
 ## Testing
 
