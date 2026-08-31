@@ -63,6 +63,12 @@ CREATE TABLE restaurants (
     delivery_km SMALLINT
         CONSTRAINT ck_restaurants_delivery_km
         CHECK (delivery_km BETWEEN 1 AND 25),
+    delivery_time_min SMALLINT
+        CONSTRAINT ck_restaurants_delivery_time_min
+        CHECK (delivery_time_min BETWEEN 5 AND 120),
+    delivery_time_max SMALLINT
+        CONSTRAINT ck_restaurants_delivery_time_max
+        CHECK (delivery_time_max BETWEEN 5 AND 120),
     delivery_type restaurant_delivery_type_enum
         NOT NULL DEFAULT 'none',
     delivery_fee NUMERIC(5,2) NOT NULL DEFAULT 0.00
@@ -81,7 +87,9 @@ CREATE TABLE restaurants (
     updated_at TIMESTAMPTZ,
 
     CONSTRAINT pk_restaurants
-        PRIMARY KEY (id)
+        PRIMARY KEY (id),
+    CONSTRAINT ck_restaurants_delivery_time_range
+        CHECK (delivery_time_max IS NULL OR delivery_time_min IS NULL OR delivery_time_max > delivery_time_min)
 );
 
 -- unique indexes

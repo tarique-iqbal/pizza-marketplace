@@ -63,8 +63,12 @@ func TestRestaurantRepository_Update(t *testing.T) {
 	assert.NoError(t, err)
 
 	deliveryKm := int16(5)
+	deliveryTimeMin := int16(30)
+	deliveryTimeMax := int16(45)
 
 	res.DeliveryKm = &deliveryKm
+	res.DeliveryTimeMin = &deliveryTimeMin
+	res.DeliveryTimeMax = &deliveryTimeMax
 	res.DeliveryType = restaurant.DeliveryOwn
 	res.Checklist.Complete(restaurant.ChecklistDelivery)
 
@@ -77,6 +81,10 @@ func TestRestaurantRepository_Update(t *testing.T) {
 
 	assert.NotNil(t, r.DeliveryKm)
 	assert.Equal(t, int16(5), *r.DeliveryKm)
+	assert.NotNil(t, r.DeliveryTimeMin)
+	assert.Equal(t, int16(30), *r.DeliveryTimeMin)
+	assert.NotNil(t, r.DeliveryTimeMax)
+	assert.Equal(t, int16(45), *r.DeliveryTimeMax)
 	assert.Equal(t, restaurant.DeliveryOwn, r.DeliveryType)
 	assert.True(t, r.Checklist[restaurant.ChecklistDelivery])
 }
