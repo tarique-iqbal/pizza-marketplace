@@ -17,6 +17,7 @@ type SearchQuery struct {
 }
 
 type SearchRepository interface {
+	FindByID(ctx context.Context, id uuid.UUID) (IndexedRestaurant, error)
 	UpsertSnapshot(ctx context.Context, r IndexedRestaurant) error
 	UpdateFields(ctx context.Context, id uuid.UUID, fields RestaurantFields) error
 	UpsertPizza(ctx context.Context, restaurantID uuid.UUID, pizza IndexedPizza) error
