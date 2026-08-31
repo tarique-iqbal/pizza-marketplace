@@ -163,7 +163,7 @@ func TestSearchRepository_Search_NoDeliveryKm_ExcludedWhenFulfillmentIsDelivery(
 	assert.Empty(t, results, "a restaurant with no configured delivery radius must never match delivery, even at distance 0")
 }
 
-func TestSearchRepository_Search_NoDeliveryKm_IncludedByDefault_WhenPickupAvailable(t *testing.T) {
+func TestSearchRepository_Search_NoDeliveryKm_ExcludedByDefault(t *testing.T) {
 	es := testutil.ES(t)
 	repo := esinfra.NewSearchRepository(es)
 
@@ -181,7 +181,30 @@ func TestSearchRepository_Search_NoDeliveryKm_IncludedByDefault_WhenPickupAvaila
 		Location: index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
 	})
 	require.NoError(t, err)
-	require.Len(t, results, 1, "a pickup-only restaurant must surface in a plain, filter-less search too")
+	assert.Empty(t, results, "a plain, filter-less search defaults to delivery-only — a pickup-only restaurant"+
+		" must not surface unless fulfillment=pickup is requested explicitly")
+}
+
+func TestSearchRepository_Search_NoDeliveryKm_IncludedWhenFulfillmentIsPickup(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         uuid.New(),
+		Name:       "Pickup Only Pizzeria",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: nil,
+		Pickup:     true,
+	})
+	testutil.RefreshIndex(t, es, esinfra.IndexName)
+
+	results, err := repo.Search(context.Background(), index.SearchQuery{
+		Text:        "Pickup",
+		Location:    index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		Fulfillment: "pickup",
+	})
+	require.NoError(t, err)
+	require.Len(t, results, 1, "fulfillment=pickup must still surface a pickup-only restaurant")
 	assert.Equal(t, "Pickup Only Pizzeria", results[0].Name)
 }
 

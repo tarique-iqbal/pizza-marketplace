@@ -488,20 +488,13 @@ func buildSearchQuery(q index.SearchQuery) map[string]any {
 
 	var fulfillmentClause map[string]any
 	switch q.Fulfillment {
-	case "delivery":
-		fulfillmentClause = deliveryClause
 	case "pickup":
 		fulfillmentClause = pickupClause
 	default:
-		// Neither requested: a restaurant qualifies if it can serve the
-		// customer either way — this is what surfaces a pickup-only
-		// restaurant in a plain, filter-less search too.
-		fulfillmentClause = map[string]any{
-			"bool": map[string]any{
-				"should":               []map[string]any{pickupClause, deliveryClause},
-				"minimum_should_match": 1,
-			},
-		}
+		// "delivery", or unset — a plain, filter-less search defaults to
+		// delivery-only; a customer must explicitly ask fulfillment=pickup
+		// to see pickup-only restaurants.
+		fulfillmentClause = deliveryClause
 	}
 
 	filter := []map[string]any{fulfillmentClause}
