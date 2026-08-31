@@ -10,7 +10,7 @@ reactivate/deactivate endpoints yet to publish those events, so there's nothing 
 ## Layered architecture
 
 ```
-cmd/api                           → Gin HTTP server, GET /search only, no auth
+cmd/api                           → Gin HTTP server, GET /search and GET /search/restaurant/:id, no auth
 cmd/worker                        → RabbitMQ consumer
 cmd/worker/bootstrap              → app/runner setup (graceful shutdown, signal handling) — copied from
                                      restaurant-service's cmd/worker/bootstrap
@@ -20,7 +20,8 @@ internal/domain/index             → IndexedRestaurant, IndexedPizza, IndexedPi
                                      plain data, no business logic of its own
 internal/application/index        → UpsertSnapshot, UpdateRestaurantFields, SyncPizza, SyncToppingPrices
                                      (one handler per consumed event), EventDispatcher impl
-internal/application/query        → SearchRestaurants (the /search use case — resolves address, then searches)
+internal/application/query        → SearchRestaurants (the /search use case — resolves address, then searches),
+                                     GetRestaurant (the /search/restaurant/:id use case — a direct ES doc lookup)
 internal/infrastructure/elasticsearch → client wrapper, index_setup.go (EnsureIndex, both indices),
                                      search_repository.go, geocode_repository.go (CachingGeocoder)
 internal/infrastructure/geocoder  → OpenCageGeocoder — search-service's own copy, independent of
@@ -28,8 +29,12 @@ internal/infrastructure/geocoder  → OpenCageGeocoder — search-service's own 
 internal/infrastructure/messaging → RabbitMQ consumer, copied from email-service's shape (the bug-fixed version —
                                      checks both conn and channel closed before reconnecting)
 internal/infrastructure/observability → copied verbatim from restaurant-service (slog-based logger, Gin middleware)
-internal/interfaces/http          → SearchHandler, routes.go — no middleware package at all, this API has no auth
+internal/interfaces/http          → SearchHandler, GetRestaurantHandler, routes.go — no middleware package at
+                                     all, this API has no auth
 internal/container                → api.go / worker.go
+internal/shared/errors            → ErrNotFound — the one sentinel this service needs so far, checked via
+                                     errors.Is directly in the handler (no generic HandleError dispatcher, unlike
+                                     restaurant-service, which has ~8 distinct error kinds to route)
 ```
 
 Unlike identity/restaurant/email-service, there is no database — `internal/infrastructure/` has no
@@ -140,6 +145,7 @@ fabricated `(0,0)` location, which would be a real point in the ocean, not "unkn
 
 ```go
 type SearchRepository interface {
+    FindByID(ctx context.Context, id uuid.UUID) (IndexedRestaurant, error)
     UpsertSnapshot(ctx context.Context, r IndexedRestaurant) error
     UpdateFields(ctx context.Context, id uuid.UUID, fields RestaurantFields) error
     UpsertPizza(ctx context.Context, restaurantID uuid.UUID, pizza IndexedPizza) error
@@ -153,12 +159,19 @@ type SearchRepository interface {
 coordinates before querying (see "Geocoding" and "`GET /search`" below), so there's no "no location" case to
 model. There's no `RadiusKm` on `SearchQuery` either — coverage is judged per-restaurant against its own
 `DeliveryKm`, not a value the caller supplies. `SearchQuery` also carries `Fulfillment string` (`"delivery"` \|
-`"pickup"` \| `""`), `Tags []string`, `OpenNow bool`, and `Sort string` (`"distance"` \| `"minimumOrder"` \| `""`)
-— all zero-value by default, so an old-style request with none of them behaves exactly as before. See
+`"pickup"` \| `""`, zero-value `""` behaves the same as `"delivery"` — see "`GET /search`" below), `Tags
+[]string`, `OpenNow bool`, and `Sort string` (`"distance"` \| `"minimumOrder"` \| `"deliveryTime"` \| `""`). See
 "`GET /search`" below for how each shapes the query.
 
 A `Delete` method for pulling a restaurant back out of the index on `restaurant.deactivated` is not implemented —
 restaurant-service doesn't publish `deactivated`/`reactivated` yet, so it would have zero callers.
+
+`FindByID` is a direct Elasticsearch document `Get` by `_id`, not a `Search` query — every write in this
+repository (`UpsertSnapshot`, `UpdateFields`, `UpsertPizza`, etc.) already uses the restaurant's own UUID as the
+document `_id`, so a lookup by id is a single cheap `GET /restaurants/_doc/:id` rather than a term-query search.
+A missing document (never launched, or ES's `"found": false`/HTTP 404 response — a normal response shape for
+this API, not a transport error) maps to `internal/shared/errors.ErrNotFound`, wrapped with the restaurant id
+for context. See "`GET /search/restaurant/:id`" below.
 
 ## Elasticsearch index
 
@@ -220,6 +233,7 @@ flowchart LR
     H4 --> ES
     API["GET /search?house=&street=&city=&postalCode=&q=\n&fulfillment=&tags=&openNow=&sort="] --> GEO["Geocoder\n(cached via geocode index)"]
     GEO --> ES
+    API2["GET /search/restaurant/:id"] --> ES
 ```
 
 Each handler parses its event into a local, independent copy of restaurant-service's payload shape
@@ -294,15 +308,15 @@ hands off to `SearchRestaurants.Execute`, which resolves the address to `lat`/`l
 see "Geocoding") before ever touching `SearchRepository`. A geocode failure (address doesn't resolve, OpenCage
 unreachable) surfaces as a `500` — there's no fallback to an unscoped, address-less search.
 
-**Fulfillment coverage defaults to "either way works."** `deliveryClause` is a Painless script comparing
+**Fulfillment coverage defaults to delivery-only.** `deliveryClause` is a Painless script comparing
 `doc['location'].arcDistance(customerLat, customerLon)` (meters) against `doc['deliveryKm'].value * 1000` —
 excluded outright if the restaurant has no `deliveryKm` (`DeliveryType: "none"`), same "unknown state excluded"
 convention `openNow` uses below. `pickupClause` is a plain `{"term": {"pickup": true}}`. With no `fulfillment`
-param, the query filters on `should: [pickupClause, deliveryClause]` with `minimum_should_match: 1` — a restaurant
-qualifies if it can serve the customer *either* way, which is what lets a pickup-only restaurant surface in a
-plain, filter-less search (an earlier version of this endpoint excluded pickup-only restaurants from every
-search outright; that gap is closed). `fulfillment=delivery`/`fulfillment=pickup` narrow to just one clause
-instead of the `should`.
+param (or `fulfillment=delivery`), the query filters on `deliveryClause` alone — a pickup-only restaurant is
+excluded from a plain, filter-less search; a customer must explicitly pass `fulfillment=pickup` to see it, which
+switches the filter to `pickupClause` instead. (An earlier version of this endpoint used
+`should: [pickupClause, deliveryClause]` with `minimum_should_match: 1` by default, so either fulfillment method
+qualified — that was replaced with the delivery-only default described here.)
 
 **`tags`** adds one `{"term": {"tags": <tag>}}` filter per requested tag (implicit AND — requesting `vegan` and
 `halal` means both, not either).
@@ -335,15 +349,29 @@ version of this endpoint took raw `lat`/`lon`/`radiusKm` and always sorted geo-s
 was replaced by the address-required, filter-based design described here, with distance-sort now opt-in via
 `sort=distance`.)
 
+## `GET /search/restaurant/:id`
+
+A public, no-auth single-restaurant detail lookup — the pair to `/search`'s list view. `:id` is the restaurant's
+UUID; there is no slug-based route. The frontend (a separate repo) owns building a readable/SEO-friendly URL
+(e.g. `/restaurant/:slug?res_id=<uuid>`) and calls this endpoint with just the id — `Slug` is present on
+`IndexedRestaurant`'s response body like every other field, but isn't a lookup key here, so a stale slug (it
+regenerates in restaurant-service whenever an owner edits their address) can never break this endpoint.
+
+`GetRestaurantHandler.Get` parses `:id` via `uuid.Parse` (`400` on a malformed id, before ever touching
+Elasticsearch), calls `GetRestaurant.Execute`, and returns the `IndexedRestaurant` body as-is on success — same
+"marshal the domain struct directly, no response DTO" convention as `/search`. `404` if `errors.Is(err,
+apperr.ErrNotFound)` (restaurant never launched, or removed from the index), `500` for any other repository
+error.
+
 ## Testing
 
 Mixed, not uniform: `tests/application/index/` and `tests/application/query/` mock `SearchRepository` via a
 shared `tests/testutil.MockSearchRepository` (matches email-service's plain-unit-test approach, no
 infrastructure needed) — one test file per handler (`upsert_snapshot_test.go`, `update_restaurant_fields_test.go`,
-`sync_pizza_test.go`, `sync_topping_prices_test.go`). `tests/interfaces/http/handlers/` builds the real
-`SearchRestaurants` use case over that same mock and drives the handler through `httptest`, the same pattern
-restaurant-service's handler tests use (real use case, faked boundary dependency), just without a real DB behind
-it.
+`sync_pizza_test.go`, `sync_topping_prices_test.go`, `get_restaurant_test.go`). `tests/interfaces/http/handlers/`
+builds the real `SearchRestaurants`/`GetRestaurant` use cases over that same mock and drives the handlers through
+`httptest`, the same pattern restaurant-service's handler tests use (real use case, faked boundary dependency),
+just without a real DB behind it.
 
 `tests/infrastructure/elasticsearch/search_repository_test.go`, though, is a **real**-Elasticsearch integration
 suite — `toESRestaurant`/`fromESRestaurant`/the Painless scripts are only meaningfully testable against a real
@@ -352,8 +380,10 @@ cluster, not mocked. It runs against the `compose.test.yaml` `elasticsearch-test
 "needs a `-test` container" shape as identity/restaurant's Postgres-backed tests. Covers all four ordering guards
 per event type (`UpsertSnapshot`/`UpdateFields`/`UpsertPizza`/`RemovePizza`/`UpdateToppingPrices`, each with a
 stale-redelivery-ignored case), the pizzas-preserved-through-a-field-only-update and
-pizzas-preserved-through-a-topping-price-update cases, and the document-missing-404 case for
-`UpdateFields`/`UpsertPizza`/`RemovePizza`/`UpdateToppingPrices`'s no-`upsert:`-fallback contract.
+pizzas-preserved-through-a-topping-price-update cases, the document-missing-404 case for
+`UpdateFields`/`UpsertPizza`/`RemovePizza`/`UpdateToppingPrices`'s no-`upsert:`-fallback contract, and
+`FindByID`'s found/not-found cases (the latter asserting `errors.Is(err, apperr.ErrNotFound)`, not just a bare
+error).
 `tests/testutil.ES(t)` resets both indices before each test; `RefreshIndex` forces visibility (ES's ~1s
 near-realtime refresh would otherwise hide a just-written doc from an immediate assertion).
 
