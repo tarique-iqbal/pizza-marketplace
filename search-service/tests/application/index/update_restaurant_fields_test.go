@@ -26,7 +26,7 @@ func updatedPayload(t *testing.T, restaurantID uuid.UUID) []byte {
 		"lat": 52.5200,
 		"lon": 13.4050,
 		"timezone": "Europe/Berlin",
-		"delivery": {"type": "own", "radiusKm": 15, "minimumOrder": "20.00"},
+		"delivery": {"type": "own", "radiusKm": 15, "estimatedMinutesMin": 25, "estimatedMinutesMax": 40, "minimumOrder": "20.00"},
 		"currency": "EUR",
 		"rating": 4.8,
 		"total_reviews": 200,
@@ -62,6 +62,10 @@ func TestUpdateRestaurantFields_Success(t *testing.T) {
 	assert.Equal(t, "own", got.Fields.DeliveryType)
 	require.NotNil(t, got.Fields.DeliveryKm)
 	assert.EqualValues(t, 15, *got.Fields.DeliveryKm)
+	require.NotNil(t, got.Fields.DeliveryTimeMin)
+	assert.EqualValues(t, 25, *got.Fields.DeliveryTimeMin)
+	require.NotNil(t, got.Fields.DeliveryTimeMax)
+	assert.EqualValues(t, 40, *got.Fields.DeliveryTimeMax)
 	assert.Equal(t, []string{"vegan"}, got.Fields.Tags)
 	assert.InDelta(t, 4.8, got.Fields.Rating, 0.001)
 	assert.EqualValues(t, 200, got.Fields.TotalReviews)

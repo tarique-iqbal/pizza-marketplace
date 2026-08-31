@@ -28,9 +28,11 @@ type restaurantLaunchedPayload struct {
 	Lon      *float64 `json:"lon"`
 	Timezone string   `json:"timezone"`
 	Delivery struct {
-		Type         string `json:"type"`
-		RadiusKm     *int16 `json:"radiusKm"`
-		MinimumOrder string `json:"minimumOrder"`
+		Type                string `json:"type"`
+		RadiusKm            *int16 `json:"radiusKm"`
+		EstimatedMinutesMin *int16 `json:"estimatedMinutesMin"`
+		EstimatedMinutesMax *int16 `json:"estimatedMinutesMax"`
+		MinimumOrder        string `json:"minimumOrder"`
 	} `json:"delivery"`
 	Currency     string           `json:"currency"`
 	Rating       float64          `json:"rating"`
@@ -135,23 +137,25 @@ func toIndexedRestaurant(p restaurantLaunchedPayload) index.IndexedRestaurant {
 	minimumOrder, _ := strconv.ParseFloat(p.Delivery.MinimumOrder, 64)
 
 	return index.IndexedRestaurant{
-		ID:            p.RestaurantID,
-		Name:          p.RestaurantName,
-		Slug:          slug,
-		City:          p.Address.City,
-		Location:      location,
-		Timezone:      p.Timezone,
-		Currency:      p.Currency,
-		Pickup:        p.Pickup,
-		DeliveryType:  p.Delivery.Type,
-		DeliveryKm:    p.Delivery.RadiusKm,
-		MinimumOrder:  minimumOrder,
-		Tags:          p.Tags,
-		OpeningHours:  flattenOpeningHours(p.OpeningHours),
-		Rating:        p.Rating,
-		TotalReviews:  p.TotalReviews,
-		Pizzas:        pizzas,
-		ToppingPrices: toppingPrices,
-		UpdatedAt:     p.UpdatedAt,
+		ID:              p.RestaurantID,
+		Name:            p.RestaurantName,
+		Slug:            slug,
+		City:            p.Address.City,
+		Location:        location,
+		Timezone:        p.Timezone,
+		Currency:        p.Currency,
+		Pickup:          p.Pickup,
+		DeliveryType:    p.Delivery.Type,
+		DeliveryKm:      p.Delivery.RadiusKm,
+		DeliveryTimeMin: p.Delivery.EstimatedMinutesMin,
+		DeliveryTimeMax: p.Delivery.EstimatedMinutesMax,
+		MinimumOrder:    minimumOrder,
+		Tags:            p.Tags,
+		OpeningHours:    flattenOpeningHours(p.OpeningHours),
+		Rating:          p.Rating,
+		TotalReviews:    p.TotalReviews,
+		Pizzas:          pizzas,
+		ToppingPrices:   toppingPrices,
+		UpdatedAt:       p.UpdatedAt,
 	}
 }

@@ -29,7 +29,7 @@ func launchedPayload(t *testing.T, restaurantID uuid.UUID) []byte {
 		"lat": 53.5511,
 		"lon": 9.9937,
 		"timezone": "Europe/Berlin",
-		"delivery": {"type": "own", "radiusKm": 10, "minimumOrder": "18.00"},
+		"delivery": {"type": "own", "radiusKm": 10, "estimatedMinutesMin": 30, "estimatedMinutesMax": 45, "minimumOrder": "18.00"},
 		"currency": "EUR",
 		"rating": 4.7,
 		"total_reviews": 128,
@@ -80,6 +80,10 @@ func TestUpsertSnapshot_Success(t *testing.T) {
 	assert.Equal(t, "own", got.DeliveryType)
 	require.NotNil(t, got.DeliveryKm)
 	assert.EqualValues(t, 10, *got.DeliveryKm)
+	require.NotNil(t, got.DeliveryTimeMin)
+	assert.EqualValues(t, 30, *got.DeliveryTimeMin)
+	require.NotNil(t, got.DeliveryTimeMax)
+	assert.EqualValues(t, 45, *got.DeliveryTimeMax)
 	assert.Equal(t, []string{"vegetarian", "halal"}, got.Tags)
 	assert.InDelta(t, 4.7, got.Rating, 0.001)
 	assert.EqualValues(t, 128, got.TotalReviews)
