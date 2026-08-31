@@ -120,6 +120,7 @@ All routes are served through Traefik on port `80`. See each service's API refer
 
 - [Identity service](docs/api/identity-service.md) — `/auth`, `/users`
 - [Restaurant service](docs/api/restaurant-service.md) — `/restaurants`
+- [Search service](docs/api/search-service.md) — `/search`
 
 
 ## Service documentation
