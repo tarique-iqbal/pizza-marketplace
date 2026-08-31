@@ -1,4 +1,4 @@
-.PHONY: up down down-v test-up test-down test-identity test-restaurant test-email test fmt vet lint
+.PHONY: up down down-v test-up test-down test-identity test-restaurant test-email test-search test fmt vet lint
 
 up:
 	docker compose up --build
@@ -24,7 +24,10 @@ test-restaurant:
 test-email:
 	cd email-service && go test ./tests/...
 
-test: test-up test-identity test-restaurant test-email
+test-search:
+	docker compose -f compose.test.yaml exec -T search-test sh -c "cd /app && go test -p 1 -count=1 ./tests/..."
+
+test: test-up test-identity test-restaurant test-email test-search
 
 fmt:
 	@for svc in identity-service restaurant-service email-service; do \
