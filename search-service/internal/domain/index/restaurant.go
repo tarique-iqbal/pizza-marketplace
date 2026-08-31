@@ -49,6 +49,8 @@ type IndexedRestaurant struct {
 	Pickup                 bool                  `json:"pickup"`
 	DeliveryType           string                `json:"deliveryType"`
 	DeliveryKm             *int16                `json:"deliveryKm,omitempty"`
+	DeliveryTimeMin        *int16                `json:"deliveryTimeMin,omitempty"`
+	DeliveryTimeMax        *int16                `json:"deliveryTimeMax,omitempty"`
 	MinimumOrder           float64               `json:"minimumOrder"`
 	Tags                   []string              `json:"tags"`
 	OpeningHours           []IndexedOpeningHours `json:"openingHours"`
@@ -61,19 +63,21 @@ type IndexedRestaurant struct {
 }
 
 type RestaurantFields struct {
-	Name         string
-	Slug         string
-	City         string
-	Location     GeoPoint
-	Timezone     string
-	Currency     string
-	Pickup       bool
-	DeliveryType string
-	DeliveryKm   *int16
-	MinimumOrder float64
-	Tags         []string
-	OpeningHours []IndexedOpeningHours
-	Rating       float64
-	TotalReviews int32
-	UpdatedAt    time.Time
+	Name            string
+	Slug            string
+	City            string
+	Location        GeoPoint
+	Timezone        string
+	Currency        string
+	Pickup          bool
+	DeliveryType    string
+	DeliveryKm      *int16
+	DeliveryTimeMin *int16
+	DeliveryTimeMax *int16
+	MinimumOrder    float64
+	Tags            []string
+	OpeningHours    []IndexedOpeningHours
+	Rating          float64
+	TotalReviews    int32
+	UpdatedAt       time.Time
 }
