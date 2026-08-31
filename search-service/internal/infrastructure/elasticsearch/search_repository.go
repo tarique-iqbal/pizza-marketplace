@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"search-service/internal/domain/index"
+	apperr "search-service/internal/shared/errors"
 )
 
 type SearchRepository struct {
@@ -352,6 +353,36 @@ func (r *SearchRepository) UpdateToppingPrices(
 	}
 
 	return nil
+}
+
+func (r *SearchRepository) FindByID(ctx context.Context, id uuid.UUID) (index.IndexedRestaurant, error) {
+	res, err := r.es.Get(IndexName, id.String(), r.es.Get.WithContext(ctx))
+	if err != nil {
+		return index.IndexedRestaurant{}, fmt.Errorf("failed to execute get: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode == 404 {
+		return index.IndexedRestaurant{}, fmt.Errorf("restaurant %s: %w", id, apperr.ErrNotFound)
+	}
+
+	if res.IsError() {
+		return index.IndexedRestaurant{}, fmt.Errorf("get failed: %s", res.String())
+	}
+
+	var result struct {
+		Found  bool         `json:"found"`
+		Source esRestaurant `json:"_source"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
+		return index.IndexedRestaurant{}, fmt.Errorf("failed to decode get response: %w", err)
+	}
+
+	if !result.Found {
+		return index.IndexedRestaurant{}, fmt.Errorf("restaurant %s: %w", id, apperr.ErrNotFound)
+	}
+
+	return fromESRestaurant(id, result.Source), nil
 }
 
 func (r *SearchRepository) Search(ctx context.Context, q index.SearchQuery) ([]index.IndexedRestaurant, error) {

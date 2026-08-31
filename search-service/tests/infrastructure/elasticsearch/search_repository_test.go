@@ -2,6 +2,7 @@ package elasticsearch_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 
 	"search-service/internal/domain/index"
 	esinfra "search-service/internal/infrastructure/elasticsearch"
+	apperr "search-service/internal/shared/errors"
 	"search-service/tests/testutil"
 )
 
@@ -22,6 +24,38 @@ func int16Ptr(v int16) *int16 {
 func upsert(t *testing.T, repo *esinfra.SearchRepository, r index.IndexedRestaurant) {
 	t.Helper()
 	require.NoError(t, repo.UpsertSnapshot(context.Background(), r))
+}
+
+func TestSearchRepository_FindByID_ReturnsIndexedRestaurant(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	id := uuid.New()
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         id,
+		Name:       "Pizzeria Napoli",
+		Slug:       "napoli",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+	})
+	testutil.RefreshIndex(t, es, esinfra.IndexName)
+
+	result, err := repo.FindByID(context.Background(), id)
+	require.NoError(t, err)
+
+	assert.Equal(t, id, result.ID)
+	assert.Equal(t, "Pizzeria Napoli", result.Name)
+	assert.Equal(t, "napoli", result.Slug)
+}
+
+func TestSearchRepository_FindByID_DocumentMissing_ReturnsNotFound(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	_, err := repo.FindByID(context.Background(), uuid.New())
+
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, apperr.ErrNotFound))
 }
 
 func TestSearchRepository_UpsertAndSearch_TextMatch(t *testing.T) {
