@@ -32,11 +32,13 @@ type UpdateContactRequest struct {
 }
 
 type UpdateDeliveryRequest struct {
-	Pickup       bool            `json:"pickup"`
-	DeliveryType DeliveryType    `json:"deliveryType" binding:"required,oneof=own external none"`
-	DeliveryKm   *int16          `json:"deliveryKm" binding:"omitempty,gte=1,lte=25"`
-	DeliveryFee  decimal.Decimal `json:"deliveryFee"`
-	MinimumOrder decimal.Decimal `json:"minimumOrder"`
+	Pickup          bool            `json:"pickup"`
+	DeliveryType    DeliveryType    `json:"deliveryType" binding:"required,oneof=own external none"`
+	DeliveryKm      *int16          `json:"deliveryKm" binding:"omitempty,gte=1,lte=25"`
+	DeliveryTimeMin *int16          `json:"deliveryTimeMin" binding:"omitempty,gte=5,lte=120"`
+	DeliveryTimeMax *int16          `json:"deliveryTimeMax" binding:"omitempty,gte=5,lte=120"`
+	DeliveryFee     decimal.Decimal `json:"deliveryFee"`
+	MinimumOrder    decimal.Decimal `json:"minimumOrder"`
 }
 
 type UpdateTagsRequest struct {
@@ -59,26 +61,27 @@ type UpdateOpeningHoursRequest struct {
 }
 
 type RestaurantResponse struct {
-	ID             uuid.UUID                `json:"id"`
-	Name           string                   `json:"name"`
-	Slug           *string                  `json:"slug,omitempty"`
-	Contact        ContactResponse          `json:"contact"`
-	Address        Address                  `json:"address"`
-	DisplayAddress string                   `json:"displayAddress"`
-	Lat            *float64                 `json:"lat,omitempty"`
-	Lon            *float64                 `json:"lon,omitempty"`
-	Timezone       *string                  `json:"timezone,omitempty"`
-	Delivery       DeliveryResponse         `json:"delivery"`
-	Payout         payoutapp.PayoutResponse `json:"payout"`
-	Currency       string                   `json:"currency"`
-	Rating         float64                  `json:"rating"`
-	TotalReviews   int32                    `json:"totalReviews"`
-	Pickup         bool                     `json:"pickup"`
-	Tags           []string                 `json:"tags"`
-	OpeningHours   OpeningHoursResponse     `json:"openingHours"`
-	Status         RestaurantStatus         `json:"status"`
-	CreatedAt      time.Time                `json:"createdAt"`
-	UpdatedAt      *time.Time               `json:"updatedAt,omitempty"`
+	ID                uuid.UUID                `json:"id"`
+	Name              string                   `json:"name"`
+	Slug              *string                  `json:"slug,omitempty"`
+	Contact           ContactResponse          `json:"contact"`
+	Address           Address                  `json:"address"`
+	DisplayAddress    string                   `json:"displayAddress"`
+	EstimatedDelivery string                   `json:"estimatedDelivery,omitempty"`
+	Lat               *float64                 `json:"lat,omitempty"`
+	Lon               *float64                 `json:"lon,omitempty"`
+	Timezone          *string                  `json:"timezone,omitempty"`
+	Delivery          DeliveryResponse         `json:"delivery"`
+	Payout            payoutapp.PayoutResponse `json:"payout"`
+	Currency          string                   `json:"currency"`
+	Rating            float64                  `json:"rating"`
+	TotalReviews      int32                    `json:"totalReviews"`
+	Pickup            bool                     `json:"pickup"`
+	Tags              []string                 `json:"tags"`
+	OpeningHours      OpeningHoursResponse     `json:"openingHours"`
+	Status            RestaurantStatus         `json:"status"`
+	CreatedAt         time.Time                `json:"createdAt"`
+	UpdatedAt         *time.Time               `json:"updatedAt,omitempty"`
 }
 
 type RestaurantWithPizzasResponse struct {
@@ -93,8 +96,10 @@ type ContactResponse struct {
 }
 
 type DeliveryResponse struct {
-	Type         DeliveryType `json:"type"`
-	RadiusKm     *int16       `json:"radiusKm,omitempty"`
-	Fee          money.Money  `json:"fee"`
-	MinimumOrder money.Money  `json:"minimumOrder"`
+	Type                DeliveryType `json:"type"`
+	RadiusKm            *int16       `json:"radiusKm,omitempty"`
+	EstimatedMinutesMin *int16       `json:"estimatedMinutesMin,omitempty"`
+	EstimatedMinutesMax *int16       `json:"estimatedMinutesMax,omitempty"`
+	Fee                 money.Money  `json:"fee"`
+	MinimumOrder        money.Money  `json:"minimumOrder"`
 }

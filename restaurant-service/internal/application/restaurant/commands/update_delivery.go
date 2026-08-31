@@ -60,6 +60,8 @@ func (uc *UpdateDelivery) Execute(
 		input.Pickup,
 		input.DeliveryType,
 		input.DeliveryKm,
+		input.DeliveryTimeMin,
+		input.DeliveryTimeMax,
 		input.DeliveryFee,
 		input.MinimumOrder,
 	)

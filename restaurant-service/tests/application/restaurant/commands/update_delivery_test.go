@@ -45,11 +45,13 @@ func setupUpdateDelivery(t *testing.T) updateDeliverySetup {
 
 func validDeliveryInput() resapp.UpdateDeliveryRequest {
 	return resapp.UpdateDeliveryRequest{
-		Pickup:       true,
-		DeliveryType: restaurant.DeliveryOwn,
-		DeliveryKm:   testutil.Int16Ptr(5),
-		DeliveryFee:  decimal.NewFromFloat(2.50),
-		MinimumOrder: decimal.NewFromFloat(15.00),
+		Pickup:          true,
+		DeliveryType:    restaurant.DeliveryOwn,
+		DeliveryKm:      testutil.Int16Ptr(5),
+		DeliveryTimeMin: testutil.Int16Ptr(30),
+		DeliveryTimeMax: testutil.Int16Ptr(45),
+		DeliveryFee:     decimal.NewFromFloat(2.50),
+		MinimumOrder:    decimal.NewFromFloat(15.00),
 	}
 }
 
@@ -72,6 +74,9 @@ func TestUpdateDelivery_Success(t *testing.T) {
 	assert.True(t, output.Pickup)
 	assert.Equal(t, restaurant.DeliveryOwn, output.Delivery.Type)
 	assert.Equal(t, int16(5), *output.Delivery.RadiusKm)
+	assert.Equal(t, int16(30), *output.Delivery.EstimatedMinutesMin)
+	assert.Equal(t, int16(45), *output.Delivery.EstimatedMinutesMax)
+	assert.Equal(t, "30-45 min", output.EstimatedDelivery)
 	assert.True(t, decimal.NewFromFloat(2.50).Equal(decimal.Decimal(output.Delivery.Fee)))
 	assert.True(t, decimal.NewFromFloat(15.00).Equal(decimal.Decimal(output.Delivery.MinimumOrder)))
 
@@ -84,6 +89,8 @@ func TestUpdateDelivery_Success(t *testing.T) {
 	assert.True(t, updated.Pickup)
 	assert.Equal(t, restaurant.DeliveryOwn, updated.DeliveryType)
 	assert.Equal(t, int16(5), *updated.DeliveryKm)
+	assert.Equal(t, int16(30), *updated.DeliveryTimeMin)
+	assert.Equal(t, int16(45), *updated.DeliveryTimeMax)
 	assert.True(t, decimal.NewFromFloat(2.50).Equal(updated.DeliveryFee))
 	assert.True(t, decimal.NewFromFloat(15.00).Equal(updated.MinimumOrder))
 	assert.False(t, updated.UpdatedAt.IsZero())
@@ -160,11 +167,13 @@ func TestUpdateDelivery_PickupOnly_ClearsDeliveryKm(t *testing.T) {
 	res := firstRestaurant(t, env.DB)
 
 	input := resapp.UpdateDeliveryRequest{
-		Pickup:       true,
-		DeliveryType: restaurant.DeliveryNone,
-		DeliveryKm:   nil,
-		DeliveryFee:  decimal.Zero,
-		MinimumOrder: decimal.Zero,
+		Pickup:          true,
+		DeliveryType:    restaurant.DeliveryNone,
+		DeliveryKm:      nil,
+		DeliveryTimeMin: nil,
+		DeliveryTimeMax: nil,
+		DeliveryFee:     decimal.Zero,
+		MinimumOrder:    decimal.Zero,
 	}
 
 	output, err := env.UpdateDelivery.Execute(
@@ -178,6 +187,9 @@ func TestUpdateDelivery_PickupOnly_ClearsDeliveryKm(t *testing.T) {
 
 	assert.Equal(t, restaurant.DeliveryNone, output.Delivery.Type)
 	assert.Nil(t, output.Delivery.RadiusKm)
+	assert.Nil(t, output.Delivery.EstimatedMinutesMin)
+	assert.Nil(t, output.Delivery.EstimatedMinutesMax)
+	assert.Empty(t, output.EstimatedDelivery)
 
 	var updated restaurant.Restaurant
 
@@ -185,5 +197,7 @@ func TestUpdateDelivery_PickupOnly_ClearsDeliveryKm(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Nil(t, updated.DeliveryKm)
+	assert.Nil(t, updated.DeliveryTimeMin)
+	assert.Nil(t, updated.DeliveryTimeMax)
 	assert.Equal(t, restaurant.DeliveryNone, updated.DeliveryType)
 }

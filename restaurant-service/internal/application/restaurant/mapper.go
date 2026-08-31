@@ -19,16 +19,19 @@ func ToRestaurantResponse(r *restaurant.Restaurant, pd *payoutdomain.PayoutDetai
 			Phone:   r.Phone,
 			Website: r.Website,
 		},
-		Address:        r.Address,
-		DisplayAddress: formatAddress(r.Address),
-		Lat:            r.Lat,
-		Lon:            r.Lon,
-		Timezone:       r.Timezone,
+		Address:           r.Address,
+		DisplayAddress:    formatAddress(r.Address),
+		EstimatedDelivery: formatDeliveryTime(r.DeliveryTimeMin, r.DeliveryTimeMax),
+		Lat:               r.Lat,
+		Lon:               r.Lon,
+		Timezone:          r.Timezone,
 		Delivery: DeliveryResponse{
-			Type:         r.DeliveryType,
-			RadiusKm:     r.DeliveryKm,
-			Fee:          money.Money(r.DeliveryFee),
-			MinimumOrder: money.Money(r.MinimumOrder),
+			Type:                r.DeliveryType,
+			RadiusKm:            r.DeliveryKm,
+			EstimatedMinutesMin: r.DeliveryTimeMin,
+			EstimatedMinutesMax: r.DeliveryTimeMax,
+			Fee:                 money.Money(r.DeliveryFee),
+			MinimumOrder:        money.Money(r.MinimumOrder),
 		},
 		Payout:       payoutapp.ToPayoutResponse(pd),
 		Pickup:       r.Pickup,
@@ -51,6 +54,14 @@ func formatAddress(a Address) string {
 		a.PostalCode,
 		a.City,
 	)
+}
+
+func formatDeliveryTime(min, max *int16) string {
+	if min == nil || max == nil {
+		return ""
+	}
+
+	return fmt.Sprintf("%d-%d min", *min, *max)
 }
 
 func tagsToStrings(tags []restaurant.RestaurantTag) []string {
