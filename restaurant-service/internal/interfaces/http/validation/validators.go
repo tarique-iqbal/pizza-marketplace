@@ -21,7 +21,7 @@ func init() {
 		_ = engine.RegisterValidation("hhmm", isHHMM)
 		_ = engine.RegisterValidation("phone", isPhone)
 		engine.RegisterStructValidation(validateDayRange, restaurant.DayRangeRequest{})
-		engine.RegisterStructValidation(validateDeliveryKm, restaurant.UpdateDeliveryRequest{})
+		engine.RegisterStructValidation(validateDelivery, restaurant.UpdateDeliveryRequest{})
 	}
 }
 
@@ -103,10 +103,22 @@ func validateDayRange(sl validator.StructLevel) {
 	}
 }
 
-func validateDeliveryKm(sl validator.StructLevel) {
+func validateDelivery(sl validator.StructLevel) {
 	req := sl.Current().Interface().(restaurant.UpdateDeliveryRequest)
 
-	if req.DeliveryType != "none" && req.DeliveryKm == nil {
-		sl.ReportError(reflect.ValueOf(req.DeliveryKm), "DeliveryKm", "DeliveryKm", "required_if_delivery", "")
+	if req.DeliveryType != "none" {
+		if req.DeliveryKm == nil {
+			sl.ReportError(reflect.ValueOf(req.DeliveryKm), "DeliveryKm", "DeliveryKm", "required_if_delivery", "")
+		}
+		if req.DeliveryTimeMin == nil {
+			sl.ReportError(reflect.ValueOf(req.DeliveryTimeMin), "DeliveryTimeMin", "DeliveryTimeMin", "required_if_delivery", "")
+		}
+		if req.DeliveryTimeMax == nil {
+			sl.ReportError(reflect.ValueOf(req.DeliveryTimeMax), "DeliveryTimeMax", "DeliveryTimeMax", "required_if_delivery", "")
+		}
+	}
+
+	if req.DeliveryTimeMin != nil && req.DeliveryTimeMax != nil && *req.DeliveryTimeMax <= *req.DeliveryTimeMin {
+		sl.ReportError(reflect.ValueOf(req.DeliveryTimeMax), "DeliveryTimeMax", "DeliveryTimeMax", "gtfield_deliverytimemax", "")
 	}
 }

@@ -39,6 +39,8 @@ func getErrorMsg(fe validator.FieldError) string {
 		return "Close must be later than open."
 	case "required_if_delivery":
 		return "This field is required unless delivery type is 'none'."
+	case "gtfield_deliverytimemax":
+		return "Delivery time max must be greater than min."
 	}
 	return "Unknown error"
 }

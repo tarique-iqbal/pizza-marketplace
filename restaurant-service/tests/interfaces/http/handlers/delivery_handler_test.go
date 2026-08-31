@@ -61,11 +61,13 @@ func TestDeliveryHandler_UpdateDelivery_Success(t *testing.T) {
 	router.PATCH("/restaurants/:id/delivery", h.Handler.UpdateDelivery)
 
 	reqBody := map[string]any{
-		"pickup":       true,
-		"deliveryType": "own",
-		"deliveryKm":   5,
-		"deliveryFee":  "2.50",
-		"minimumOrder": "15.00",
+		"pickup":          true,
+		"deliveryType":    "own",
+		"deliveryKm":      5,
+		"deliveryTimeMin": 30,
+		"deliveryTimeMax": 45,
+		"deliveryFee":     "2.50",
+		"minimumOrder":    "15.00",
 	}
 
 	jsonBody, _ := json.Marshal(reqBody)
@@ -91,6 +93,9 @@ func TestDeliveryHandler_UpdateDelivery_Success(t *testing.T) {
 	assert.True(t, response.Pickup)
 	assert.Equal(t, restaurant.DeliveryOwn, response.Delivery.Type)
 	assert.Equal(t, int16(5), *response.Delivery.RadiusKm)
+	assert.Equal(t, int16(30), *response.Delivery.EstimatedMinutesMin)
+	assert.Equal(t, int16(45), *response.Delivery.EstimatedMinutesMax)
+	assert.Equal(t, "30-45 min", response.EstimatedDelivery)
 
 	var updated restaurant.Restaurant
 	err = h.DB.First(&updated, "id = ?", res.ID).Error
@@ -152,6 +157,8 @@ func TestDeliveryHandler_UpdateDelivery_Failure_MissingDeliveryKm(t *testing.T) 
 	payload := `{
 		"pickup": false,
 		"deliveryType": "own",
+		"deliveryTimeMin": 30,
+		"deliveryTimeMax": 45,
 		"deliveryFee": "2.50",
 		"minimumOrder": "10.00"
 	}`
@@ -169,6 +176,128 @@ func TestDeliveryHandler_UpdateDelivery_Failure_MissingDeliveryKm(t *testing.T) 
 
 	assert.Equal(t, http.StatusUnprocessableEntity, recorder.Code)
 	assert.Contains(t, recorder.Body.String(), "DeliveryKm")
+}
+
+func TestDeliveryHandler_UpdateDelivery_Failure_MissingDeliveryTime(t *testing.T) {
+	h := setupDeliveryHandler(t)
+
+	var res restaurant.Restaurant
+	err := h.DB.First(&res).Error
+	require.NoError(t, err)
+
+	router := gin.Default()
+
+	router.Use(
+		MockAuthMiddleware(res.OwnerID.String(), "owner"),
+		middleware.RequireRole("owner"),
+	)
+
+	router.PATCH("/restaurants/:id/delivery", h.Handler.UpdateDelivery)
+
+	payload := `{
+		"pickup": false,
+		"deliveryType": "own",
+		"deliveryKm": 5,
+		"deliveryFee": "2.50",
+		"minimumOrder": "10.00"
+	}`
+
+	req, _ := http.NewRequest(
+		http.MethodPatch,
+		"/restaurants/"+res.ID.String()+"/delivery",
+		bytes.NewBufferString(payload),
+	)
+
+	req.Header.Set("Content-Type", "application/json")
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), "DeliveryTimeMin")
+	assert.Contains(t, recorder.Body.String(), "DeliveryTimeMax")
+}
+
+func TestDeliveryHandler_UpdateDelivery_Failure_DeliveryTimeMaxBelowMin(t *testing.T) {
+	h := setupDeliveryHandler(t)
+
+	var res restaurant.Restaurant
+	err := h.DB.First(&res).Error
+	require.NoError(t, err)
+
+	router := gin.Default()
+
+	router.Use(
+		MockAuthMiddleware(res.OwnerID.String(), "owner"),
+		middleware.RequireRole("owner"),
+	)
+
+	router.PATCH("/restaurants/:id/delivery", h.Handler.UpdateDelivery)
+
+	payload := `{
+		"pickup": false,
+		"deliveryType": "own",
+		"deliveryKm": 5,
+		"deliveryTimeMin": 45,
+		"deliveryTimeMax": 30,
+		"deliveryFee": "2.50",
+		"minimumOrder": "10.00"
+	}`
+
+	req, _ := http.NewRequest(
+		http.MethodPatch,
+		"/restaurants/"+res.ID.String()+"/delivery",
+		bytes.NewBufferString(payload),
+	)
+
+	req.Header.Set("Content-Type", "application/json")
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), "DeliveryTimeMax")
+}
+
+func TestDeliveryHandler_UpdateDelivery_Failure_DeliveryTimeMaxEqualsMin(t *testing.T) {
+	h := setupDeliveryHandler(t)
+
+	var res restaurant.Restaurant
+	err := h.DB.First(&res).Error
+	require.NoError(t, err)
+
+	router := gin.Default()
+
+	router.Use(
+		MockAuthMiddleware(res.OwnerID.String(), "owner"),
+		middleware.RequireRole("owner"),
+	)
+
+	router.PATCH("/restaurants/:id/delivery", h.Handler.UpdateDelivery)
+
+	payload := `{
+		"pickup": false,
+		"deliveryType": "own",
+		"deliveryKm": 5,
+		"deliveryTimeMin": 30,
+		"deliveryTimeMax": 30,
+		"deliveryFee": "2.50",
+		"minimumOrder": "10.00"
+	}`
+
+	req, _ := http.NewRequest(
+		http.MethodPatch,
+		"/restaurants/"+res.ID.String()+"/delivery",
+		bytes.NewBufferString(payload),
+	)
+
+	req.Header.Set("Content-Type", "application/json")
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), "DeliveryTimeMax")
 }
 
 func TestDeliveryHandler_UpdateDelivery_Failure_Unauthorized(t *testing.T) {
