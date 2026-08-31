@@ -27,6 +27,8 @@ const indexMapping = `{
       "pickup": {"type": "boolean"},
       "deliveryType": {"type": "keyword"},
       "deliveryKm": {"type": "short"},
+      "deliveryTimeMin": {"type": "short"},
+      "deliveryTimeMax": {"type": "short"},
       "minimumOrder": {"type": "scaled_float", "scaling_factor": 100},
       "tags": {"type": "keyword"},
       "openingHours": {

@@ -63,6 +63,8 @@ type esRestaurant struct {
 	Pickup                 bool             `json:"pickup"`
 	DeliveryType           string           `json:"deliveryType"`
 	DeliveryKm             *int16           `json:"deliveryKm,omitempty"`
+	DeliveryTimeMin        *int16           `json:"deliveryTimeMin,omitempty"`
+	DeliveryTimeMax        *int16           `json:"deliveryTimeMax,omitempty"`
 	MinimumOrder           float64          `json:"minimumOrder"`
 	Tags                   []string         `json:"tags"`
 	OpeningHours           []esOpeningHours `json:"openingHours"`
@@ -75,21 +77,23 @@ type esRestaurant struct {
 }
 
 type esRestaurantFields struct {
-	Name         string           `json:"name"`
-	Slug         string           `json:"slug"`
-	City         string           `json:"city"`
-	Location     esGeoPoint       `json:"location"`
-	Timezone     string           `json:"timezone"`
-	Currency     string           `json:"currency"`
-	Pickup       bool             `json:"pickup"`
-	DeliveryType string           `json:"deliveryType"`
-	DeliveryKm   *int16           `json:"deliveryKm,omitempty"`
-	MinimumOrder float64          `json:"minimumOrder"`
-	Tags         []string         `json:"tags"`
-	OpeningHours []esOpeningHours `json:"openingHours"`
-	Rating       float64          `json:"rating"`
-	TotalReviews int32            `json:"totalReviews"`
-	UpdatedAt    time.Time        `json:"updatedAt"`
+	Name            string           `json:"name"`
+	Slug            string           `json:"slug"`
+	City            string           `json:"city"`
+	Location        esGeoPoint       `json:"location"`
+	Timezone        string           `json:"timezone"`
+	Currency        string           `json:"currency"`
+	Pickup          bool             `json:"pickup"`
+	DeliveryType    string           `json:"deliveryType"`
+	DeliveryKm      *int16           `json:"deliveryKm,omitempty"`
+	DeliveryTimeMin *int16           `json:"deliveryTimeMin,omitempty"`
+	DeliveryTimeMax *int16           `json:"deliveryTimeMax,omitempty"`
+	MinimumOrder    float64          `json:"minimumOrder"`
+	Tags            []string         `json:"tags"`
+	OpeningHours    []esOpeningHours `json:"openingHours"`
+	Rating          float64          `json:"rating"`
+	TotalReviews    int32            `json:"totalReviews"`
+	UpdatedAt       time.Time        `json:"updatedAt"`
 }
 
 type esScript struct {
@@ -127,6 +131,8 @@ const updateFieldsScript = `if (!ctx._source.containsKey('updatedAt') || ` +
 	`ctx._source.pickup = params.doc.pickup; ` +
 	`ctx._source.deliveryType = params.doc.deliveryType; ` +
 	`ctx._source.deliveryKm = params.doc.deliveryKm; ` +
+	`ctx._source.deliveryTimeMin = params.doc.deliveryTimeMin; ` +
+	`ctx._source.deliveryTimeMax = params.doc.deliveryTimeMax; ` +
 	`ctx._source.minimumOrder = params.doc.minimumOrder; ` +
 	`ctx._source.tags = params.doc.tags; ` +
 	`ctx._source.openingHours = params.doc.openingHours; ` +
@@ -536,6 +542,10 @@ func buildSearchQuery(q index.SearchQuery) map[string]any {
 		body["sort"] = []map[string]any{
 			{"minimumOrder": map[string]any{"order": "asc"}},
 		}
+	case "deliveryTime":
+		body["sort"] = []map[string]any{
+			{"deliveryTimeMin": map[string]any{"order": "asc"}},
+		}
 	}
 
 	return body
@@ -543,21 +553,23 @@ func buildSearchQuery(q index.SearchQuery) map[string]any {
 
 func toESRestaurantFields(f index.RestaurantFields) esRestaurantFields {
 	return esRestaurantFields{
-		Name:         f.Name,
-		Slug:         f.Slug,
-		City:         f.City,
-		Location:     esGeoPoint{Lat: f.Location.Lat, Lon: f.Location.Lon},
-		Timezone:     f.Timezone,
-		Currency:     f.Currency,
-		Pickup:       f.Pickup,
-		DeliveryType: f.DeliveryType,
-		DeliveryKm:   f.DeliveryKm,
-		MinimumOrder: f.MinimumOrder,
-		Tags:         f.Tags,
-		OpeningHours: toESOpeningHours(f.OpeningHours),
-		Rating:       f.Rating,
-		TotalReviews: f.TotalReviews,
-		UpdatedAt:    f.UpdatedAt,
+		Name:            f.Name,
+		Slug:            f.Slug,
+		City:            f.City,
+		Location:        esGeoPoint{Lat: f.Location.Lat, Lon: f.Location.Lon},
+		Timezone:        f.Timezone,
+		Currency:        f.Currency,
+		Pickup:          f.Pickup,
+		DeliveryType:    f.DeliveryType,
+		DeliveryKm:      f.DeliveryKm,
+		DeliveryTimeMin: f.DeliveryTimeMin,
+		DeliveryTimeMax: f.DeliveryTimeMax,
+		MinimumOrder:    f.MinimumOrder,
+		Tags:            f.Tags,
+		OpeningHours:    toESOpeningHours(f.OpeningHours),
+		Rating:          f.Rating,
+		TotalReviews:    f.TotalReviews,
+		UpdatedAt:       f.UpdatedAt,
 	}
 }
 
@@ -640,6 +652,8 @@ func toESRestaurant(r index.IndexedRestaurant) esRestaurant {
 		Pickup:                 r.Pickup,
 		DeliveryType:           r.DeliveryType,
 		DeliveryKm:             r.DeliveryKm,
+		DeliveryTimeMin:        r.DeliveryTimeMin,
+		DeliveryTimeMax:        r.DeliveryTimeMax,
 		MinimumOrder:           r.MinimumOrder,
 		Tags:                   r.Tags,
 		OpeningHours:           toESOpeningHours(r.OpeningHours),
@@ -678,6 +692,8 @@ func fromESRestaurant(id uuid.UUID, doc esRestaurant) index.IndexedRestaurant {
 		Pickup:                 doc.Pickup,
 		DeliveryType:           doc.DeliveryType,
 		DeliveryKm:             doc.DeliveryKm,
+		DeliveryTimeMin:        doc.DeliveryTimeMin,
+		DeliveryTimeMax:        doc.DeliveryTimeMax,
 		MinimumOrder:           doc.MinimumOrder,
 		Tags:                   doc.Tags,
 		OpeningHours:           toIndexedOpeningHours(doc.OpeningHours),

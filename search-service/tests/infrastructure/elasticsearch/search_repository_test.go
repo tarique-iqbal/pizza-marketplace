@@ -307,6 +307,46 @@ func TestSearchRepository_Search_SortByDistance_Ascending(t *testing.T) {
 	assert.Equal(t, "Pizzeria Far", results[1].Name)
 }
 
+func TestSearchRepository_Search_SortByDeliveryTime_Ascending(t *testing.T) {
+	es := testutil.ES(t)
+	repo := esinfra.NewSearchRepository(es)
+
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:              uuid.New(),
+		Name:            "Pizzeria Slow",
+		Location:        index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm:      int16Ptr(10),
+		DeliveryTimeMin: int16Ptr(45),
+		DeliveryTimeMax: int16Ptr(60),
+	})
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:              uuid.New(),
+		Name:            "Pizzeria Fast",
+		Location:        index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm:      int16Ptr(10),
+		DeliveryTimeMin: int16Ptr(15),
+		DeliveryTimeMax: int16Ptr(25),
+	})
+	upsert(t, repo, index.IndexedRestaurant{
+		ID:         uuid.New(),
+		Name:       "Pizzeria No Estimate",
+		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm: int16Ptr(10),
+	})
+	testutil.RefreshIndex(t, es, esinfra.IndexName)
+
+	results, err := repo.Search(context.Background(), index.SearchQuery{
+		Text:     "Pizzeria",
+		Location: index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		Sort:     "deliveryTime",
+	})
+	require.NoError(t, err)
+	require.Len(t, results, 3)
+	assert.Equal(t, "Pizzeria Fast", results[0].Name)
+	assert.Equal(t, "Pizzeria Slow", results[1].Name)
+	assert.Equal(t, "Pizzeria No Estimate", results[2].Name)
+}
+
 func TestSearchRepository_Search_RatingBoostsOrdering(t *testing.T) {
 	es := testutil.ES(t)
 	repo := esinfra.NewSearchRepository(es)
@@ -419,10 +459,12 @@ func TestSearchRepository_UpdateFields_UpdatesFieldsAndPreservesPizzas(t *testin
 	})
 
 	require.NoError(t, repo.UpdateFields(context.Background(), id, index.RestaurantFields{
-		Name:       "Pizzeria Renamed",
-		Location:   index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
-		DeliveryKm: int16Ptr(10),
-		UpdatedAt:  time.Date(2026, 8, 24, 9, 0, 5, 0, time.UTC),
+		Name:            "Pizzeria Renamed",
+		Location:        index.GeoPoint{Lat: 53.5511, Lon: 9.9937},
+		DeliveryKm:      int16Ptr(10),
+		DeliveryTimeMin: int16Ptr(20),
+		DeliveryTimeMax: int16Ptr(35),
+		UpdatedAt:       time.Date(2026, 8, 24, 9, 0, 5, 0, time.UTC),
 	}))
 	testutil.RefreshIndex(t, es, esinfra.IndexName)
 
@@ -433,6 +475,10 @@ func TestSearchRepository_UpdateFields_UpdatesFieldsAndPreservesPizzas(t *testin
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	assert.Equal(t, "Pizzeria Renamed", results[0].Name)
+	require.NotNil(t, results[0].DeliveryTimeMin)
+	assert.EqualValues(t, 20, *results[0].DeliveryTimeMin)
+	require.NotNil(t, results[0].DeliveryTimeMax)
+	assert.EqualValues(t, 35, *results[0].DeliveryTimeMax)
 	require.Len(t, results[0].Pizzas, 1, "a restaurant-field update must never touch the indexed menu")
 	assert.Equal(t, "Margherita", results[0].Pizzas[0].Name)
 }
