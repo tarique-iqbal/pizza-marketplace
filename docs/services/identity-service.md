@@ -95,7 +95,7 @@ sequenceDiagram
 
 Batches of up to 50 rows are claimed per poll, processed with an internal concurrency of 5. A row that exceeds
 `MaxRetries` (3) is marked `failed` and left for manual inspection — there is no dead-letter requeue for the
-outbox (unlike the RabbitMQ-side DLX pattern used by restaurant-service/email-service consumers).
+outbox (unlike the RabbitMQ-side DLX pattern used by restaurant-service/notification-service consumers).
 
 ## Auth model
 
@@ -116,8 +116,8 @@ outbox (unlike the RabbitMQ-side DLX pattern used by restaurant-service/email-se
 | Event | Mechanism | Consumed by |
 |---|---|---|
 | `restaurant.initiated` | outbox (guaranteed) | `restaurant-service` worker — creates the `Restaurant` row |
-| `user.registered` | outbox (guaranteed) | `email-service` — sends a role-based welcome email |
-| `email.verification_created` | outbox (guaranteed) | `email-service` — sends the OTP code email |
+| `user.registered` | outbox (guaranteed) | `notification-service` — sends a role-based welcome email |
+| `email.verification_created` | outbox (guaranteed) | `notification-service` — sends the OTP code email |
 
 Identity-service consumes nothing — it has no inbound RabbitMQ consumer.
 

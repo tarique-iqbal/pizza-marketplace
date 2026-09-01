@@ -1,25 +1,30 @@
-# email-service — technical overview
+# notification-service — technical overview
 
-Sends transactional emails in response to RabbitMQ events published by `identity-service` and
-`restaurant-service`. The simplest service in the repo: no database, no HTTP API, no `cmd/api`/`cmd/worker`
-split — `cmd/main.go` is the only binary. Unlike identity-worker/restaurant-worker, it *is* started directly by
-the root `compose.yaml`, since without it running the service simply never sends mail (no queue to drain into
-a local store, no user-visible failure otherwise).
+Sends transactional notifications in response to RabbitMQ events published by `identity-service` and
+`restaurant-service`, via a channel-adapter design: one channel-agnostic `Sender` interface, with email as its
+first (and today, only) implementation. The simplest service in the repo: no database, no HTTP API, no
+`cmd/api`/`cmd/worker` split — `cmd/main.go` is the only binary. Unlike identity-worker/restaurant-worker, it *is*
+started directly by the root `compose.yaml`, since without it running the service simply never sends
+notifications (no queue to drain into a local store, no user-visible failure otherwise).
 
 ## Layered architecture
 
 ```
-cmd/main.go                       → the only entrypoint; builds logger, container, calls messaging.Run
-internal/domain/email             → Sender, TemplateLoader, EventDispatcher, EventHandler, EventPayload — interfaces only
-internal/application/email        → one handler per consumed event: EmailVerificationCreated, UserRegistered,
-                                    RestaurantReadyForReview
-internal/infrastructure/email     → SMTP sender (net/smtp), text/template-based template loader
-internal/infrastructure/messaging → RabbitMQ consumer (Run/runOnce as package-level functions)
-internal/container                → wires Sender/TemplateLoader/handlers, registers them against routing keys
+cmd/main.go                              → the only entrypoint; builds logger, container, calls messaging.Run
+internal/domain/notification             → Sender, Message, TemplateLoader, EventDispatcher, EventHandler,
+                                            EventPayload — interfaces only
+internal/application/notification        → one handler per consumed event: EmailVerificationCreated,
+                                            UserRegistered, RestaurantReadyForReview, RestaurantApproved
+internal/infrastructure/notification/     → one subdirectory per channel adapter; only `email/` exists today
+  email                                     (SMTP sender via net/smtp, text/template-based template loader).
+                                            A second channel (SMS, web-push) would be a new sibling directory
+                                            implementing the same Sender interface — no interface change needed.
+internal/infrastructure/messaging        → RabbitMQ consumer (Run/runOnce as package-level functions)
+internal/container                       → wires Sender/TemplateLoader/handlers, registers them against routing keys
 ```
 
-There is no persistence layer at all — every dependency is either an external call (SMTP) or a pure function
-(template rendering), which is why this service's tests are all interface-mocked unit tests with no
+There is no persistence layer at all — every dependency is either an external call (SMTP today) or a pure
+function (template rendering), which is why this service's tests are all interface-mocked unit tests with no
 `compose.test.yaml` entry.
 
 ## Domain model
@@ -27,23 +32,33 @@ There is no persistence layer at all — every dependency is either an external 
 Not an aggregate-owning service — the "domain" here is a small set of interfaces every handler depends on:
 
 ```go
-type Sender interface         { SendEmail(to, subject, body string) error }
-type TemplateLoader interface { Render(name string, data any) (string, error) }
-type EventHandler interface   { Handle(event EventPayload) error }
+type Message struct {
+    To      string
+    Subject string // channel-specific: used by email, ignored by channels that don't have one
+    Body    string
+}
+type Sender interface          { Send(msg Message) error }
+type TemplateLoader interface  { Render(name string, data any) (string, error) }
+type EventHandler interface    { Handle(event EventPayload) error }
 type EventDispatcher interface {
     Register(eventName string, handler EventHandler)
     Dispatch(event EventPayload) error
 }
 ```
 
-`Sender` is implemented by a thin wrapper over `net/smtp.SendMail` with `PlainAuth` — no retry/circuit-breaking
-of its own, since delivery retries happen one level up at the RabbitMQ consumer/DLX level. The raw SMTP message
-is hand-assembled (`From`/`To`/`Subject`/`MIME-Version`/`Content-Type: text/plain; charset="UTF-8"`/
+`Sender` is deliberately channel-agnostic: `Message` carries only the fields common enough to be worth a shared
+struct (`To`, `Subject`, `Body`) rather than a per-channel payload type, so adding a channel means adding a new
+`internal/infrastructure/notification/<channel>` package implementing `Send`, not redesigning this interface.
+Today's only implementation is a thin wrapper over `net/smtp.SendMail` with `PlainAuth` — no retry/circuit-
+breaking of its own, since delivery retries happen one level up at the RabbitMQ consumer/DLX level. The raw SMTP
+message is hand-assembled (`From`/`To`/`Subject`/`MIME-Version`/`Content-Type: text/plain; charset="UTF-8"`/
 `Content-Transfer-Encoding: 8bit` headers, blank line, body) — `net/smtp.SendMail` does not add any of this.
 
 `TemplateLoader` is implemented via `text/template.ParseFiles`, **not** `html/template`, despite the `.html`
 filenames — every template is plain-text email content with no real markup, so HTML auto-escaping would be
-pointless overhead rather than a safety net.
+pointless overhead rather than a safety net. Template rendering is specific to the email adapter (subject+body
+pairs); a future channel adapter is free to render its own content however suits it, without touching
+`TemplateLoader`'s shape.
 
 ## Events consumed
 
@@ -53,10 +68,10 @@ flowchart LR
     E2["user.registered\n(identity-service)"] --> H2["UserRegistered\nrole-based templates"]
     E3["restaurant.ready_for_review\n(restaurant-service)"] --> H3["RestaurantReadyForReview\n→ ADMIN_EMAIL"]
     E4["restaurant.approved\n(restaurant-service)"] --> H4["RestaurantApproved\n→ restaurant's own email"]
-    H1 --> SMTP[("SMTP")]
-    H2 --> SMTP
-    H3 --> SMTP
-    H4 --> SMTP
+    H1 --> EMAIL[("email adapter\n(SMTP)")]
+    H2 --> EMAIL
+    H3 --> EMAIL
+    H4 --> EMAIL
 ```
 
 | Event | Handler | Recipient | Templates |
@@ -95,7 +110,7 @@ without either an unexported-field-setting test living inside `internal/` or a t
 ## Testing
 
 Plain unit tests, no infrastructure required: mocked `Sender`/`TemplateLoader`/`EventDispatcher` at the
-interface boundary, following a local `mockX` struct + compile-time `var _ email.X = (*mockX)(nil)` pattern
-rather than a mocking library. The one consumer test suite (`tests/infrastructure/messaging/`) additionally
-needs a `fakeSource` (channel-backed `messageSource`) and a `fakeAcknowledger` (implementing
+interface boundary, following a local `mockX` struct + compile-time `var _ notification.X = (*mockX)(nil)`
+pattern rather than a mocking library. The one consumer test suite (`tests/infrastructure/messaging/`)
+additionally needs a `fakeSource` (channel-backed `messageSource`) and a `fakeAcknowledger` (implementing
 `amqp091.Delivery`'s `Acknowledger` field) to observe `Ack`/`Nack` without a real channel.

@@ -154,8 +154,8 @@ flowchart LR
   `SELECT ... FOR UPDATE SKIP LOCKED`. A row that exhausts its retries is marked `failed` and sits for manual
   inspection rather than being retried forever or silently dropped. This means an HTTP request only depends on
   Postgres being up, not RabbitMQ — a broker outage no longer loses events, it just delays them.
-- **Outbound**: `restaurant.ready_for_review` (consumed by `email-service`, notifies the admin inbox),
-  `restaurant.approved` (consumed by `email-service`, notifies the restaurant's own contact email — the
+- **Outbound**: `restaurant.ready_for_review` (consumed by `notification-service`, notifies the admin inbox),
+  `restaurant.approved` (consumed by `notification-service`, notifies the restaurant's own contact email — the
   domain event denormalizes `Restaurant.Email` at the point `Approve()` fires, trusting the checklist
   invariant that `contact` is complete by then), `restaurant.launched` (a full restaurant+pizzas+topping-prices
   snapshot, composed in-process by `launch_restaurant.go`'s `Enricher`), `restaurant.updated` (fired by

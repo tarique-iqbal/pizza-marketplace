@@ -26,7 +26,7 @@ internal/infrastructure/elasticsearch → client wrapper, index_setup.go (Ensure
                                      search_repository.go, geocode_repository.go (CachingGeocoder)
 internal/infrastructure/geocoder  → OpenCageGeocoder — search-service's own copy, independent of
                                      restaurant-service's (see "Geocoding" below)
-internal/infrastructure/messaging → RabbitMQ consumer, copied from email-service's shape (the bug-fixed version —
+internal/infrastructure/messaging → RabbitMQ consumer, copied from notification-service's shape (the bug-fixed version —
                                      checks both conn and channel closed before reconnecting)
 internal/infrastructure/observability → copied verbatim from restaurant-service (slog-based logger, Gin middleware)
 internal/interfaces/http          → SearchHandler, GetRestaurantHandler, routes.go — no middleware package at
@@ -37,7 +37,7 @@ internal/shared/errors            → ErrNotFound — the one sentinel this serv
                                      restaurant-service, which has ~8 distinct error kinds to route)
 ```
 
-Unlike identity/restaurant/email-service, there is no database — `internal/infrastructure/` has no
+Unlike identity/restaurant/notification-service, there is no database — `internal/infrastructure/` has no
 `gorm`/`persistence`/`redis`/`auth`/migrations at all. There is a `compose.test.yaml` entry (`search-test` +
 `elasticsearch-test`, same "needs a `-test` container" shape identity/restaurant use for Postgres), used by the
 real-ES integration suite — see "Testing" below.
@@ -366,7 +366,7 @@ error.
 ## Testing
 
 Mixed, not uniform: `tests/application/index/` and `tests/application/query/` mock `SearchRepository` via a
-shared `tests/testutil.MockSearchRepository` (matches email-service's plain-unit-test approach, no
+shared `tests/testutil.MockSearchRepository` (matches notification-service's plain-unit-test approach, no
 infrastructure needed) — one test file per handler (`upsert_snapshot_test.go`, `update_restaurant_fields_test.go`,
 `sync_pizza_test.go`, `sync_topping_prices_test.go`, `get_restaurant_test.go`). `tests/interfaces/http/handlers/`
 builds the real `SearchRestaurants`/`GetRestaurant` use cases over that same mock and drives the handlers through

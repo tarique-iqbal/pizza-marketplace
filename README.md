@@ -32,7 +32,7 @@ RabbitMQ (async events, publish/consume — see Event flow below)
   ├── Identity Service
   ├── Restaurant Service
   ├── Search Service
-  └── Email Service      (worker only — no HTTP route, reached only via RabbitMQ)
+  └── Notification Service (worker only — no HTTP route, reached only via RabbitMQ)
 ```
 
 Each service owns its data store. There is no shared database. See the
@@ -46,7 +46,7 @@ Each service owns its data store. There is no shared database. See the
 | `identity-service` | Auth, JWT, user management | mixed (public and JWT-protected) |
 | `restaurant-service` | Restaurant & menu CRUD | JWT-protected |
 | `search-service` | Search API + Elasticsearch indexing | public (no auth) |
-| `email-service` | Email notifications (background worker) | — |
+| `notification-service` | Notifications via channel adapters — email today (background worker) | — |
 
 `identity-service`, `restaurant-service`, and `search-service` each also run a `cmd/worker` process (outbox relay / event consumer) alongside their API — not separate services. `identity-service`'s and `search-service`'s workers (`identity-worker`, `search-worker`) each get their own container in `compose.yaml` and run by default in dev — without them, no outbox event ever leaves identity-service and the search index stays permanently empty, respectively. `restaurant-service`'s worker is started manually when working on its outbox/consumer code.
 
@@ -83,10 +83,10 @@ git clone https://github.com/tarique-iqbal/pizza-marketplace.git
 cd pizza-marketplace
 
 # 2. Copy env files and fill in values
-cp identity-service/.env.example   identity-service/.env
-cp restaurant-service/.env.example restaurant-service/.env
-cp email-service/.env.example      email-service/.env
-cp search-service/.env.example     search-service/.env
+cp identity-service/.env.example     identity-service/.env
+cp restaurant-service/.env.example   restaurant-service/.env
+cp notification-service/.env.example notification-service/.env
+cp search-service/.env.example       search-service/.env
 
 # 3. Start all services
 docker compose up --build
@@ -129,7 +129,7 @@ Architecture, domain model, and design decisions for each implemented service:
 
 - [Identity service](docs/services/identity-service.md)
 - [Restaurant service](docs/services/restaurant-service.md)
-- [Email service](docs/services/email-service.md)
+- [Notification service](docs/services/notification-service.md)
 - [Search service](docs/services/search-service.md)
 
 
@@ -149,7 +149,7 @@ restaurant-service   ──publishes──► restaurant.ready_for_review
                                      restaurant.pizza_updated
                                      restaurant.topping_prices_updated
 
-email-service        ◄──consumes──  email.verification_created
+notification-service ◄──consumes──  email.verification_created
                                      user.registered
                                      restaurant.ready_for_review
                                      restaurant.approved
@@ -182,7 +182,7 @@ pizza-marketplace/
 │   ├── Dockerfile
 │   └── .env.example
 ├── restaurant-service/
-├── email-service/
+├── notification-service/
 ├── search-service/
 ├── compose.yaml
 ├── compose.test.yaml
@@ -195,7 +195,7 @@ pizza-marketplace/
 - [ ] Profile service — user profile, address, and payment info management
 - [ ] Payment service — payment processing
 - [ ] Order service — place and track orders
-- [ ] Notification service — SMS/web notification consumer
+- [ ] Notification service: SMS/web-push adapters (email adapter shipped)
 - [ ] Analytics service — metrics, reporting, and audit logs
 - [ ] gRPC inter-service communication
 - [ ] Zero-trust networking — trusted proxies, mTLS, and workload identity
