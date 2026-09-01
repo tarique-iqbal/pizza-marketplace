@@ -192,7 +192,7 @@ pizza-marketplace/
 
 ## Roadmap
 
-- [ ] Profile service — user profile, address, and payment info management
+- [ ] Customer service — profile, saved addresses, and payment methods for checkout
 - [ ] Payment service — payment processing
 - [ ] Order service — place and track orders
 - [ ] Notification service: SMS/web-push adapters (email adapter shipped)
