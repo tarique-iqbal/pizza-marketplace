@@ -44,6 +44,6 @@ compose*  # Except our main compose file
 *.md
 !README.md
 
-email-service/tmp
+notification-service/tmp
 identity-service/tmp
 restaurant-service/tmp

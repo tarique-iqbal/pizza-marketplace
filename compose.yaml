@@ -231,19 +231,19 @@ services:
       - backend
       - internal
 
-  # Email Service
-  email-service:
-    container_name: pizza-email-service
+  # Notification Service
+  notification-service:
+    container_name: pizza-notification-service
     build:
       context: .
-      dockerfile: email-service/Dockerfile
+      dockerfile: notification-service/Dockerfile
       target: dev
     depends_on:
       rabbitmq:
         condition: service_healthy
     volumes:
-      - ./email-service:/app
-    env_file: email-service/.env
+      - ./notification-service:/app
+    env_file: notification-service/.env
     networks:
       - internal
 

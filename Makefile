@@ -1,4 +1,4 @@
-.PHONY: up down down-v test-up test-down test-identity test-restaurant test-email test-search test fmt vet lint
+.PHONY: up down down-v test-up test-down test-identity test-restaurant test-notification test-search test fmt vet lint
 
 up:
 	docker compose up --build
@@ -21,16 +21,16 @@ test-identity:
 test-restaurant:
 	docker compose -f compose.test.yaml exec -T restaurant-test sh -c "cd /app && go test -p 1 -count=1 ./tests/..."
 
-test-email:
-	cd email-service && go test ./tests/...
+test-notification:
+	cd notification-service && go test ./tests/...
 
 test-search:
 	docker compose -f compose.test.yaml exec -T search-test sh -c "cd /app && go test -p 1 -count=1 ./tests/..."
 
-test: test-up test-identity test-restaurant test-email test-search
+test: test-up test-identity test-restaurant test-notification test-search
 
 fmt:
-	@for svc in identity-service restaurant-service email-service; do \
+	@for svc in identity-service restaurant-service notification-service; do \
 		unformatted=$$(cd $$svc && gofmt -l .); \
 		if [ -n "$$unformatted" ]; then \
 			echo "$$unformatted"; \
@@ -39,7 +39,7 @@ fmt:
 	done
 
 vet:
-	@for svc in identity-service restaurant-service email-service; do \
+	@for svc in identity-service restaurant-service notification-service; do \
 		(cd $$svc && go vet ./...) || exit 1; \
 	done
 

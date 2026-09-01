@@ -15,8 +15,8 @@ on:
         description: Run restaurant-service tests
         type: boolean
         default: false
-      run_email:
-        description: Run email-service tests
+      run_notification:
+        description: Run notification-service tests
         type: boolean
         default: false
       run_search:
@@ -31,7 +31,7 @@ jobs:
     outputs:
       identity: ${{ steps.filter.outputs.identity }}
       restaurant: ${{ steps.filter.outputs.restaurant }}
-      email: ${{ steps.filter.outputs.email }}
+      notification: ${{ steps.filter.outputs.notification }}
       search: ${{ steps.filter.outputs.search }}
     steps:
       - uses: actions/checkout@v5
@@ -47,8 +47,8 @@ jobs:
               - 'restaurant-service/**'
               - 'compose.yaml'
               - 'compose.test.yaml'
-            email:
-              - 'email-service/**'
+            notification:
+              - 'notification-service/**'
               - 'compose.yaml'
             search:
               - 'search-service/**'
@@ -162,23 +162,23 @@ jobs:
         if: always()
         run: docker compose -f compose.test.yaml down -v
 
-  email-ci:
+  notification-ci:
     needs: detect-changes
     if: |
       always() &&
-      (needs.detect-changes.outputs.email == 'true' ||
-        (github.event_name == 'workflow_dispatch' && inputs.run_email))
+      (needs.detect-changes.outputs.notification == 'true' ||
+        (github.event_name == 'workflow_dispatch' && inputs.run_notification))
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: email-service/go.mod
+          go-version-file: notification-service/go.mod
 
       - name: Check formatting
         run: |
-          cd email-service
+          cd notification-service
           unformatted=$(gofmt -l .)
           if [ -n "$unformatted" ]; then
             echo "$unformatted"
@@ -186,10 +186,10 @@ jobs:
           fi
 
       - name: Run go vet
-        run: cd email-service && go vet ./...
+        run: cd notification-service && go vet ./...
 
       - name: Run tests
-        run: cd email-service && go test ./tests/...
+        run: cd notification-service && go test ./tests/...
 
   search-ci:
     needs: detect-changes

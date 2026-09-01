@@ -28,7 +28,7 @@ coverage.out
 
 build/
 
-/email-service/tmp
+/notification-service/tmp
 /identity-service/tmp
 /restaurant-service/tmp
 /search-service/tmp
