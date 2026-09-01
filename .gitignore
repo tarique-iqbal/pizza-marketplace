@@ -12,7 +12,8 @@ Thumbs.db
 
 .idea/
 .vscode/
-.claude/
+.claude/*
+!.claude/skills/
 
 *.log
 *.tmp
