@@ -55,5 +55,5 @@ func (h *RestaurantApproved) Handle(event notification.EventPayload) error {
 		return err
 	}
 
-	return h.sender.SendEmail(payload.Email, subject, body)
+	return h.sender.Send(notification.Message{To: payload.Email, Subject: subject, Body: body})
 }

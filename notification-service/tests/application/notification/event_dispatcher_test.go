@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	emailapp "notification-service/internal/application/notification"
+	notifapp "notification-service/internal/application/notification"
 	"notification-service/internal/domain/notification"
 
 	"github.com/stretchr/testify/assert"
@@ -23,7 +23,7 @@ func (m *mockHandler) Handle(event notification.EventPayload) error {
 }
 
 func TestDispatch_CallsRegisteredHandler(t *testing.T) {
-	dispatcher := emailapp.NewEventDispatcher()
+	dispatcher := notifapp.NewEventDispatcher()
 	mock := &mockHandler{}
 
 	dispatcher.Register("user.registered", mock)
@@ -37,7 +37,7 @@ func TestDispatch_CallsRegisteredHandler(t *testing.T) {
 }
 
 func TestDispatch_NoHandler(t *testing.T) {
-	dispatcher := emailapp.NewEventDispatcher()
+	dispatcher := notifapp.NewEventDispatcher()
 
 	event := notification.EventPayload{Name: "user.unknown", Data: []byte(`{}`)}
 	err := dispatcher.Dispatch(event)
@@ -47,7 +47,7 @@ func TestDispatch_NoHandler(t *testing.T) {
 }
 
 func TestDispatch_HandlerReturnsError(t *testing.T) {
-	var dispatcher notification.EventDispatcher = emailapp.NewEventDispatcher()
+	var dispatcher notification.EventDispatcher = notifapp.NewEventDispatcher()
 	mock := &mockHandler{Err: errors.New("handler error")}
 
 	dispatcher.Register("user.registered", mock)

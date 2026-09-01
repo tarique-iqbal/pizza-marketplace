@@ -3,6 +3,8 @@ package email
 import (
 	"fmt"
 	"net/smtp"
+
+	"notification-service/internal/domain/notification"
 )
 
 type SMTPSender struct {
@@ -23,22 +25,22 @@ func NewSMTPSender(host, port, username, password, from string) *SMTPSender {
 	}
 }
 
-func (s *SMTPSender) SendEmail(to, subject, body string) error {
+func (s *SMTPSender) Send(msg notification.Message) error {
 	auth := smtp.PlainAuth("", s.username, s.password, s.host)
 
-	msg := []byte(
+	raw := []byte(
 		"From: " + s.from + "\r\n" +
-			"To: " + to + "\r\n" +
-			"Subject: " + subject + "\r\n" +
+			"To: " + msg.To + "\r\n" +
+			"Subject: " + msg.Subject + "\r\n" +
 			"MIME-Version: 1.0\r\n" +
 			"Content-Type: text/plain; charset=\"UTF-8\"\r\n" +
 			"Content-Transfer-Encoding: 8bit\r\n" +
-			"\r\n" + body + "\r\n",
+			"\r\n" + msg.Body + "\r\n",
 	)
 
 	addr := fmt.Sprintf("%s:%s", s.host, s.port)
 
-	err := smtp.SendMail(addr, auth, s.from, []string{to}, msg)
+	err := smtp.SendMail(addr, auth, s.from, []string{msg.To}, raw)
 	if err != nil {
 		return err
 	}

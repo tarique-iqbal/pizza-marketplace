@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	emailapp "notification-service/internal/application/notification"
+	notifapp "notification-service/internal/application/notification"
 	"notification-service/internal/domain/notification"
 
 	"github.com/stretchr/testify/assert"
@@ -38,7 +38,7 @@ func TestRestaurantReadyForReview_Handle_Success(t *testing.T) {
 
 	sender := &mockSender{}
 	template := &mockRestaurantReviewTemplateLoader{}
-	handler := emailapp.NewRestaurantReadyForReview(sender, template)
+	handler := notifapp.NewRestaurantReadyForReview(sender, template)
 
 	event := notification.EventPayload{
 		Name: "restaurant.ready_for_review",
@@ -62,7 +62,7 @@ func TestRestaurantReadyForReview_Handle_Success(t *testing.T) {
 func TestRestaurantReadyForReview_Handle_InvalidJSON(t *testing.T) {
 	sender := &mockSender{}
 	template := &mockRestaurantReviewTemplateLoader{}
-	handler := emailapp.NewRestaurantReadyForReview(sender, template)
+	handler := notifapp.NewRestaurantReadyForReview(sender, template)
 
 	event := notification.EventPayload{
 		Name: "restaurant.ready_for_review",
@@ -78,7 +78,7 @@ func TestRestaurantReadyForReview_Handle_InvalidJSON(t *testing.T) {
 func TestRestaurantReadyForReview_Handle_TemplateRenderFails(t *testing.T) {
 	sender := &mockSender{}
 	template := &mockRestaurantReviewTemplateLoader{Fail: true}
-	handler := emailapp.NewRestaurantReadyForReview(sender, template)
+	handler := notifapp.NewRestaurantReadyForReview(sender, template)
 
 	event := notification.EventPayload{
 		Name: "restaurant.ready_for_review",
@@ -98,7 +98,7 @@ func TestRestaurantReadyForReview_Handle_TemplateRenderFails(t *testing.T) {
 func TestRestaurantReadyForReview_Handle_EmailSendFails(t *testing.T) {
 	sender := &mockSender{Err: errors.New("smtp error")}
 	template := &mockRestaurantReviewTemplateLoader{}
-	handler := emailapp.NewRestaurantReadyForReview(sender, template)
+	handler := notifapp.NewRestaurantReadyForReview(sender, template)
 
 	event := notification.EventPayload{
 		Name: "restaurant.ready_for_review",

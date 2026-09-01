@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	emailapp "notification-service/internal/application/notification"
+	notifapp "notification-service/internal/application/notification"
 	"notification-service/internal/domain/notification"
 
 	"github.com/stretchr/testify/assert"
@@ -37,7 +37,7 @@ func TestRestaurantApproved_Handle_Success(t *testing.T) {
 
 	sender := &mockSender{}
 	template := &mockRestaurantApprovedTemplateLoader{}
-	handler := emailapp.NewRestaurantApproved(sender, template)
+	handler := notifapp.NewRestaurantApproved(sender, template)
 
 	event := notification.EventPayload{
 		Name: "restaurant.approved",
@@ -62,7 +62,7 @@ func TestRestaurantApproved_Handle_Success(t *testing.T) {
 func TestRestaurantApproved_Handle_InvalidJSON(t *testing.T) {
 	sender := &mockSender{}
 	template := &mockRestaurantApprovedTemplateLoader{}
-	handler := emailapp.NewRestaurantApproved(sender, template)
+	handler := notifapp.NewRestaurantApproved(sender, template)
 
 	event := notification.EventPayload{
 		Name: "restaurant.approved",
@@ -78,7 +78,7 @@ func TestRestaurantApproved_Handle_InvalidJSON(t *testing.T) {
 func TestRestaurantApproved_Handle_TemplateRenderFails(t *testing.T) {
 	sender := &mockSender{}
 	template := &mockRestaurantApprovedTemplateLoader{Fail: true}
-	handler := emailapp.NewRestaurantApproved(sender, template)
+	handler := notifapp.NewRestaurantApproved(sender, template)
 
 	event := notification.EventPayload{
 		Name: "restaurant.approved",
@@ -99,7 +99,7 @@ func TestRestaurantApproved_Handle_TemplateRenderFails(t *testing.T) {
 func TestRestaurantApproved_Handle_EmailSendFails(t *testing.T) {
 	sender := &mockSender{Err: errors.New("smtp error")}
 	template := &mockRestaurantApprovedTemplateLoader{}
-	handler := emailapp.NewRestaurantApproved(sender, template)
+	handler := notifapp.NewRestaurantApproved(sender, template)
 
 	event := notification.EventPayload{
 		Name: "restaurant.approved",

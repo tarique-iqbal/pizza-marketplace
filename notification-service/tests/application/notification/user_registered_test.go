@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	emailapp "notification-service/internal/application/notification"
+	notifapp "notification-service/internal/application/notification"
 	"notification-service/internal/domain/notification"
 
 	"github.com/stretchr/testify/assert"
@@ -23,10 +23,10 @@ type mockSender struct {
 	Err     error
 }
 
-func (m *mockSender) SendEmail(to, subject, body string) error {
-	m.To = to
-	m.Subject = subject
-	m.Body = body
+func (m *mockSender) Send(msg notification.Message) error {
+	m.To = msg.To
+	m.Subject = msg.Subject
+	m.Body = msg.Body
 	return m.Err
 }
 
@@ -55,7 +55,7 @@ func TestUserRegistered_Handle_Success(t *testing.T) {
 
 	sender := &mockSender{}
 	template := &mockTemplateLoader{}
-	handler := emailapp.NewUserRegistered(sender, template)
+	handler := notifapp.NewUserRegistered(sender, template)
 
 	event := notification.EventPayload{
 		Name: "user.registered",
@@ -79,7 +79,7 @@ func TestUserRegistered_Handle_Success(t *testing.T) {
 func TestUserRegistered_Handle_InvalidJSON(t *testing.T) {
 	sender := &mockSender{}
 	template := &mockTemplateLoader{}
-	handler := emailapp.NewUserRegistered(sender, template)
+	handler := notifapp.NewUserRegistered(sender, template)
 
 	event := notification.EventPayload{
 		Name: "user.registered",
@@ -95,7 +95,7 @@ func TestUserRegistered_Handle_InvalidJSON(t *testing.T) {
 func TestUserRegistered_Handle_TemplateRenderFails(t *testing.T) {
 	sender := &mockSender{}
 	template := &mockTemplateLoader{Fail: true}
-	handler := emailapp.NewUserRegistered(sender, template)
+	handler := notifapp.NewUserRegistered(sender, template)
 
 	event := notification.EventPayload{
 		Name: "user.registered",
@@ -116,7 +116,7 @@ func TestUserRegistered_Handle_TemplateRenderFails(t *testing.T) {
 func TestUserRegistered_Handle_EmailSendFails(t *testing.T) {
 	sender := &mockSender{Err: errors.New("smtp error")}
 	template := &mockTemplateLoader{}
-	handler := emailapp.NewUserRegistered(sender, template)
+	handler := notifapp.NewUserRegistered(sender, template)
 
 	event := notification.EventPayload{
 		Name: "user.registered",
