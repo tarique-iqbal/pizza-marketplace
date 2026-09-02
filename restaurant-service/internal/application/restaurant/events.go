@@ -61,6 +61,7 @@ func newRestaurantApprovedPayload(e restaurant.RestaurantApproved) RestaurantApp
 
 type RestaurantLaunchedPayload struct {
 	RestaurantID   uuid.UUID                         `json:"restaurant_id"`
+	OwnerID        uuid.UUID                         `json:"owner_id"`
 	RestaurantName string                            `json:"restaurant_name"`
 	EventName      string                            `json:"event_name"`
 	Slug           string                            `json:"slug"`
@@ -94,6 +95,7 @@ func NewRestaurantLaunchedPayload(
 ) RestaurantLaunchedPayload {
 	payload := RestaurantLaunchedPayload{
 		RestaurantID:   e.RestaurantID,
+		OwnerID:        r.OwnerID,
 		RestaurantName: r.Name,
 		Slug:           *r.Slug,
 		Contact: ContactResponse{
@@ -131,6 +133,7 @@ func NewRestaurantLaunchedPayload(
 
 type RestaurantUpdatedPayload struct {
 	RestaurantID   uuid.UUID            `json:"restaurant_id"`
+	OwnerID        uuid.UUID            `json:"owner_id"`
 	RestaurantName string               `json:"restaurant_name"`
 	EventName      string               `json:"event_name"`
 	Slug           string               `json:"slug"`
@@ -160,6 +163,7 @@ func NewRestaurantUpdatedPayload(
 ) RestaurantUpdatedPayload {
 	payload := RestaurantUpdatedPayload{
 		RestaurantID:   e.RestaurantID,
+		OwnerID:        r.OwnerID,
 		RestaurantName: r.Name,
 		Slug:           *r.Slug,
 		Contact: ContactResponse{

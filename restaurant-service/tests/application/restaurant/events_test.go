@@ -82,9 +82,11 @@ func TestRestaurantLaunchedPayload_MarshalJSON(t *testing.T) {
 	occurredAt := time.Date(2026, 8, 11, 12, 0, 0, 0, time.UTC)
 	updatedAt := time.Date(2026, 8, 11, 12, 0, 5, 0, time.UTC)
 	restaurantID := uuid.New()
+	ownerID := uuid.New()
 
 	payload := resapp.RestaurantLaunchedPayload{
 		RestaurantID:   restaurantID,
+		OwnerID:        ownerID,
 		RestaurantName: "Pizza Paradise",
 		EventName:      "restaurant.launched",
 		OccurredAt:     occurredAt,
@@ -98,6 +100,7 @@ func TestRestaurantLaunchedPayload_MarshalJSON(t *testing.T) {
 	require.NoError(t, json.Unmarshal(out, &decoded))
 
 	assert.Equal(t, restaurantID.String(), decoded["restaurant_id"])
+	assert.Equal(t, ownerID.String(), decoded["owner_id"])
 	assert.Equal(t, "Pizza Paradise", decoded["restaurant_name"])
 	assert.Equal(t, "restaurant.launched", decoded["event_name"])
 	assert.Equal(t, occurredAt.Format(time.RFC3339), decoded["occurred_at"])
