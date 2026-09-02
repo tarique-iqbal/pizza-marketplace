@@ -90,9 +90,10 @@ via their source service's own transactional outbox — identity-service's and r
 both full-scope, no best-effort publish path left in either. At-least-once delivery on this consumer side still
 also relies on the RabbitMQ consumer's own DLX/retry mechanism below, independent of the producer-side guarantee.
 
-Handler wiring in `internal/container/container.go` is index-based into `messaging.Exchanges[...]` (position in
-the slice, not name) — a latent fragility: reordering or inserting into that slice without updating the
-corresponding `Register` call would silently bind the wrong handler to the wrong routing key.
+Handler wiring in `internal/container/container.go` registers each handler against a literal routing-key string
+(e.g. `dispatcher.Register("user.registered", userRegistered)`), matching search-service's `container/worker.go`
+— not indexed into `messaging.Exchanges[...]` by position, which previously made a reorder of that slice able to
+silently bind the wrong handler to the wrong routing key.
 
 ## Consumer reliability
 
