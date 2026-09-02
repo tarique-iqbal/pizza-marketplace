@@ -7,6 +7,5 @@ type Event interface {
 }
 
 type EventPublisher interface {
-	PublishEvent(ctx context.Context, event Event) error
-	PublishRaw(ctx context.Context, topic string, jsonData []byte) error
+	Publish(ctx context.Context, routingKey string, payload []byte) error
 }
