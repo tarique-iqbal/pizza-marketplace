@@ -56,6 +56,26 @@ services:
     networks:
       - internal
 
+  # Database (order)
+  postgres-order:
+    image: postgres:17-alpine
+    container_name: pizza-pg-order
+    environment:
+      POSTGRES_USER: user_dev
+      POSTGRES_PASSWORD: pass_dev
+      POSTGRES_DB: order_db
+    volumes:
+      - pg_order:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_dev -d order_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
   # Migrations (identity)
   migrate-identity:
     image: migrate/migrate
@@ -291,9 +311,35 @@ services:
     networks:
       - internal
 
+  # Order Service (API)
+  order-service:
+    container_name: pizza-order-service
+    build:
+      context: .
+      dockerfile: order-service/Dockerfile
+      target: dev
+    volumes:
+      - ./order-service:/app
+    depends_on:
+      postgres-order:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    env_file: order-service/.env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.order.rule=PathPrefix(`/orders`) || PathPrefix(`/cart`) || PathPrefix(`/webhooks/stripe`)"
+      - "traefik.http.routers.order.entrypoints=web"
+      - "traefik.http.services.order.loadbalancer.server.port=8080"
+      - "traefik.docker.network=backend"
+    networks:
+      - backend
+      - internal
+
 volumes:
   pg_identity:
   pg_restaurant:
+  pg_order:
   elasticsearch_data:
   redis_data:
 

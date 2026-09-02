@@ -47,3 +47,4 @@ compose*  # Except our main compose file
 notification-service/tmp
 identity-service/tmp
 restaurant-service/tmp
+order-service/tmp
