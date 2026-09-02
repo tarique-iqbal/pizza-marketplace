@@ -110,6 +110,23 @@ services:
     networks:
       - internal
 
+  # Migrations (order)
+  migrate-order:
+    image: migrate/migrate
+    depends_on:
+      postgres-order:
+        condition: service_healthy
+    volumes:
+      - ./order-service/internal/infrastructure/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://user_dev:pass_dev@postgres-order:5432/order_db?sslmode=disable",
+        "up"
+      ]
+    networks:
+      - internal
+
   # Message Broker
   rabbitmq:
     image: rabbitmq:3-management-alpine
@@ -325,6 +342,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      migrate-order:
+        condition: service_completed_successfully
     env_file: order-service/.env
     labels:
       - "traefik.enable=true"
@@ -334,6 +353,27 @@ services:
       - "traefik.docker.network=backend"
     networks:
       - backend
+      - internal
+
+  # Order Service (worker)
+  order-worker:
+    container_name: pizza-order-worker
+    build:
+      context: .
+      dockerfile: order-service/Dockerfile
+      target: dev
+    command: ["air", "-c", ".air.worker.toml"]
+    volumes:
+      - ./order-service:/app
+    depends_on:
+      postgres-order:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      migrate-order:
+        condition: service_completed_successfully
+    env_file: order-service/.env
+    networks:
       - internal
 
 volumes:
