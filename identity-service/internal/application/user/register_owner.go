@@ -77,6 +77,7 @@ func (uc *RegisterOwner) Execute(ctx context.Context, input RegisterOwnerRequest
 	}
 
 	userRegistered := UserRegistered{
+		UserID:     userID,
 		Email:      newUser.Email,
 		FirstName:  newUser.FirstName,
 		Role:       newUser.Role,

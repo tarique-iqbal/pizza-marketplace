@@ -62,6 +62,7 @@ func (uc *RegisterCustomer) Execute(ctx context.Context, input RegisterCustomerR
 	newUser.ID = userID
 
 	userRegistered := UserRegistered{
+		UserID:     newUser.ID,
 		Email:      newUser.Email,
 		FirstName:  newUser.FirstName,
 		Role:       newUser.Role,
