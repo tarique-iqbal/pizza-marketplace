@@ -11,11 +11,12 @@ import (
 )
 
 const (
-	TableOutboxEvent = "outbox_events"
-	TableCustomer    = "customers"
-	TableRestaurant  = "restaurants"
-	TablePizza       = "pizzas"
-	TablePizzaPrice  = "pizza_prices"
+	TableOutboxEvent  = "outbox_events"
+	TableCustomer     = "customers"
+	TableRestaurant   = "restaurants"
+	TablePizza        = "pizzas"
+	TablePizzaPrice   = "pizza_prices"
+	TableToppingPrice = "topping_prices"
 )
 
 type TestDB struct {
