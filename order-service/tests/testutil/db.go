@@ -14,6 +14,7 @@ const (
 	TableOutboxEvent = "outbox_events"
 	TableCustomer    = "customers"
 	TableRestaurant  = "restaurants"
+	TablePizza       = "pizzas"
 )
 
 type TestDB struct {
