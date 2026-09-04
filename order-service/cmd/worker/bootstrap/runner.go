@@ -2,11 +2,13 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"runtime/debug"
 	"sync"
 
 	"order-service/internal/container"
+	"order-service/internal/infrastructure/messaging"
 )
 
 type runner struct {
@@ -20,6 +22,20 @@ func newRunner(logger *slog.Logger, app *container.WorkerContainer) *runner {
 }
 
 func (r *runner) start(ctx context.Context, stop context.CancelFunc) {
+	r.logger.Info("starting consumer")
+
+	r.wg.Add(1)
+	go func() {
+		defer r.wg.Done()
+		defer r.recoverPanic(stop)
+
+		if err := messaging.Run(ctx, r.app.Consumer, r.app.Dispatcher); err != nil &&
+			!errors.Is(err, context.Canceled) {
+			r.logger.Error("consumer stopped unexpectedly", "error", err)
+			stop()
+		}
+	}()
+
 	r.logger.Info("starting outbox worker")
 
 	r.wg.Add(1)
