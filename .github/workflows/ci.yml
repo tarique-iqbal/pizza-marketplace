@@ -23,6 +23,10 @@ on:
         description: Run search-service tests
         type: boolean
         default: false
+      run_order:
+        description: Run order-service tests
+        type: boolean
+        default: false
 
 jobs:
   detect-changes:
@@ -33,6 +37,7 @@ jobs:
       restaurant: ${{ steps.filter.outputs.restaurant }}
       notification: ${{ steps.filter.outputs.notification }}
       search: ${{ steps.filter.outputs.search }}
+      order: ${{ steps.filter.outputs.order }}
     steps:
       - uses: actions/checkout@v5
       - uses: dorny/paths-filter@v4
@@ -52,6 +57,10 @@ jobs:
               - 'compose.yaml'
             search:
               - 'search-service/**'
+              - 'compose.yaml'
+              - 'compose.test.yaml'
+            order:
+              - 'order-service/**'
               - 'compose.yaml'
               - 'compose.test.yaml'
 
@@ -232,6 +241,58 @@ jobs:
 
       - name: Run tests
         run: docker compose -f compose.test.yaml exec -T search-test sh -c "cd /app && go test -p 1 -count=1 ./tests/..."
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f compose.test.yaml down -v
+
+  order-ci:
+    needs: detect-changes
+    if: |
+      always() &&
+      (needs.detect-changes.outputs.order == 'true' ||
+        (github.event_name == 'workflow_dispatch' && inputs.run_order))
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: order-service/go.mod
+
+      - name: Check formatting
+        run: |
+          cd order-service
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Run go vet
+        run: cd order-service && go vet ./...
+
+      - name: Write .env.test
+        run: |
+          cat > order-service/.env.test <<'EOF'
+          APP_ENV=test
+          LOG_LEVEL=info
+          POSTGRES_USER=user_test
+          POSTGRES_PASSWORD=pass_test
+          POSTGRES_DB=order_db_test
+          POSTGRES_HOST=pg-order-test
+          POSTGRES_PORT=5432
+          RABBITMQ_URL=amqp://user_test:pass_test@rabbitmq-test:5672/
+          EOF
+
+      - name: Start test stack
+        run: docker compose -f compose.test.yaml --profile test up -d order-test
+
+      - name: Run migrations
+        run: docker compose -f compose.test.yaml --profile test up migrate-order-test
+
+      - name: Run tests
+        run: docker compose -f compose.test.yaml exec -T order-test sh -c "cd /app && go test -p 1 -count=1 ./tests/..."
 
       - name: Tear down
         if: always()
