@@ -15,6 +15,7 @@ const (
 	TableCustomer    = "customers"
 	TableRestaurant  = "restaurants"
 	TablePizza       = "pizzas"
+	TablePizzaPrice  = "pizza_prices"
 )
 
 type TestDB struct {
