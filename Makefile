@@ -1,4 +1,4 @@
-.PHONY: up down down-v test-up test-down test-identity test-restaurant test-notification test-search test fmt vet lint
+.PHONY: up down down-v
 
 up:
 	docker compose up --build
@@ -8,6 +8,8 @@ down:
 
 down-v:
 	docker compose down -v
+
+.PHONY: test-up test-down test-identity test-restaurant test-notification test-search test-order test
 
 test-up:
 	docker compose -f compose.test.yaml --profile test up -d
@@ -27,7 +29,12 @@ test-notification:
 test-search:
 	docker compose -f compose.test.yaml exec -T search-test sh -c "cd /app && go test -p 1 -count=1 ./tests/..."
 
-test: test-up test-identity test-restaurant test-notification test-search
+test-order:
+	docker compose -f compose.test.yaml exec -T order-test sh -c "cd /app && go test -p 1 -count=1 ./tests/..."
+
+test: test-up test-identity test-restaurant test-notification test-search test-order
+
+.PHONY: fmt vet lint
 
 fmt:
 	@for svc in identity-service restaurant-service notification-service; do \
