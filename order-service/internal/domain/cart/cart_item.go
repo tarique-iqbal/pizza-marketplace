@@ -1,6 +1,10 @@
 package cart
 
-import "github.com/google/uuid"
+import (
+	"sort"
+
+	"github.com/google/uuid"
+)
 
 type CartItem struct {
 	ID         uuid.UUID   `gorm:"type:uuid;primaryKey"`
@@ -13,4 +17,20 @@ type CartItem struct {
 
 func (CartItem) TableName() string {
 	return "cart_items"
+}
+
+func NewCartItem(id, pizzaID, sizeID uuid.UUID, quantity int16, toppingIDs []uuid.UUID) CartItem {
+	sorted := make([]uuid.UUID, len(toppingIDs))
+	copy(sorted, toppingIDs)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].String() < sorted[j].String()
+	})
+
+	return CartItem{
+		ID:         id,
+		PizzaID:    pizzaID,
+		SizeID:     sizeID,
+		Quantity:   quantity,
+		ToppingIDs: sorted,
+	}
 }
