@@ -15,3 +15,12 @@ type AddItemResponse struct {
 	Quantity   int16       `json:"quantity"`
 	ToppingIDs []uuid.UUID `json:"toppingIds"`
 }
+
+type UpdateItemQuantityRequest struct {
+	Quantity int16 `json:"quantity" binding:"required,min=1"`
+}
+
+type UpdateItemQuantityResponse struct {
+	ItemID   uuid.UUID `json:"itemId"`
+	Quantity int16     `json:"quantity"`
+}
