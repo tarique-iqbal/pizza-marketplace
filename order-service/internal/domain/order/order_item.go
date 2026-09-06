@@ -12,7 +12,7 @@ type OrderItem struct {
 	SizeID       uuid.UUID       `gorm:"type:uuid;not null"`
 	PizzaName    string          `gorm:"size:128;not null"`
 	SizeDiameter int16           `gorm:"not null"`
-	ToppingIDs   []uuid.UUID     `gorm:"type:jsonb;serializer:json;not null;default:'[]'"`
+	ToppingIDs   []uuid.UUID     `gorm:"column:toppings;type:jsonb;serializer:json;not null;default:'[]'"`
 	Quantity     int16           `gorm:"not null;check:quantity > 0"`
 	UnitPrice    decimal.Decimal `gorm:"type:numeric(6,2);not null"`
 	TotalPrice   decimal.Decimal `gorm:"type:numeric(7,2);not null"`

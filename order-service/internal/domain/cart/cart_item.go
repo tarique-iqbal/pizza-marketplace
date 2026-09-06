@@ -8,7 +8,7 @@ type CartItem struct {
 	PizzaID    uuid.UUID   `gorm:"type:uuid;not null"`
 	SizeID     uuid.UUID   `gorm:"type:uuid;not null"`
 	Quantity   int16       `gorm:"not null;check:quantity > 0"`
-	ToppingIDs []uuid.UUID `gorm:"type:jsonb;serializer:json;not null;default:'[]'"`
+	ToppingIDs []uuid.UUID `gorm:"column:toppings;type:jsonb;serializer:json;not null;default:'[]'"`
 }
 
 func (CartItem) TableName() string {
