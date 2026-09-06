@@ -13,4 +13,5 @@ type Handlers struct {
 
 func SetupRoutes(router *gin.Engine, h *Handlers, m *middleware.Middleware) {
 	SetupAddItemRoutes(router, h.CartHandler, m)
+	SetupUpdateItemQuantityRoutes(router, h.CartHandler, m)
 }

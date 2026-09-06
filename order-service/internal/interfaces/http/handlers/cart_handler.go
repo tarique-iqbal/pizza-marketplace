@@ -14,11 +14,12 @@ import (
 )
 
 type CartHandler struct {
-	addItem *commands.AddItem
+	addItem            *commands.AddItem
+	updateItemQuantity *commands.UpdateItemQuantity
 }
 
-func NewCartHandler(addItem *commands.AddItem) *CartHandler {
-	return &CartHandler{addItem: addItem}
+func NewCartHandler(addItem *commands.AddItem, updateItemQuantity *commands.UpdateItemQuantity) *CartHandler {
+	return &CartHandler{addItem: addItem, updateItemQuantity: updateItemQuantity}
 }
 
 func (h *CartHandler) AddItem(ctx *gin.Context) {
@@ -47,4 +48,38 @@ func (h *CartHandler) AddItem(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusCreated, res)
+}
+
+func (h *CartHandler) UpdateItemQuantity(ctx *gin.Context) {
+	reqCtx := ctx.Request.Context()
+
+	itemID, err := uuid.Parse(ctx.Param("itemId"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid item id"})
+		return
+	}
+
+	var input cartapp.UpdateItemQuantityRequest
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		ctx.JSON(http.StatusUnprocessableEntity, gin.H{
+			"errors": validation.ExtractValidationErrors(err),
+		})
+		return
+	}
+
+	userID := ctx.MustGet(middleware.CtxUserID).(string)
+
+	customerID, err := uuid.Parse(userID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid customer id"})
+		return
+	}
+
+	res, err := h.updateItemQuantity.Execute(reqCtx, customerID, itemID, input)
+	if err != nil {
+		response.HandleError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, res)
 }
