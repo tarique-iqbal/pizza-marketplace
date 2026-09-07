@@ -35,7 +35,8 @@ END$$;
 CREATE TABLE orders (
     id               UUID,
     customer_id      UUID NOT NULL,
-    restaurant_id    UUID NOT NULL,
+    restaurant_id UUID NOT NULL
+        REFERENCES restaurants (id),
     status           order_status_enum NOT NULL DEFAULT 'pending',
     fulfillment      order_fulfillment_enum NOT NULL,
     contact_email    VARCHAR(255) NOT NULL,
