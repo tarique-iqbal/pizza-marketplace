@@ -6,6 +6,7 @@ import (
 	"order-service/internal/container"
 	"order-service/internal/infrastructure/observability"
 	logobs "order-service/internal/infrastructure/observability/logger"
+	"order-service/internal/interfaces/http/routes"
 )
 
 func main() {
@@ -20,6 +21,12 @@ func main() {
 
 	router := gin.New()
 	router.Use(gin.Recovery(), observability.Middleware(logger))
+
+	handlers := &routes.Handlers{
+		CartHandler: app.CartHandler,
+	}
+
+	routes.SetupRoutes(router, handlers, app.Middleware)
 
 	if err := router.Run(":8080"); err != nil {
 		logger.Error("failed to start server", "error", err)
