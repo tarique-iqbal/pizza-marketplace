@@ -12,7 +12,6 @@ type OrderStatus string
 const (
 	StatusPending   OrderStatus = "pending"
 	StatusConfirmed OrderStatus = "confirmed"
-	StatusPreparing OrderStatus = "preparing"
 	StatusReady     OrderStatus = "ready"
 	StatusCompleted OrderStatus = "completed"
 	StatusCancelled OrderStatus = "cancelled"
@@ -51,7 +50,6 @@ type Order struct {
 	PaymentID       *string         `gorm:"size:64"`
 	PlacedAt        time.Time       `gorm:"type:timestamptz;not null;autoCreateTime"`
 	ConfirmedAt     *time.Time      `gorm:"type:timestamptz"`
-	PrepStartedAt   *time.Time      `gorm:"type:timestamptz"`
 	ReadyAt         *time.Time      `gorm:"type:timestamptz"`
 	CompletedAt     *time.Time      `gorm:"type:timestamptz"`
 	CancelledAt     *time.Time      `gorm:"type:timestamptz"`
@@ -111,20 +109,8 @@ func (o *Order) Confirm() error {
 	return nil
 }
 
-func (o *Order) StartPreparing() error {
-	if o.Status != StatusConfirmed {
-		return ErrInvalidStatusTransition
-	}
-
-	now := time.Now().UTC()
-	o.Status = StatusPreparing
-	o.PrepStartedAt = &now
-
-	return nil
-}
-
 func (o *Order) MarkReady() error {
-	if o.Status != StatusPreparing {
+	if o.Status != StatusConfirmed {
 		return ErrInvalidStatusTransition
 	}
 
@@ -149,7 +135,7 @@ func (o *Order) Complete() error {
 
 func (o *Order) Cancel() error {
 	switch o.Status {
-	case StatusPending, StatusConfirmed, StatusPreparing:
+	case StatusPending, StatusConfirmed:
 	default:
 		return ErrInvalidStatusTransition
 	}
