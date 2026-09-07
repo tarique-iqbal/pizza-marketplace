@@ -1,11 +1,19 @@
 package order
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type GeocodeEntry struct {
-	AddressHash string
-	Lat         float64
-	Lon         float64
+	AddressHash string    `gorm:"type:char(64);primaryKey"`
+	Lat         float64   `gorm:"type:double precision;not null;check:lat BETWEEN -90 AND 90"`
+	Lon         float64   `gorm:"type:double precision;not null;check:lon BETWEEN -180 AND 180"`
+	CreatedAt   time.Time `gorm:"type:timestamptz;not null;autoCreateTime"`
+}
+
+func (GeocodeEntry) TableName() string {
+	return "geocode"
 }
 
 type GeocodeRepository interface {
