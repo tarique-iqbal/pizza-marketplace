@@ -8,6 +8,7 @@ import (
 
 	cartapp "order-service/internal/application/cart"
 	"order-service/internal/application/cart/commands"
+	"order-service/internal/application/cart/queries"
 	"order-service/internal/interfaces/http/middleware"
 	"order-service/internal/interfaces/http/response"
 	"order-service/internal/interfaces/http/validation"
@@ -17,14 +18,21 @@ type CartHandler struct {
 	addItem            *commands.AddItem
 	updateItemQuantity *commands.UpdateItemQuantity
 	removeItem         *commands.RemoveItem
+	getCart            *queries.GetCart
 }
 
 func NewCartHandler(
 	addItem *commands.AddItem,
 	updateItemQuantity *commands.UpdateItemQuantity,
 	removeItem *commands.RemoveItem,
+	getCart *queries.GetCart,
 ) *CartHandler {
-	return &CartHandler{addItem: addItem, updateItemQuantity: updateItemQuantity, removeItem: removeItem}
+	return &CartHandler{
+		addItem:            addItem,
+		updateItemQuantity: updateItemQuantity,
+		removeItem:         removeItem,
+		getCart:            getCart,
+	}
 }
 
 func (h *CartHandler) AddItem(ctx *gin.Context) {
@@ -112,4 +120,24 @@ func (h *CartHandler) RemoveItem(ctx *gin.Context) {
 	}
 
 	ctx.Status(http.StatusNoContent)
+}
+
+func (h *CartHandler) GetCart(ctx *gin.Context) {
+	reqCtx := ctx.Request.Context()
+
+	userID := ctx.MustGet(middleware.CtxUserID).(string)
+
+	customerID, err := uuid.Parse(userID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid customer id"})
+		return
+	}
+
+	res, err := h.getCart.Execute(reqCtx, customerID)
+	if err != nil {
+		response.HandleError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, res)
 }
