@@ -145,7 +145,7 @@ func TestCartRepository_UpdateItemQuantity_NotFound(t *testing.T) {
 	assert.ErrorIs(t, err, apperr.ErrNotFound)
 }
 
-func TestCartRepository_RemoveItem(t *testing.T) {
+func TestCartRepository_RemoveItem_DeletesCartWhenLastItemRemoved(t *testing.T) {
 	repo, seeded := setupCartRepo(t)
 	target := seeded[0]
 	item := target.Items[0]
@@ -155,7 +155,31 @@ func TestCartRepository_RemoveItem(t *testing.T) {
 
 	found, err := repo.FindByCustomer(context.Background(), target.CustomerID)
 	require.NoError(t, err)
-	assert.Empty(t, found.Items)
+	assert.Nil(t, found, "an emptied cart must not linger as an orphan row")
+}
+
+func TestCartRepository_RemoveItem_CartSurvivesWhenItemsRemain(t *testing.T) {
+	repo, seeded := setupCartRepo(t)
+	target := seeded[0]
+	original := target.Items[0]
+
+	extra := cart.CartItem{
+		ID:         testutil.MustNewID(),
+		PizzaID:    testutil.MustNewID(),
+		SizeID:     testutil.MustNewID(),
+		Quantity:   1,
+		ToppingIDs: []uuid.UUID{},
+	}
+	require.NoError(t, repo.AddOrMergeItem(context.Background(), target.ID, extra))
+
+	err := repo.RemoveItem(context.Background(), target.ID, original.ID)
+	require.NoError(t, err)
+
+	found, err := repo.FindByCustomer(context.Background(), target.CustomerID)
+	require.NoError(t, err)
+	require.NotNil(t, found)
+	require.Len(t, found.Items, 1)
+	assert.Equal(t, extra.PizzaID, found.Items[0].PizzaID)
 }
 
 func TestCartRepository_RemoveItem_NotFound(t *testing.T) {

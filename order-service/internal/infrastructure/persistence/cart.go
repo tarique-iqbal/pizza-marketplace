@@ -66,15 +66,26 @@ func (r *CartRepository) UpdateItemQuantity(ctx context.Context, cartID, itemID 
 }
 
 func (r *CartRepository) RemoveItem(ctx context.Context, cartID, itemID uuid.UUID) error {
-	result := r.db.WithContext(ctx).Where("id = ? AND cart_id = ?", itemID, cartID).Delete(&cart.CartItem{})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return apperr.ErrNotFound
-	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Where("id = ? AND cart_id = ?", itemID, cartID).Delete(&cart.CartItem{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return apperr.ErrNotFound
+		}
 
-	return nil
+		var remaining int64
+		if err := tx.Model(&cart.CartItem{}).Where("cart_id = ?", cartID).Count(&remaining).Error; err != nil {
+			return err
+		}
+
+		if remaining == 0 {
+			return tx.Where("id = ?", cartID).Delete(&cart.Cart{}).Error
+		}
+
+		return nil
+	})
 }
 
 func (r *CartRepository) Clear(ctx context.Context, cartID uuid.UUID) error {
