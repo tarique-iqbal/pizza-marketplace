@@ -18,6 +18,7 @@ const (
 	TablePizzaPrice   = "pizza_prices"
 	TableToppingPrice = "topping_prices"
 	TableCart         = "carts"
+	TableGeocode      = "geocode"
 )
 
 type TestDB struct {
