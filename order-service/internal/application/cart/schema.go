@@ -7,17 +7,17 @@ import (
 )
 
 type AddItemRequest struct {
-	PizzaID    uuid.UUID   `json:"pizzaId" binding:"required,uuid"`
-	SizeID     uuid.UUID   `json:"sizeId" binding:"required,uuid"`
-	Quantity   int16       `json:"quantity" binding:"required,min=1"`
-	ToppingIDs []uuid.UUID `json:"toppingIds" binding:"dive,uuid"`
+	PizzaID         uuid.UUID   `json:"pizzaId" binding:"required,uuid"`
+	SizeID          uuid.UUID   `json:"sizeId" binding:"required,uuid"`
+	Quantity        int16       `json:"quantity" binding:"required,min=1"`
+	ExtraToppingIDs []uuid.UUID `json:"extraToppingIds" binding:"dive,uuid"`
 }
 
 type AddItemResponse struct {
-	PizzaID    uuid.UUID   `json:"pizzaId"`
-	SizeID     uuid.UUID   `json:"sizeId"`
-	Quantity   int16       `json:"quantity"`
-	ToppingIDs []uuid.UUID `json:"toppingIds"`
+	PizzaID         uuid.UUID   `json:"pizzaId"`
+	SizeID          uuid.UUID   `json:"sizeId"`
+	Quantity        int16       `json:"quantity"`
+	ExtraToppingIDs []uuid.UUID `json:"extraToppingIds"`
 }
 
 type UpdateItemQuantityRequest struct {
@@ -36,16 +36,16 @@ type CartToppingView struct {
 }
 
 type CartItemView struct {
-	ItemID     uuid.UUID         `json:"itemId"`
-	PizzaID    uuid.UUID         `json:"pizzaId"`
-	PizzaName  string            `json:"pizzaName,omitempty"`
-	SizeID     uuid.UUID         `json:"sizeId"`
-	DiameterCm int16             `json:"diameterCm,omitempty"`
-	Quantity   int16             `json:"quantity"`
-	Toppings   []CartToppingView `json:"toppings"`
-	UnitPrice  *money.Money      `json:"unitPrice,omitempty"`
-	LineTotal  *money.Money      `json:"lineTotal,omitempty"`
-	Available  bool              `json:"available"`
+	ItemID        uuid.UUID         `json:"itemId"`
+	PizzaID       uuid.UUID         `json:"pizzaId"`
+	PizzaName     string            `json:"pizzaName,omitempty"`
+	SizeID        uuid.UUID         `json:"sizeId"`
+	DiameterCm    int16             `json:"diameterCm,omitempty"`
+	Quantity      int16             `json:"quantity"`
+	ExtraToppings []CartToppingView `json:"extraToppings"`
+	UnitPrice     *money.Money      `json:"unitPrice,omitempty"`
+	LineTotal     *money.Money      `json:"lineTotal,omitempty"`
+	Available     bool              `json:"available"`
 }
 
 type GetCartResponse struct {

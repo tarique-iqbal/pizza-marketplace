@@ -43,7 +43,7 @@ func (r *CartRepository) AddOrMergeItem(ctx context.Context, cartID uuid.UUID, i
 
 	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns: []clause.Column{
-			{Name: "cart_id"}, {Name: "pizza_id"}, {Name: "size_id"}, {Name: "toppings"},
+			{Name: "cart_id"}, {Name: "pizza_id"}, {Name: "size_id"}, {Name: "extra_toppings"},
 		},
 		DoUpdates: clause.Assignments(map[string]interface{}{
 			"quantity": gorm.Expr("cart_items.quantity + excluded.quantity"),

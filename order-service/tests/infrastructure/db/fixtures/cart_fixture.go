@@ -19,11 +19,11 @@ func LoadCartFixtures(t *testing.T, db *gorm.DB) []cart.Cart {
 			RestaurantID: testutil.MustNewID(),
 			Items: []cart.CartItem{
 				{
-					ID:         testutil.MustNewID(),
-					PizzaID:    testutil.MustNewID(),
-					SizeID:     testutil.MustNewID(),
-					Quantity:   2,
-					ToppingIDs: []uuid.UUID{},
+					ID:              testutil.MustNewID(),
+					PizzaID:         testutil.MustNewID(),
+					SizeID:          testutil.MustNewID(),
+					Quantity:        2,
+					ExtraToppingIDs: []uuid.UUID{},
 				},
 			},
 		},

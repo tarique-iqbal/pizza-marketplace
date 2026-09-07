@@ -43,11 +43,11 @@ func TestGetCart_ResolvesAvailableItem(t *testing.T) {
 		RestaurantID: restaurantID,
 		Items: []cart.CartItem{
 			{
-				ID:         itemID,
-				PizzaID:    pizzaID,
-				SizeID:     sizeID,
-				Quantity:   2,
-				ToppingIDs: []uuid.UUID{toppingID},
+				ID:              itemID,
+				PizzaID:         pizzaID,
+				SizeID:          sizeID,
+				Quantity:        2,
+				ExtraToppingIDs: []uuid.UUID{toppingID},
 			},
 		},
 	}
@@ -78,8 +78,8 @@ func TestGetCart_ResolvesAvailableItem(t *testing.T) {
 	assert.True(t, item.Available)
 	assert.Equal(t, "Margherita", item.PizzaName)
 	assert.Equal(t, int16(26), item.DiameterCm)
-	require.Len(t, item.Toppings, 1)
-	assert.Equal(t, "Extra Cheese", item.Toppings[0].Name)
+	require.Len(t, item.ExtraToppings, 1)
+	assert.Equal(t, "Extra Cheese", item.ExtraToppings[0].Name)
 	require.NotNil(t, item.UnitPrice)
 	assert.True(t, decimal.Decimal(*item.UnitPrice).Equal(decimal.NewFromFloat(9.00)))
 	require.NotNil(t, item.LineTotal)

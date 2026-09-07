@@ -71,7 +71,7 @@ func TestAddItem_ToppingNotFound(t *testing.T) {
 	uc := commands.NewAddItem(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
 
 	_, err := uc.Execute(context.Background(), testutil.MustNewID(), cartapp.AddItemRequest{
-		PizzaID: pizzaID, SizeID: sizeID, Quantity: 1, ToppingIDs: []uuid.UUID{testutil.MustNewID()},
+		PizzaID: pizzaID, SizeID: sizeID, Quantity: 1, ExtraToppingIDs: []uuid.UUID{testutil.MustNewID()},
 	})
 
 	assert.ErrorIs(t, err, apperr.ErrNotFound)
@@ -140,7 +140,7 @@ func TestAddItem_RestaurantMismatch(t *testing.T) {
 	assert.Empty(t, cartRepo.AddOrMergeItemCalls)
 }
 
-func TestAddItem_SortsToppingIDs(t *testing.T) {
+func TestAddItem_SortsExtraToppingIDs(t *testing.T) {
 	restaurantID := testutil.MustNewID()
 	pizzaID := testutil.MustNewID()
 	sizeID := testutil.MustNewID()
@@ -166,16 +166,16 @@ func TestAddItem_SortsToppingIDs(t *testing.T) {
 	uc := commands.NewAddItem(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
 
 	res, err := uc.Execute(context.Background(), testutil.MustNewID(), cartapp.AddItemRequest{
-		PizzaID: pizzaID, SizeID: sizeID, Quantity: 1, ToppingIDs: []uuid.UUID{toppingB, toppingA},
+		PizzaID: pizzaID, SizeID: sizeID, Quantity: 1, ExtraToppingIDs: []uuid.UUID{toppingB, toppingA},
 	})
 
 	require.NoError(t, err)
-	require.Len(t, res.ToppingIDs, 2)
-	assert.True(t, res.ToppingIDs[0].String() < res.ToppingIDs[1].String(), "topping ids must be sorted")
+	require.Len(t, res.ExtraToppingIDs, 2)
+	assert.True(t, res.ExtraToppingIDs[0].String() < res.ExtraToppingIDs[1].String(), "topping ids must be sorted")
 
 	require.Len(t, cartRepo.AddOrMergeItemCalls, 1)
 
-	got := cartRepo.AddOrMergeItemCalls[0].Item.ToppingIDs
+	got := cartRepo.AddOrMergeItemCalls[0].Item.ExtraToppingIDs
 	require.Len(t, got, 2)
 	assert.True(t, got[0].String() < got[1].String(), "topping ids must be stored sorted")
 }

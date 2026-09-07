@@ -64,11 +64,11 @@ func TestCartRepository_AddOrMergeItem_InsertsNewLine(t *testing.T) {
 	target := seeded[1]
 
 	item := cart.CartItem{
-		ID:         testutil.MustNewID(),
-		PizzaID:    testutil.MustNewID(),
-		SizeID:     testutil.MustNewID(),
-		Quantity:   1,
-		ToppingIDs: []uuid.UUID{},
+		ID:              testutil.MustNewID(),
+		PizzaID:         testutil.MustNewID(),
+		SizeID:          testutil.MustNewID(),
+		Quantity:        1,
+		ExtraToppingIDs: []uuid.UUID{},
 	}
 
 	err := repo.AddOrMergeItem(context.Background(), target.ID, item)
@@ -86,11 +86,11 @@ func TestCartRepository_AddOrMergeItem_MergesQuantityOnSameCombo(t *testing.T) {
 	existing := target.Items[0]
 
 	duplicate := cart.CartItem{
-		ID:         testutil.MustNewID(),
-		PizzaID:    existing.PizzaID,
-		SizeID:     existing.SizeID,
-		Quantity:   3,
-		ToppingIDs: existing.ToppingIDs,
+		ID:              testutil.MustNewID(),
+		PizzaID:         existing.PizzaID,
+		SizeID:          existing.SizeID,
+		Quantity:        3,
+		ExtraToppingIDs: existing.ExtraToppingIDs,
 	}
 
 	err := repo.AddOrMergeItem(context.Background(), target.ID, duplicate)
@@ -108,11 +108,11 @@ func TestCartRepository_AddOrMergeItem_DifferentToppingsSeparateLine(t *testing.
 	existing := target.Items[0]
 
 	differentToppings := cart.CartItem{
-		ID:         testutil.MustNewID(),
-		PizzaID:    existing.PizzaID,
-		SizeID:     existing.SizeID,
-		Quantity:   1,
-		ToppingIDs: []uuid.UUID{testutil.MustNewID()},
+		ID:              testutil.MustNewID(),
+		PizzaID:         existing.PizzaID,
+		SizeID:          existing.SizeID,
+		Quantity:        1,
+		ExtraToppingIDs: []uuid.UUID{testutil.MustNewID()},
 	}
 
 	err := repo.AddOrMergeItem(context.Background(), target.ID, differentToppings)
@@ -164,11 +164,11 @@ func TestCartRepository_RemoveItem_CartSurvivesWhenItemsRemain(t *testing.T) {
 	original := target.Items[0]
 
 	extra := cart.CartItem{
-		ID:         testutil.MustNewID(),
-		PizzaID:    testutil.MustNewID(),
-		SizeID:     testutil.MustNewID(),
-		Quantity:   1,
-		ToppingIDs: []uuid.UUID{},
+		ID:              testutil.MustNewID(),
+		PizzaID:         testutil.MustNewID(),
+		SizeID:          testutil.MustNewID(),
+		Quantity:        1,
+		ExtraToppingIDs: []uuid.UUID{},
 	}
 	require.NoError(t, repo.AddOrMergeItem(context.Background(), target.ID, extra))
 

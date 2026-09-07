@@ -7,7 +7,7 @@ CREATE TABLE order_items (
     size_id       UUID NOT NULL,
     pizza_name    VARCHAR(128) NOT NULL,
     size_diameter SMALLINT NOT NULL,
-    toppings      JSONB NOT NULL DEFAULT '[]',
+    extra_toppings JSONB NOT NULL DEFAULT '[]',
     quantity SMALLINT NOT NULL
         CONSTRAINT ck_order_items_quantity
         CHECK (quantity > 0),

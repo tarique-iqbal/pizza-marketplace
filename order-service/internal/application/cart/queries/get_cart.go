@@ -117,8 +117,8 @@ func (uc *GetCart) resolveItemView(
 		available = priceFound
 	}
 
-	toppingViews := make([]cartapp.CartToppingView, 0, len(item.ToppingIDs))
-	for _, toppingID := range item.ToppingIDs {
+	toppingViews := make([]cartapp.CartToppingView, 0, len(item.ExtraToppingIDs))
+	for _, toppingID := range item.ExtraToppingIDs {
 		toppingView := cartapp.CartToppingView{ToppingID: toppingID}
 
 		tp, ok := toppingByID[toppingID]
@@ -136,7 +136,7 @@ func (uc *GetCart) resolveItemView(
 		toppingViews = append(toppingViews, toppingView)
 	}
 
-	view.Toppings = toppingViews
+	view.ExtraToppings = toppingViews
 	view.Available = available
 
 	if !available {

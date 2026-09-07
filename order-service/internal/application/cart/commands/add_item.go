@@ -59,7 +59,7 @@ func (uc *AddItem) Execute(
 		return cartapp.AddItemResponse{}, fmt.Errorf("pizza size not available: %w", apperr.ErrNotFound)
 	}
 
-	if len(input.ToppingIDs) > 0 {
+	if len(input.ExtraToppingIDs) > 0 {
 		toppingPrices, err := uc.toppingPriceRepo.ListByRestaurant(ctx, pizza.RestaurantID)
 		if err != nil {
 			return cartapp.AddItemResponse{}, fmt.Errorf("failed to look up topping prices: %w", err)
@@ -70,7 +70,7 @@ func (uc *AddItem) Execute(
 			valid[tp.ToppingID] = true
 		}
 
-		for _, toppingID := range input.ToppingIDs {
+		for _, toppingID := range input.ExtraToppingIDs {
 			if !valid[toppingID] {
 				return cartapp.AddItemResponse{}, fmt.Errorf("topping not found: %w", apperr.ErrNotFound)
 			}
@@ -103,16 +103,16 @@ func (uc *AddItem) Execute(
 		return cartapp.AddItemResponse{}, fmt.Errorf("failed to generate cart item id: %w", err)
 	}
 
-	item := cart.NewCartItem(itemID, input.PizzaID, input.SizeID, input.Quantity, input.ToppingIDs)
+	item := cart.NewCartItem(itemID, input.PizzaID, input.SizeID, input.Quantity, input.ExtraToppingIDs)
 
 	if err := uc.cartRepo.AddOrMergeItem(ctx, existingCart.ID, item); err != nil {
 		return cartapp.AddItemResponse{}, fmt.Errorf("failed to add cart item: %w", err)
 	}
 
 	return cartapp.AddItemResponse{
-		PizzaID:    item.PizzaID,
-		SizeID:     item.SizeID,
-		Quantity:   item.Quantity,
-		ToppingIDs: item.ToppingIDs,
+		PizzaID:         item.PizzaID,
+		SizeID:          item.SizeID,
+		Quantity:        item.Quantity,
+		ExtraToppingIDs: item.ExtraToppingIDs,
 	}, nil
 }
