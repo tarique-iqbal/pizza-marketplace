@@ -40,10 +40,7 @@ func (uc *AddItem) Execute(
 ) (cartapp.AddItemResponse, error) {
 	pizza, err := uc.pizzaRepo.FindByID(ctx, input.PizzaID)
 	if err != nil {
-		return cartapp.AddItemResponse{}, fmt.Errorf("failed to look up pizza: %w", err)
-	}
-	if pizza == nil {
-		return cartapp.AddItemResponse{}, fmt.Errorf("pizza not found: %w", apperr.ErrNotFound)
+		return cartapp.AddItemResponse{}, fmt.Errorf("pizza not found: %w", err)
 	}
 
 	prices, err := uc.pizzaPriceRepo.ListByPizza(ctx, input.PizzaID)

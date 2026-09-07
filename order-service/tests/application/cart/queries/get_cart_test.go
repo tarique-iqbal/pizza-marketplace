@@ -12,6 +12,7 @@ import (
 	"order-service/internal/application/cart/queries"
 	"order-service/internal/domain/cart"
 	"order-service/internal/domain/readmodel"
+	apperr "order-service/internal/shared/errors"
 	"order-service/tests/testutil"
 )
 
@@ -99,7 +100,7 @@ func TestGetCart_FlagsArchivedPizzaAsUnavailable(t *testing.T) {
 	}
 
 	cartRepo := &testutil.MockCartRepository{FindByCustomerResult: existingCart}
-	pizzaRepo := &testutil.MockPizzaRepository{FindByIDResult: nil}
+	pizzaRepo := &testutil.MockPizzaRepository{FindByIDErr: apperr.ErrNotFound}
 	pizzaPriceRepo := &testutil.MockPizzaPriceRepository{}
 	toppingPriceRepo := &testutil.MockToppingPriceRepository{}
 

@@ -2,6 +2,7 @@ package queries
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -10,6 +11,7 @@ import (
 	cartapp "order-service/internal/application/cart"
 	"order-service/internal/domain/cart"
 	"order-service/internal/domain/readmodel"
+	apperr "order-service/internal/shared/errors"
 	"order-service/internal/shared/money"
 )
 
@@ -87,12 +89,12 @@ func (uc *GetCart) resolveItemView(
 	}
 
 	pizza, err := uc.pizzaRepo.FindByID(ctx, item.PizzaID)
-	if err != nil {
+	if err != nil && !errors.Is(err, apperr.ErrNotFound) {
 		return cartapp.CartItemView{}, decimal.Zero, fmt.Errorf("failed to look up pizza: %w", err)
 	}
 
 	unitPrice := decimal.Zero
-	available := pizza != nil
+	available := err == nil
 
 	if available {
 		view.PizzaName = pizza.Name

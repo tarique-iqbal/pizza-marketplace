@@ -18,7 +18,7 @@ import (
 
 func TestAddItem_PizzaNotFound(t *testing.T) {
 	cartRepo := &testutil.MockCartRepository{}
-	pizzaRepo := &testutil.MockPizzaRepository{}
+	pizzaRepo := &testutil.MockPizzaRepository{FindByIDErr: apperr.ErrNotFound}
 	pizzaPriceRepo := &testutil.MockPizzaPriceRepository{}
 	toppingPriceRepo := &testutil.MockToppingPriceRepository{}
 
