@@ -125,6 +125,7 @@ All routes are served through Traefik on port `80`. See each service's API refer
 - [Identity service](docs/api/identity-service.md) — `/auth`, `/users`
 - [Restaurant service](docs/api/restaurant-service.md) — `/restaurants`
 - [Search service](docs/api/search-service.md) — `/search`
+- [Order service](docs/api/order-service.md) — `/cart`, `/orders`
 
 
 ## Service documentation
@@ -206,14 +207,14 @@ pizza-marketplace/
 
 - [ ] Customer service — profile, saved addresses, and payment methods for checkout
 - [ ] Payment service — payment processing (designed, not started)
-- [ ] Order service — place and track orders (in progress: cart + checkout done, payment wiring pending)
-- [ ] Notification service: SMS/web-push adapters (email adapter shipped)
+- [ ] Order service — place and track orders (cart + checkout done, payment wiring pending)
+- [ ] Notification service — SMS/web-push adapters (email adapter shipped)
 - [ ] Analytics service — metrics, reporting, and audit logs
-- [ ] gRPC inter-service communication
+- [ ] gRPC — inter-service communication requiring synchronous responses
 - [ ] Zero-trust networking — trusted proxies, mTLS, and workload identity
 - [ ] Observability stack — centralized logs, metrics, distributed tracing, and monitoring
-- [ ] Web user client — React frontend application (separate repo)
-- [ ] Kubernetes manifests
-- [ ] CI/CD pipeline
-- [ ] Cloud deployment — deploy infrastructure to cloud environment
+- [ ] Orchestration — Kubernetes for auto-scaling, self-healing, and zero-downtime updates
+- [ ] CI/CD Pipeline — automated testing and secure Docker image builds
+- [ ] Cloud Deployment — GitOps with Argo CD for automated, safe cloud deployments
 - [ ] AI-assisted automation — deployment optimization and anomaly detection
+- [ ] Web user client — React frontend application (separate repo)
