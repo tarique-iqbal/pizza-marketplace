@@ -45,5 +45,5 @@ func (repo *emailVerificationRepo) Updates(
 	ctx context.Context,
 	ev *auth.EmailVerification,
 ) error {
-	return repo.db.Updates(ev).Error
+	return repo.db.Model(ev).Select("*").Updates(ev).Error
 }
