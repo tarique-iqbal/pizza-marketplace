@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"identity-service/internal/domain/auth"
@@ -40,7 +41,7 @@ func (uc *Login) Execute(
 	ctx context.Context,
 	input LoginRequest,
 ) (TokenResponse, error) {
-	usr, err := uc.userRepo.FindByEmail(ctx, input.Email)
+	usr, err := uc.userRepo.FindByEmail(ctx, strings.ToLower(input.Email))
 	if err != nil {
 		return TokenResponse{}, err
 	}

@@ -6,6 +6,7 @@ import (
 	"identity-service/internal/domain/auth"
 	"identity-service/internal/domain/outbox"
 	"identity-service/internal/domain/user"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -37,7 +38,9 @@ func NewRegisterOwner(
 }
 
 func (uc *RegisterOwner) Execute(ctx context.Context, input RegisterOwnerRequest) (Response, error) {
-	if err := uc.emailVerifier.Verify(ctx, input.Email, input.Code); err != nil {
+	email := strings.ToLower(input.Email)
+
+	if err := uc.emailVerifier.Verify(ctx, email, input.Code); err != nil {
 		return Response{}, err
 	}
 
@@ -60,7 +63,7 @@ func (uc *RegisterOwner) Execute(ctx context.Context, input RegisterOwnerRequest
 		ID:        userID,
 		FirstName: input.FirstName,
 		LastName:  input.LastName,
-		Email:     input.Email,
+		Email:     email,
 		Password:  hashedPassword,
 		Role:      user.RoleOwner,
 		Status:    user.DefaultStatus,

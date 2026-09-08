@@ -6,6 +6,7 @@ import (
 	"identity-service/internal/domain/auth"
 	"identity-service/internal/domain/outbox"
 	"identity-service/internal/domain/user"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -37,7 +38,9 @@ func NewRegisterCustomer(
 }
 
 func (uc *RegisterCustomer) Execute(ctx context.Context, input RegisterCustomerRequest) (Response, error) {
-	if err := uc.emailVerifier.Verify(ctx, input.Email, input.Code); err != nil {
+	email := strings.ToLower(input.Email)
+
+	if err := uc.emailVerifier.Verify(ctx, email, input.Code); err != nil {
 		return Response{}, err
 	}
 
@@ -49,7 +52,7 @@ func (uc *RegisterCustomer) Execute(ctx context.Context, input RegisterCustomerR
 	newUser := user.User{
 		FirstName: input.FirstName,
 		LastName:  input.LastName,
-		Email:     input.Email,
+		Email:     email,
 		Password:  hashedPassword,
 		Role:      user.RoleCustomer,
 		Status:    user.DefaultStatus,
