@@ -112,6 +112,47 @@ func TestUserHandler_RegisterOwner(t *testing.T) {
 			expectedStatus: http.StatusUnprocessableEntity,
 			expectError:    true,
 		},
+		{
+			name: "lastName contains digits",
+			body: map[string]string{
+				"firstName":    "Alice",
+				"lastName":     "Doe123",
+				"email":        "alice@example.com",
+				"password":     "password123",
+				"code":         "347578",
+				"businessName": "Domino's Pizza",
+				"vatNumber":    "DE987654321",
+			},
+			expectedStatus: http.StatusUnprocessableEntity,
+			expectError:    true,
+		},
+		{
+			name: "firstName is whitespace only",
+			body: map[string]string{
+				"firstName":    "   ",
+				"lastName":     "Doe",
+				"email":        "alice@example.com",
+				"password":     "password123",
+				"code":         "347578",
+				"businessName": "Domino's Pizza",
+				"vatNumber":    "DE987654321",
+			},
+			expectedStatus: http.StatusUnprocessableEntity,
+			expectError:    true,
+		},
+		{
+			name: "lastName allows apostrophe and hyphen",
+			body: map[string]string{
+				"firstName":    "Jean-François",
+				"lastName":     "D'Angelo",
+				"email":        "alice@example.com",
+				"password":     "password123",
+				"code":         "347578",
+				"businessName": "Domino's Pizza",
+				"vatNumber":    "DE987654321",
+			},
+			expectedStatus: http.StatusCreated,
+		},
 	}
 
 	for _, tt := range tests {
@@ -214,6 +255,41 @@ func TestUserHandler_RegisterCustomer(t *testing.T) {
 			},
 			expectedStatus: http.StatusUnprocessableEntity,
 			expectError:    true,
+		},
+		{
+			name: "firstName contains digits",
+			body: map[string]string{
+				"firstName": "Sophie1",
+				"lastName":  "Mueller",
+				"email":     "sophie.mueller@example.com",
+				"password":  "password123",
+				"code":      "365189",
+			},
+			expectedStatus: http.StatusUnprocessableEntity,
+			expectError:    true,
+		},
+		{
+			name: "lastName is whitespace only",
+			body: map[string]string{
+				"firstName": "Sophie",
+				"lastName":  "   ",
+				"email":     "sophie.mueller@example.com",
+				"password":  "password123",
+				"code":      "365189",
+			},
+			expectedStatus: http.StatusUnprocessableEntity,
+			expectError:    true,
+		},
+		{
+			name: "firstName allows apostrophe and hyphen",
+			body: map[string]string{
+				"firstName": "D'Angelo",
+				"lastName":  "Jean-François",
+				"email":     "sophie.mueller@example.com",
+				"password":  "password123",
+				"code":      "365189",
+			},
+			expectedStatus: http.StatusCreated,
 		},
 	}
 

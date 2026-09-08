@@ -7,16 +7,16 @@ import (
 )
 
 type RegisterCustomerRequest struct {
-	FirstName string `json:"firstName" binding:"required,max=255"`
-	LastName  string `json:"lastName" binding:"required,max=255"`
+	FirstName string `json:"firstName" binding:"required,max=255,name"`
+	LastName  string `json:"lastName" binding:"required,max=255,name"`
 	Email     string `json:"email" binding:"required,email"`
 	Password  string `json:"password" binding:"required,min=8,max=72"`
 	Code      string `json:"code" binding:"required,len=6,numeric"`
 }
 
 type RegisterOwnerRequest struct {
-	FirstName    string `json:"firstName" binding:"required,max=255"`
-	LastName     string `json:"lastName" binding:"required,max=255"`
+	FirstName    string `json:"firstName" binding:"required,max=255,name"`
+	LastName     string `json:"lastName" binding:"required,max=255,name"`
 	Email        string `json:"email" binding:"required,email"`
 	Password     string `json:"password" binding:"required,min=8,max=72"`
 	Code         string `json:"code" binding:"required,len=6,numeric"`

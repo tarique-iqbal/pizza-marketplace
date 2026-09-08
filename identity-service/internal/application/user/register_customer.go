@@ -50,8 +50,8 @@ func (uc *RegisterCustomer) Execute(ctx context.Context, input RegisterCustomerR
 	}
 
 	newUser := user.User{
-		FirstName: input.FirstName,
-		LastName:  input.LastName,
+		FirstName: strings.TrimSpace(input.FirstName),
+		LastName:  strings.TrimSpace(input.LastName),
 		Email:     email,
 		Password:  hashedPassword,
 		Role:      user.RoleCustomer,

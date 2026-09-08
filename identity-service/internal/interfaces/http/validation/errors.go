@@ -19,6 +19,10 @@ func getErrorMsg(fe validator.FieldError) string {
 		return "Please provide a valid email address."
 	case "min":
 		return "Minimum length required: " + fe.Param()
+	case "max":
+		return "Maximum length exceeded: " + fe.Param()
+	case "name":
+		return "Only letters, spaces, hyphens, and apostrophes are allowed."
 	}
 	return "Unknown error"
 }

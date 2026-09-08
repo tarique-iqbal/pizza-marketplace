@@ -62,6 +62,24 @@ func TestRegisterCustomer_Success(t *testing.T) {
 	assert.Equal(t, "adam.dangelo@example.com", payload.Email)
 }
 
+func TestRegisterCustomer_TrimsNameWhitespace(t *testing.T) {
+	register := setupRegisterCustomer(t)
+
+	input := user.RegisterCustomerRequest{
+		FirstName: "  Adam  ",
+		LastName:  "  D'Angelo  ",
+		Email:     "adam.dangelo@example.com",
+		Password:  "securepassword",
+		Code:      "476190", // from fixture
+	}
+
+	newUser, err := register.Execute(context.Background(), input)
+
+	require.NoError(t, err)
+	assert.Equal(t, "Adam", newUser.Name.First)
+	assert.Equal(t, "D'Angelo", newUser.Name.Last)
+}
+
 func TestRegisterCustomer_Failure_EmailVerification(t *testing.T) {
 	register := setupRegisterCustomer(t)
 

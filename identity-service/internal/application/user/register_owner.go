@@ -61,8 +61,8 @@ func (uc *RegisterOwner) Execute(ctx context.Context, input RegisterOwnerRequest
 
 	newUser := user.User{
 		ID:        userID,
-		FirstName: input.FirstName,
-		LastName:  input.LastName,
+		FirstName: strings.TrimSpace(input.FirstName),
+		LastName:  strings.TrimSpace(input.LastName),
 		Email:     email,
 		Password:  hashedPassword,
 		Role:      user.RoleOwner,
