@@ -3,6 +3,6 @@ package payout
 import "errors"
 
 var (
-	ErrPendingPayoutExists = errors.New("pending payout already exists")
-	ErrNoPendingPayout     = errors.New("no pending payout to update")
+	ErrUnverifiedPayoutExists = errors.New("unverified payout already exists")
+	ErrNoUnverifiedPayout     = errors.New("no unverified payout to update")
 )

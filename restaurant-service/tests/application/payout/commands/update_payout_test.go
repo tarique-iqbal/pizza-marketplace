@@ -77,9 +77,9 @@ func TestUpdatePayout_Success(t *testing.T) {
 	assert.Equal(t, "GB29NWBK60161331926819", output.Payout.IBAN)
 	assert.Equal(t, "NWBKGB2L", output.Payout.BIC)
 	assert.Equal(t, "NatWest", output.Payout.BankName)
-	assert.Equal(t, payout.PayoutPending, output.Payout.Status)
+	assert.Equal(t, payout.PayoutUnverified, output.Payout.Status)
 
-	pd := findPayoutDetailsByStatus(t, env.DB, res.ID, payout.PayoutPending)
+	pd := findPayoutDetailsByStatus(t, env.DB, res.ID, payout.PayoutUnverified)
 	assert.Equal(t, "Ayse Yilmaz", pd.AccountHolder)
 	assert.Equal(t, "GB29NWBK60161331926819", pd.IBAN)
 
@@ -123,7 +123,7 @@ func TestUpdatePayout_DoesNotTouchRestaurantRow(t *testing.T) {
 	assert.Equal(t, afterCreate.UpdatedAt, afterUpdate.UpdatedAt)
 }
 
-func TestUpdatePayout_Failure_NothingPending(t *testing.T) {
+func TestUpdatePayout_Failure_NothingUnverified(t *testing.T) {
 	env := setupUpdatePayout(t)
 
 	res := firstRestaurant(t, env.DB)
@@ -136,7 +136,7 @@ func TestUpdatePayout_Failure_NothingPending(t *testing.T) {
 	)
 
 	require.Error(t, err)
-	assert.ErrorIs(t, err, payout.ErrNoPendingPayout)
+	assert.ErrorIs(t, err, payout.ErrNoUnverifiedPayout)
 }
 
 func TestUpdatePayout_Failure_OnlyActiveRecordExists(t *testing.T) {
@@ -163,7 +163,7 @@ func TestUpdatePayout_Failure_OnlyActiveRecordExists(t *testing.T) {
 	)
 
 	require.Error(t, err)
-	assert.ErrorIs(t, err, payout.ErrNoPendingPayout)
+	assert.ErrorIs(t, err, payout.ErrNoUnverifiedPayout)
 }
 
 func TestUpdatePayout_RestaurantNotOwned(t *testing.T) {

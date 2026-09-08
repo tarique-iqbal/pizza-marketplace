@@ -104,7 +104,7 @@ func TestCreatePayout_Success(t *testing.T) {
 	assert.Equal(t, "DE89370400440532013000", output.Payout.IBAN)
 	assert.Equal(t, "DEUTDEFF", output.Payout.BIC)
 	assert.Equal(t, "Deutsche Bank", output.Payout.BankName)
-	assert.Equal(t, payout.PayoutPending, output.Payout.Status)
+	assert.Equal(t, payout.PayoutUnverified, output.Payout.Status)
 
 	var updated restaurant.Restaurant
 
@@ -114,7 +114,7 @@ func TestCreatePayout_Success(t *testing.T) {
 	assert.True(t, updated.Checklist[restaurant.ChecklistPayout])
 	assert.False(t, updated.UpdatedAt.IsZero())
 
-	pd := findPayoutDetailsByStatus(t, env.DB, res.ID, payout.PayoutPending)
+	pd := findPayoutDetailsByStatus(t, env.DB, res.ID, payout.PayoutUnverified)
 
 	assert.Equal(t, "Mehmet Yilmaz", pd.AccountHolder)
 	assert.Equal(t, "DE89370400440532013000", pd.IBAN)
@@ -158,7 +158,7 @@ func TestCreatePayout_RestaurantNotFound(t *testing.T) {
 	assert.ErrorIs(t, err, apperr.ErrForbidden)
 }
 
-func TestCreatePayout_RejectsWhenPendingAlreadyExists(t *testing.T) {
+func TestCreatePayout_RejectsWhenUnverifiedAlreadyExists(t *testing.T) {
 	env := setupCreatePayout(t)
 
 	res := firstRestaurant(t, env.DB)
@@ -186,11 +186,11 @@ func TestCreatePayout_RejectsWhenPendingAlreadyExists(t *testing.T) {
 	)
 
 	require.Error(t, err)
-	assert.ErrorIs(t, err, payout.ErrPendingPayoutExists)
+	assert.ErrorIs(t, err, payout.ErrUnverifiedPayoutExists)
 
 	assert.Equal(t, int64(1), countPayoutDetails(t, env.DB, res.ID))
 
-	pd := findPayoutDetailsByStatus(t, env.DB, res.ID, payout.PayoutPending)
+	pd := findPayoutDetailsByStatus(t, env.DB, res.ID, payout.PayoutUnverified)
 	assert.Equal(t, "Mehmet Yilmaz", pd.AccountHolder)
 }
 
@@ -231,7 +231,7 @@ func TestCreatePayout_DoesNotTouchExistingActiveRecord(t *testing.T) {
 	assert.Equal(t, activeBefore.ID, activeAfter.ID)
 	assert.Equal(t, activeBefore.IBAN, activeAfter.IBAN)
 
-	pending := findPayoutDetailsByStatus(t, env.DB, target.ID, payout.PayoutPending)
+	pending := findPayoutDetailsByStatus(t, env.DB, target.ID, payout.PayoutUnverified)
 	assert.Equal(t, "Ayse Yilmaz", pending.AccountHolder)
 	assert.Equal(t, "GB29NWBK60161331926819", pending.IBAN)
 

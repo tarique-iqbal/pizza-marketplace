@@ -32,7 +32,7 @@ func (repo *PayoutDetailsRepository) Create(
 	if err := repo.db.WithContext(ctx).Create(pd).Error; err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgUniqueViolation {
-			return payout.ErrPendingPayoutExists
+			return payout.ErrUnverifiedPayoutExists
 		}
 		return err
 	}
@@ -40,7 +40,7 @@ func (repo *PayoutDetailsRepository) Create(
 	return nil
 }
 
-func (repo *PayoutDetailsRepository) UpdatePending(
+func (repo *PayoutDetailsRepository) UpdateUnverified(
 	ctx context.Context,
 	restaurantID uuid.UUID,
 	accountHolder string,
@@ -50,7 +50,7 @@ func (repo *PayoutDetailsRepository) UpdatePending(
 ) error {
 	result := repo.db.WithContext(ctx).
 		Model(&payout.PayoutDetails{}).
-		Where("restaurant_id = ? AND status = ?", restaurantID, payout.PayoutPending).
+		Where("restaurant_id = ? AND status = ?", restaurantID, payout.PayoutUnverified).
 		Updates(map[string]any{
 			"account_holder": accountHolder,
 			"iban":           iban,
@@ -63,7 +63,7 @@ func (repo *PayoutDetailsRepository) UpdatePending(
 	}
 
 	if result.RowsAffected == 0 {
-		return payout.ErrNoPendingPayout
+		return payout.ErrNoUnverifiedPayout
 	}
 
 	return nil
@@ -75,7 +75,7 @@ func (repo *PayoutDetailsRepository) PromoteToActive(
 ) error {
 	result := repo.db.WithContext(ctx).
 		Model(&payout.PayoutDetails{}).
-		Where("restaurant_id = ? AND status = ?", restaurantID, payout.PayoutPending).
+		Where("restaurant_id = ? AND status = ?", restaurantID, payout.PayoutUnverified).
 		Update("status", payout.PayoutActive)
 
 	if result.Error != nil {
@@ -83,7 +83,7 @@ func (repo *PayoutDetailsRepository) PromoteToActive(
 	}
 
 	if result.RowsAffected == 0 {
-		return payout.ErrNoPendingPayout
+		return payout.ErrNoUnverifiedPayout
 	}
 
 	return nil

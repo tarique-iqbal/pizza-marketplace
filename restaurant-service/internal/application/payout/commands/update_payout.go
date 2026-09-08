@@ -45,7 +45,7 @@ func (uc *UpdatePayout) Execute(
 		)
 	}
 
-	if err := uc.payoutDetailsRepo.UpdatePending(
+	if err := uc.payoutDetailsRepo.UpdateUnverified(
 		ctx,
 		res.ID,
 		input.AccountHolder,
@@ -61,7 +61,7 @@ func (uc *UpdatePayout) Execute(
 		IBAN:          input.IBAN,
 		BIC:           input.BIC,
 		BankName:      input.BankName,
-		Status:        payout.PayoutPending,
+		Status:        payout.PayoutUnverified,
 	}
 
 	return resapp.ToRestaurantResponse(res, pd), nil

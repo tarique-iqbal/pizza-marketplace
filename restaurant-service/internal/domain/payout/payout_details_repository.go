@@ -10,7 +10,7 @@ import (
 type PayoutDetailsRepository interface {
 	WithTx(tx *gorm.DB) PayoutDetailsRepository
 	Create(ctx context.Context, pd *PayoutDetails) error
-	UpdatePending(
+	UpdateUnverified(
 		ctx context.Context,
 		restaurantID uuid.UUID,
 		accountHolder string,

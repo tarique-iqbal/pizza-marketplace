@@ -91,7 +91,7 @@ func TestPayoutHandler_CreatePayout_Success(t *testing.T) {
 	assert.Equal(t, res.ID.String(), response.ID.String())
 	assert.Equal(t, "Mehmet Yilmaz", response.Payout.AccountHolder)
 	assert.Equal(t, "DE89370400440532013000", response.Payout.IBAN)
-	assert.Equal(t, payout.PayoutPending, response.Payout.Status)
+	assert.Equal(t, payout.PayoutUnverified, response.Payout.Status)
 
 	var updated restaurant.Restaurant
 	err = h.DB.First(&updated, "id = ?", res.ID).Error
@@ -257,7 +257,7 @@ func TestPayoutHandler_UpdatePayout_Success(t *testing.T) {
 
 	assert.Equal(t, "Ayse Yilmaz", response.Payout.AccountHolder)
 	assert.Equal(t, "GB29NWBK60161331926819", response.Payout.IBAN)
-	assert.Equal(t, payout.PayoutPending, response.Payout.Status)
+	assert.Equal(t, payout.PayoutUnverified, response.Payout.Status)
 }
 
 func TestPayoutHandler_UpdatePayout_Failure_ValidationError(t *testing.T) {
@@ -293,7 +293,7 @@ func TestPayoutHandler_UpdatePayout_Failure_ValidationError(t *testing.T) {
 	assert.Contains(t, recorder.Body.String(), "errors")
 }
 
-func TestPayoutHandler_UpdatePayout_Failure_NothingPending(t *testing.T) {
+func TestPayoutHandler_UpdatePayout_Failure_NothingUnverified(t *testing.T) {
 	h := setupPayoutHandler(t)
 
 	var res restaurant.Restaurant

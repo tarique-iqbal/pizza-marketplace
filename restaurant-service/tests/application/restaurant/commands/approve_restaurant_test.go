@@ -40,7 +40,7 @@ func setupApproveRestaurant(t *testing.T) approveRestaurantSetup {
 	}
 }
 
-func createPendingPayout(t *testing.T, db *gorm.DB, restaurantID uuid.UUID) *payout.PayoutDetails {
+func createUnverifiedPayout(t *testing.T, db *gorm.DB, restaurantID uuid.UUID) *payout.PayoutDetails {
 	pd, err := payout.NewPayoutDetails(restaurantID, "Jane Doe", "DE89370400440532013000", "COBADEFFXXX", "Bank")
 	require.NoError(t, err)
 	require.NoError(t, persistence.NewPayoutDetailsRepository(db).Create(context.Background(), pd))
@@ -55,7 +55,7 @@ func TestApproveRestaurant_Success(t *testing.T) {
 	res.Status = restaurant.StatusReview
 	res.Email = testutil.StringPtr("kontakt@pizzaparadise.de")
 	require.NoError(t, env.DB.Save(&res).Error)
-	createPendingPayout(t, env.DB, res.ID)
+	createUnverifiedPayout(t, env.DB, res.ID)
 
 	output, err := env.ApproveRestaurant.Execute(context.Background(), res.ID)
 	require.NoError(t, err)
@@ -79,7 +79,7 @@ func TestApproveRestaurant_Success(t *testing.T) {
 	assert.Equal(t, payout.PayoutActive, promoted.Status)
 }
 
-func TestApproveRestaurant_FailsIfNoPendingPayout(t *testing.T) {
+func TestApproveRestaurant_FailsIfNoUnverifiedPayout(t *testing.T) {
 	env := setupApproveRestaurant(t)
 
 	res := firstRestaurant(t, env.DB)
@@ -90,7 +90,7 @@ func TestApproveRestaurant_FailsIfNoPendingPayout(t *testing.T) {
 	_, err := env.ApproveRestaurant.Execute(context.Background(), res.ID)
 
 	require.Error(t, err)
-	assert.ErrorIs(t, err, payout.ErrNoPendingPayout)
+	assert.ErrorIs(t, err, payout.ErrNoUnverifiedPayout)
 
 	var unchanged restaurant.Restaurant
 

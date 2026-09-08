@@ -26,10 +26,10 @@ func HandleError(ctx *gin.Context, err error) {
 	case errors.Is(err, apperr.ErrInvalid):
 		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
 
-	case errors.Is(err, payout.ErrNoPendingPayout):
-		ctx.JSON(http.StatusNotFound, gin.H{"error": "no pending payout submission to update"})
+	case errors.Is(err, payout.ErrNoUnverifiedPayout):
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "no unverified payout submission to update"})
 
-	case errors.Is(err, payout.ErrPendingPayoutExists):
+	case errors.Is(err, payout.ErrUnverifiedPayoutExists):
 		ctx.JSON(http.StatusConflict, gin.H{"error": "a payout submission is already pending review"})
 
 	case errors.Is(err, apperr.ErrConflict) ||

@@ -9,7 +9,7 @@ import (
 type PayoutStatus string
 
 const (
-	PayoutPending    PayoutStatus = "pending"
+	PayoutUnverified PayoutStatus = "unverified"
 	PayoutActive     PayoutStatus = "active"
 	PayoutSuperseded PayoutStatus = "superseded"
 )
@@ -21,7 +21,7 @@ type PayoutDetails struct {
 	IBAN          string       `gorm:"column:iban;size:34;not null"`
 	BIC           string       `gorm:"column:bic;size:11;not null"`
 	BankName      string       `gorm:"column:bank_name;size:100;not null"`
-	Status        PayoutStatus `gorm:"type:payout_details_status_enum;not null;default:'pending'"`
+	Status        PayoutStatus `gorm:"type:payout_details_status_enum;not null;default:'unverified'"`
 	CreatedAt     time.Time    `gorm:"type:timestamptz;autoCreateTime"`
 	UpdatedAt     *time.Time   `gorm:"type:timestamptz;autoUpdateTime;default:null"`
 }
@@ -49,6 +49,6 @@ func NewPayoutDetails(
 		IBAN:          iban,
 		BIC:           bic,
 		BankName:      bankName,
-		Status:        PayoutPending,
+		Status:        PayoutUnverified,
 	}, nil
 }

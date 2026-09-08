@@ -7,7 +7,7 @@ BEGIN
         WHERE typname = 'payout_details_status_enum'
     ) THEN
         CREATE TYPE payout_details_status_enum AS ENUM (
-            'pending',
+            'unverified',
             'active',
             'superseded'
         );
@@ -24,7 +24,7 @@ CREATE TABLE payout_details (
     iban VARCHAR(34) NOT NULL,
     bic VARCHAR(11) NOT NULL,
     bank_name VARCHAR(100) NOT NULL,
-    status payout_details_status_enum NOT NULL DEFAULT 'pending',
+    status payout_details_status_enum NOT NULL DEFAULT 'unverified',
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ,
 
@@ -41,7 +41,7 @@ CREATE UNIQUE INDEX uq_payout_details_restaurant_active
 ON payout_details (restaurant_id)
 WHERE status = 'active';
 
--- at most one pending (unapproved) payout record per restaurant
-CREATE UNIQUE INDEX uq_payout_details_restaurant_pending
+-- at most one unverified (unapproved) payout record per restaurant
+CREATE UNIQUE INDEX uq_payout_details_restaurant_unverified
 ON payout_details (restaurant_id)
-WHERE status = 'pending';
+WHERE status = 'unverified';
