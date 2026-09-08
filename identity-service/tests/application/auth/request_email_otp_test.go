@@ -64,6 +64,31 @@ func TestCreateEmailVerification_Success(t *testing.T) {
 	assert.Equal(t, emailVerification.Code, payload.Code)
 }
 
+func TestCreateEmailVerification_ResetsAttemptCount(t *testing.T) {
+	emailOTP = requestEmailOTP(t)
+
+	input := authapp.EmailVerificationRequest{
+		Email: "adam.dangelo@example.com",
+	}
+
+	require.NoError(t, emailOTP.Execute(context.Background(), input))
+
+	ev, err := repo.FindByEmail(context.Background(), input.Email)
+	require.NoError(t, err)
+	require.NoError(t, repo.IncrementAttempts(context.Background(), ev.ID))
+	require.NoError(t, repo.IncrementAttempts(context.Background(), ev.ID))
+
+	ev, err = repo.FindByEmail(context.Background(), input.Email)
+	require.NoError(t, err)
+	require.EqualValues(t, 2, ev.AttemptCount)
+
+	require.NoError(t, emailOTP.Execute(context.Background(), input))
+
+	ev, err = repo.FindByEmail(context.Background(), input.Email)
+	require.NoError(t, err)
+	assert.EqualValues(t, 0, ev.AttemptCount)
+}
+
 func TestCreateEmailVerification_EmailAlreadyRegistered(t *testing.T) {
 	db := testutil.DB(t)
 	emailOTP = requestEmailOTP(t)

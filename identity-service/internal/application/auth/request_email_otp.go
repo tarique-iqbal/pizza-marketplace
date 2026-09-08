@@ -94,6 +94,7 @@ func (uc *RequestEmailOTP) Execute(
 		} else {
 			existing.Code = code
 			existing.ExpiresAt = verification.ExpiresAt
+			existing.AttemptCount = 0
 
 			if err := uc.repo.WithTx(tx).Updates(ctx, existing); err != nil {
 				return err
