@@ -3,6 +3,7 @@ CREATE TABLE email_verifications (
     email VARCHAR(255) NOT NULL,
     code CHAR(6) NOT NULL,
     is_used BOOLEAN DEFAULT FALSE,
+    attempt_count SMALLINT NOT NULL DEFAULT 0,
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
