@@ -3,7 +3,6 @@ package persistence_test
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -46,7 +45,7 @@ func TestRestaurantRepository_Create(t *testing.T) {
 		Name:      "Pizza Paradise",
 		VATNumber: "DE323678654",
 		Checklist: checklist,
-		CreatedAt: time.Now().UTC(),
+		Pickup:    true,
 	}
 
 	err := setup.RestaurantRepo.Create(context.Background(), &res)

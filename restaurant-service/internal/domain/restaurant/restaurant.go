@@ -58,7 +58,7 @@ type Restaurant struct {
 	Timezone        *string          `gorm:"size:64"`
 	OpeningHours    OpeningHours     `gorm:"type:jsonb;serializer:json;not null;default:'{}'"`
 	Tags            []RestaurantTag  `gorm:"type:jsonb;serializer:json;not null;default:'[]'"`
-	Pickup          bool             `gorm:"not null;default:true"`
+	Pickup          bool             `gorm:"not null"`
 	Currency        string           `gorm:"type:char(3);not null;default:'EUR';size:3"`
 	DeliveryKm      *int16           `gorm:"check:delivery_km BETWEEN 1 AND 25"`
 	DeliveryTimeMin *int16           `gorm:"check:delivery_time_min BETWEEN 5 AND 120"`
@@ -90,6 +90,7 @@ func NewRestaurant(
 		Name:      name,
 		VATNumber: vatNumber,
 		Checklist: checklist,
+		Pickup:    true,
 	}
 }
 

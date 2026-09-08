@@ -22,7 +22,7 @@ func LoadRestaurantFixtures(t *testing.T, db *gorm.DB) error {
 			Name:      "Pizza Paradise",
 			VATNumber: "DE987687654",
 			Checklist: checklist,
-			CreatedAt: time.Now().UTC(),
+			Pickup:    true,
 		},
 		{
 			Name:      "Anatolische Küche",
@@ -69,7 +69,6 @@ func LoadRestaurantFixtures(t *testing.T, db *gorm.DB) error {
 			MinimumOrder:    decimal.NewFromFloat(18.00),
 			Rating:          4.6,
 			TotalReviews:    128,
-			CreatedAt:       time.Now().UTC(),
 			UpdatedAt:       testutil.TimePtr(time.Now().UTC()),
 		},
 	}

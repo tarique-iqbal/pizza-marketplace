@@ -310,6 +310,7 @@ func TestUpdateAddress_Fails_WhenAllSlugVariationsTaken(t *testing.T) {
 			ID:      uuid.New(),
 			OwnerID: uuid.New(),
 			Name:    fmt.Sprintf("Clone %d", i),
+			Pickup:  true,
 		}
 
 		if i == 0 {
