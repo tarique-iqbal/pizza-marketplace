@@ -29,6 +29,9 @@ func HandleError(ctx *gin.Context, err error) {
 	case errors.Is(err, auth.ErrCodeExpired):
 		ctx.JSON(http.StatusGone, gin.H{"error": err.Error()})
 
+	case errors.Is(err, auth.ErrTooManyAttempts):
+		ctx.JSON(http.StatusTooManyRequests, gin.H{"error": err.Error()})
+
 	case errors.Is(err, auth.ErrCodeUsed) ||
 		errors.Is(err, apperr.ErrConflict) ||
 		errors.Is(err, user.ErrEmailAlreadyExists):
