@@ -13,6 +13,7 @@ import (
 	"identity-service/tests/testutil"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -56,7 +57,7 @@ func TestUserHandler_RegisterOwner(t *testing.T) {
 				"firstName":    "Alice",
 				"lastName":     "Doe",
 				"email":        "alice@example.com",
-				"password":     "pass123",
+				"password":     "password123",
 				"code":         "347578", // from fixture
 				"businessName": "Domino's Pizza",
 				"vatNumber":    "DE123456789",
@@ -75,12 +76,40 @@ func TestUserHandler_RegisterOwner(t *testing.T) {
 				"firstName":    "Alice",
 				"lastName":     "Doe",
 				"email":        "alice@example.com",
-				"password":     "pass123",
+				"password":     "password123",
 				"code":         "000000", // invalid
 				"businessName": "Domino's Pizza",
 				"vatNumber":    "DE987654321",
 			},
 			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+		},
+		{
+			name: "password too short",
+			body: map[string]string{
+				"firstName":    "Alice",
+				"lastName":     "Doe",
+				"email":        "alice@example.com",
+				"password":     "short1",
+				"code":         "347578",
+				"businessName": "Domino's Pizza",
+				"vatNumber":    "DE987654321",
+			},
+			expectedStatus: http.StatusUnprocessableEntity,
+			expectError:    true,
+		},
+		{
+			name: "password too long",
+			body: map[string]string{
+				"firstName":    "Alice",
+				"lastName":     "Doe",
+				"email":        "alice@example.com",
+				"password":     strings.Repeat("a", 73),
+				"code":         "347578",
+				"businessName": "Domino's Pizza",
+				"vatNumber":    "DE987654321",
+			},
+			expectedStatus: http.StatusUnprocessableEntity,
 			expectError:    true,
 		},
 	}
@@ -139,7 +168,7 @@ func TestUserHandler_RegisterCustomer(t *testing.T) {
 				"firstName": "Sophie",
 				"lastName":  "Mueller",
 				"email":     "sophie.mueller@example.com",
-				"password":  "pass123",
+				"password":  "password123",
 				"code":      "365189", // from fixture
 			},
 			expectedStatus: http.StatusCreated,
@@ -156,10 +185,34 @@ func TestUserHandler_RegisterCustomer(t *testing.T) {
 				"firstName": "Existing",
 				"lastName":  "User",
 				"email":     "existing@example.com", // from fixture
-				"password":  "pass123",
+				"password":  "password123",
 				"code":      "347578",
 			},
 			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+		},
+		{
+			name: "password too short",
+			body: map[string]string{
+				"firstName": "Sophie",
+				"lastName":  "Mueller",
+				"email":     "sophie.mueller@example.com",
+				"password":  "short1",
+				"code":      "365189",
+			},
+			expectedStatus: http.StatusUnprocessableEntity,
+			expectError:    true,
+		},
+		{
+			name: "password too long",
+			body: map[string]string{
+				"firstName": "Sophie",
+				"lastName":  "Mueller",
+				"email":     "sophie.mueller@example.com",
+				"password":  strings.Repeat("a", 73),
+				"code":      "365189",
+			},
+			expectedStatus: http.StatusUnprocessableEntity,
 			expectError:    true,
 		},
 	}
