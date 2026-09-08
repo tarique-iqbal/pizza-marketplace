@@ -11,7 +11,7 @@ func SetupAddItemRoutes(router *gin.Engine, h *handlers.CartHandler, m *middlewa
 	cart := router.Group("/cart")
 
 	protected := cart.Group("")
-	protected.Use(m.Auth, m.EnsureCustomer)
+	protected.Use(m.Auth)
 
 	protected.POST("/items", h.AddItem)
 }
@@ -20,7 +20,7 @@ func SetupUpdateItemQuantityRoutes(router *gin.Engine, h *handlers.CartHandler, 
 	cart := router.Group("/cart")
 
 	protected := cart.Group("")
-	protected.Use(m.Auth, m.EnsureCustomer)
+	protected.Use(m.Auth)
 
 	protected.PATCH("/items/:itemId", h.UpdateItemQuantity)
 }
@@ -29,7 +29,7 @@ func SetupRemoveItemRoutes(router *gin.Engine, h *handlers.CartHandler, m *middl
 	cart := router.Group("/cart")
 
 	protected := cart.Group("")
-	protected.Use(m.Auth, m.EnsureCustomer)
+	protected.Use(m.Auth)
 
 	protected.DELETE("/items/:itemId", h.RemoveItem)
 }
@@ -38,7 +38,7 @@ func SetupGetCartRoutes(router *gin.Engine, h *handlers.CartHandler, m *middlewa
 	cart := router.Group("/cart")
 
 	protected := cart.Group("")
-	protected.Use(m.Auth, m.EnsureCustomer)
+	protected.Use(m.Auth)
 
 	protected.GET("", h.GetCart)
 }

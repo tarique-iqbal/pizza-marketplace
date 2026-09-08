@@ -11,7 +11,7 @@ func SetupCheckoutRoutes(router *gin.Engine, h *handlers.OrderHandler, m *middle
 	orders := router.Group("/orders")
 
 	protected := orders.Group("")
-	protected.Use(m.Auth, m.EnsureCustomer)
+	protected.Use(m.Auth)
 
 	protected.POST("", h.Checkout)
 }
