@@ -25,7 +25,7 @@ type Restaurant struct {
 	DeliveryKm   *int16          `gorm:"check:delivery_km BETWEEN 1 AND 25"`
 	DeliveryFee  decimal.Decimal `gorm:"type:numeric(5,2);not null;default:0"`
 	MinimumOrder decimal.Decimal `gorm:"type:numeric(6,2);not null;default:0"`
-	Pickup       bool            `gorm:"not null;default:true"`
+	Pickup       bool            `gorm:"not null"`
 	DeliveryType DeliveryType    `gorm:"type:restaurant_delivery_type_enum;not null;default:'none'"`
 	Currency     string          `gorm:"type:char(3);not null;default:'EUR';size:3"`
 	UpdatedAt    time.Time       `gorm:"type:timestamptz;not null"`
