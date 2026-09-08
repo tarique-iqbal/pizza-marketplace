@@ -82,15 +82,18 @@ intentionally holds multiple historical rows per restaurant.
 
 | Status | Meaning |
 |---|---|
-| `pending` | awaiting verification — every submission lands here first |
+| `unverified` | awaiting verification — every submission lands here first |
 | `active` | currently receiving payouts |
-| `superseded` | a former `pending`/`active` row that's been replaced |
+| `superseded` | a former `unverified`/`active` row that's been replaced |
 
-Two partial unique indexes enforce at most one `active` and at most one `pending` row per restaurant at the DB
-level. `Create` is a plain insert (a concurrent `pending` submission collides on the unique index →
-`ErrPendingPayoutExists`); `UpdatePending` is an atomic conditional `UPDATE ... WHERE status = 'pending'`;
-`PromoteToActive` (called by `Approve()`'s handler right after the status transition) is the same shape,
-`WHERE status = 'pending'` → `active`. No code path ever mutates an `active`/`superseded` row after the fact.
+Renamed from `pending` to avoid ambiguity with order-service's own unrelated `pending` order status.
+
+Two partial unique indexes enforce at most one `active` and at most one `unverified` row per restaurant at the
+DB level. `Create` is a plain insert (a concurrent `unverified` submission collides on the unique index →
+`ErrUnverifiedPayoutExists`); `UpdateUnverified` is an atomic conditional `UPDATE ... WHERE status =
+'unverified'`; `PromoteToActive` (called by `Approve()`'s handler right after the status transition) is the
+same shape, `WHERE status = 'unverified'` → `active`. No code path ever mutates an `active`/`superseded` row
+after the fact.
 
 ### Menu: pizzas, sizes, toppings, prices
 
@@ -196,7 +199,7 @@ flowchart LR
 - **Geocoding is conditional**: `UpdateAddress` only calls OpenCage when the address actually changed, reusing
   stored `Lat`/`Lon` otherwise (avoids unnecessary paid API calls).
 - **Error convention**: shared sentinels (`ErrForbidden`, `ErrNotFound`, `ErrConflict`, `ErrInvalid`) plus
-  domain-specific ones (`ErrPendingPayoutExists`, `ErrNoPendingPayout`, `ErrDuplicateTopping`), dispatched to
+  domain-specific ones (`ErrUnverifiedPayoutExists`, `ErrNoUnverifiedPayout`, `ErrDuplicateTopping`), dispatched to
   HTTP status by `response.HandleError` — persistence/domain code never embeds user-facing text.
 
 ## Testing
