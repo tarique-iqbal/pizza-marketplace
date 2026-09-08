@@ -26,12 +26,14 @@ Client (Web)
 Traefik API Gateway (:80)
   ├── /auth, /users  ──► Identity Service
   ├── /restaurants   ──► Restaurant Service  (JWT protected)
-  └── /search        ──► Search Service      (no auth)
+  ├── /search        ──► Search Service      (no auth)
+  └── /cart, /orders ──► Order Service       (JWT protected)
 
 RabbitMQ (async events, publish/consume — see Event flow below)
   ├── Identity Service
   ├── Restaurant Service
   ├── Search Service
+  ├── Order Service
   └── Notification Service (worker only — no HTTP route, reached only via RabbitMQ)
 ```
 
@@ -44,11 +46,12 @@ Each service owns its data store. There is no shared database. See the
 | Service | Role | Exposure |
 |---|---|---|
 | `identity-service` | Auth, JWT, user management | mixed (public and JWT-protected) |
-| `restaurant-service` | Restaurant & menu CRUD | JWT-protected |
+| `restaurant-service` | Restaurant & menu CRUD | JWT-protected, owner, admin |
 | `search-service` | Search API + Elasticsearch indexing | public (no auth) |
+| `order-service` | Cart + order placement | JWT-protected, authenticated user |
 | `notification-service` | Notifications via channel adapters — email today (background worker) | — |
 
-`identity-service`, `restaurant-service`, and `search-service` each also run a `cmd/worker` process (outbox relay / event consumer) alongside their API — not separate services. `identity-service`'s and `search-service`'s workers (`identity-worker`, `search-worker`) each get their own container in `compose.yaml` and run by default in dev — without them, no outbox event ever leaves identity-service and the search index stays permanently empty, respectively. `restaurant-service`'s worker is started manually when working on its outbox/consumer code.
+`identity-service`, `restaurant-service`, `search-service`, and `order-service` each also run a `cmd/worker` process (outbox relay / event consumer) alongside their API — not separate services. `identity-service`'s, `search-service`'s, and `order-service`'s workers (`identity-worker`, `search-worker`, `order-worker`) each get their own container in `compose.yaml` and run by default in dev — without them, no outbox event ever leaves identity-service/order-service, and the search index stays permanently empty, respectively. `restaurant-service`'s worker is started manually when working on its outbox/consumer code.
 
 All services are behind Traefik and not directly reachable from outside the Docker network.
 
@@ -87,6 +90,7 @@ cp identity-service/.env.example     identity-service/.env
 cp restaurant-service/.env.example   restaurant-service/.env
 cp notification-service/.env.example notification-service/.env
 cp search-service/.env.example       search-service/.env
+cp order-service/.env.example        order-service/.env
 
 # 3. Start all services
 docker compose up --build
@@ -131,11 +135,12 @@ Architecture, domain model, and design decisions for each implemented service:
 - [Restaurant service](docs/services/restaurant-service.md)
 - [Notification service](docs/services/notification-service.md)
 - [Search service](docs/services/search-service.md)
+- [Order service](docs/services/order-service.md)
 
 
 ## Event flow
 
-Events are published to RabbitMQ and consumed asynchronously. `identity-service` and `restaurant-service` both use the transactional outbox pattern for at-least-once delivery — each outboxes every event it raises, with no best-effort publish path left in either service.
+Events are published to RabbitMQ and consumed asynchronously. `identity-service`, `restaurant-service`, and `order-service` all use the transactional outbox pattern for at-least-once delivery — each outboxes every event it raises, with no best-effort publish path left in any of them. `order-service` doesn't publish anything yet (its `order.confirmed` event is designed but not built).
 
 ```
 identity-service     ──publishes──► email.verification_created
@@ -160,6 +165,12 @@ search-service       ◄──consumes──  restaurant.launched
                                      restaurant.updated
                                      restaurant.pizza_updated
                                      restaurant.topping_prices_updated
+
+order-service        ◄──consumes──  restaurant.launched
+                                     restaurant.updated
+                                     restaurant.pizza_updated
+                                     restaurant.topping_prices_updated
+                                     user.registered
 ```
 
 `restaurant.approved` and `restaurant.ready_for_review` are the only restaurant-service events with no
@@ -184,6 +195,7 @@ pizza-marketplace/
 ├── restaurant-service/
 ├── notification-service/
 ├── search-service/
+├── order-service/
 ├── compose.yaml
 ├── compose.test.yaml
 └── README.md
@@ -193,13 +205,13 @@ pizza-marketplace/
 ## Roadmap
 
 - [ ] Customer service — profile, saved addresses, and payment methods for checkout
-- [ ] Payment service — payment processing
-- [ ] Order service — place and track orders
+- [ ] Payment service — payment processing (designed, not started)
+- [ ] Order service — place and track orders (in progress: cart + checkout done, payment wiring pending)
 - [ ] Notification service: SMS/web-push adapters (email adapter shipped)
 - [ ] Analytics service — metrics, reporting, and audit logs
 - [ ] gRPC inter-service communication
 - [ ] Zero-trust networking — trusted proxies, mTLS, and workload identity
-- [ ] Observability stack — logs, metrics, traces, and monitoring
+- [ ] Observability stack — centralized logs, metrics, distributed tracing, and monitoring
 - [ ] Web user client — React frontend application (separate repo)
 - [ ] Kubernetes manifests
 - [ ] CI/CD pipeline
