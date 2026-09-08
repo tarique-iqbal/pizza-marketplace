@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+const maxVerificationAttempts = 3
+
 type emailVerifier struct {
 	repo auth.EmailVerificationRepository
 }
@@ -31,7 +33,14 @@ func (s *emailVerifier) Verify(ctx context.Context, email string, code string) e
 		return auth.ErrCodeUsed
 	}
 
+	if emailVerification.AttemptCount >= maxVerificationAttempts {
+		return auth.ErrTooManyAttempts
+	}
+
 	if emailVerification.Code != code {
+		if err := s.repo.IncrementAttempts(ctx, emailVerification.ID); err != nil {
+			return err
+		}
 		return auth.ErrCodeInvalid
 	}
 

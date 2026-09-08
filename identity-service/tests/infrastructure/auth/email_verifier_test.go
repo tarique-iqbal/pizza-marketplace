@@ -38,6 +38,38 @@ func TestVerify_CodeMismatch(t *testing.T) {
 	assert.ErrorIs(t, err, auth.ErrCodeInvalid)
 }
 
+func TestVerify_CodeMismatch_IncrementsAttemptCount(t *testing.T) {
+	db := testutil.DB(t)
+	db.TruncateTables(t, testutil.TableEmailVerification)
+	_ = fixtures.LoadEmailVerificationFixtures(t, db.DB)
+
+	repo := persistence.NewEmailVerificationRepository(db.DB)
+	svc := authinfra.NewEmailVerifier(repo)
+
+	err := svc.Verify(context.Background(), "alice@example.com", "010101")
+	assert.ErrorIs(t, err, auth.ErrCodeInvalid)
+
+	ev, err := repo.FindByEmail(context.Background(), "alice@example.com")
+	assert.NoError(t, err)
+	assert.EqualValues(t, 1, ev.AttemptCount)
+}
+
+func TestVerify_TooManyAttempts(t *testing.T) {
+	svc := setupCodeVerification(t)
+
+	for i := 0; i < 3; i++ {
+		err := svc.Verify(context.Background(), "alice@example.com", "010101")
+		assert.ErrorIs(t, err, auth.ErrCodeInvalid)
+	}
+
+	err := svc.Verify(context.Background(), "alice@example.com", "010101")
+	assert.ErrorIs(t, err, auth.ErrTooManyAttempts)
+
+	// Locked out even with the correct code, and no information leak about correctness.
+	err = svc.Verify(context.Background(), "alice@example.com", "347578")
+	assert.ErrorIs(t, err, auth.ErrTooManyAttempts)
+}
+
 func TestVerify_AlreadyUsed(t *testing.T) {
 	svc := setupCodeVerification(t)
 
