@@ -47,3 +47,12 @@ func (repo *emailVerificationRepo) Updates(
 ) error {
 	return repo.db.Model(ev).Select("*").Updates(ev).Error
 }
+
+func (repo *emailVerificationRepo) IncrementAttempts(
+	ctx context.Context,
+	id uint,
+) error {
+	return repo.db.Model(&auth.EmailVerification{}).
+		Where("id = ?", id).
+		Update("attempt_count", gorm.Expr("attempt_count + 1")).Error
+}
