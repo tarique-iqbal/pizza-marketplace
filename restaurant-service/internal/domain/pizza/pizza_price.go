@@ -12,7 +12,7 @@ type PizzaPrice struct {
 	PizzaID   uuid.UUID       `gorm:"column:pizza_id;type:uuid;not null"`
 	SizeID    uuid.UUID       `gorm:"column:size_id;type:uuid;not null"`
 	Price     decimal.Decimal `gorm:"type:numeric(6,2);not null"`
-	IsActive  bool            `gorm:"column:is_active;not null;default:true"`
+	IsActive  bool            `gorm:"column:is_active;not null"`
 	CreatedAt time.Time       `gorm:"type:timestamptz;autoCreateTime"`
 	UpdatedAt *time.Time      `gorm:"type:timestamptz;autoUpdateTime;default:null"`
 }
