@@ -4,9 +4,11 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type CartRepository interface {
+	WithTx(tx *gorm.DB) CartRepository
 	FindByCustomer(ctx context.Context, customerID uuid.UUID) (*Cart, error)
 	Create(ctx context.Context, cart *Cart) error
 	AddOrMergeItem(ctx context.Context, cartID uuid.UUID, item CartItem) error

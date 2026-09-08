@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"order-service/internal/domain/cart"
 )
@@ -45,6 +46,10 @@ type MockCartRepository struct {
 }
 
 var _ cart.CartRepository = (*MockCartRepository)(nil)
+
+func (m *MockCartRepository) WithTx(_ *gorm.DB) cart.CartRepository {
+	return m
+}
 
 func (m *MockCartRepository) FindByCustomer(_ context.Context, _ uuid.UUID) (*cart.Cart, error) {
 	return m.FindByCustomerResult, m.FindByCustomerErr

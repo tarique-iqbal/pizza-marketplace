@@ -20,6 +20,10 @@ func NewOrderRepository(db *gorm.DB) order.OrderRepository {
 	return &OrderRepository{db: db}
 }
 
+func (r *OrderRepository) WithTx(tx *gorm.DB) order.OrderRepository {
+	return &OrderRepository{db: tx}
+}
+
 func (r *OrderRepository) Create(ctx context.Context, o *order.Order) error {
 	return r.db.WithContext(ctx).Create(o).Error
 }

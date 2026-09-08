@@ -4,9 +4,11 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type OrderRepository interface {
+	WithTx(tx *gorm.DB) OrderRepository
 	Create(ctx context.Context, order *Order) error
 	Update(ctx context.Context, order *Order) error
 	FindByID(ctx context.Context, id uuid.UUID) (*Order, error)

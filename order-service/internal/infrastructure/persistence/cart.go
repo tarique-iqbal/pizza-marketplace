@@ -20,6 +20,10 @@ func NewCartRepository(db *gorm.DB) cart.CartRepository {
 	return &CartRepository{db: db}
 }
 
+func (r *CartRepository) WithTx(tx *gorm.DB) cart.CartRepository {
+	return &CartRepository{db: tx}
+}
+
 func (r *CartRepository) FindByCustomer(ctx context.Context, customerID uuid.UUID) (*cart.Cart, error) {
 	var c cart.Cart
 
