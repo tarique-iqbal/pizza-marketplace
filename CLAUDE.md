@@ -14,6 +14,7 @@ Pizza Marketplace: an online pizza ordering platform built as a Go microservices
 | `restaurant-service` | Restaurant & menu CRUD, geocoding | implemented (API + worker) |
 | `notification-service` | Consumes domain events, sends notifications via channel adapters (email today) | implemented (worker only) |
 | `search-service` | Search API + Elasticsearch indexing, own geocoder | implemented (API + worker) — scoped-down first slice, see `docs/services/search-service.md` |
+| `order-service` | Cart + order placement, own geocoder | implemented (API + worker) — cart live, `Checkout` built but not wired to a live route yet, see `docs/services/order-service.md` |
 
 This repo holds backend services only — the React frontend (`web-user`) lives in a separate repo.
 

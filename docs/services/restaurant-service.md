@@ -1,7 +1,8 @@
 # restaurant-service — technical overview
 
-Owns restaurant records, their onboarding checklist, and their menu (pizzas, toppings, pricing). The only
-service with a Postgres database (`restaurant_db`) and the only caller of the OpenCage geocoding API.
+Owns restaurant records, their onboarding checklist, and their menu (pizzas, toppings, pricing), via its
+own Postgres database (`restaurant_db`) and its own OpenCage geocoding client — each service that needs a
+database or a geocoder owns an independent one, no shared instance across services.
 Implements the transactional outbox pattern (ported from `identity-service`) for **every** event it raises —
 its `cmd/worker` runs two goroutines: the original inbound `restaurant.initiated` consumer, and an outbox relay
 that polls `outbox_events` and publishes to RabbitMQ. There is no best-effort/direct-publish path left anywhere
