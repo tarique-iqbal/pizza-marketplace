@@ -39,15 +39,31 @@ internal/container        → shared.go (common deps) → api.go / worker.go
 | `password` | varchar(255) | bcrypt hash |
 | `role` | `user_role_enum` | `customer` \| `owner` \| `admin` — `admin` is schema-ready but has no registration flow; provisioned by direct DB insert only |
 | `status` | `user_status_enum` | `active` \| `inactive` \| `suspended` — only `active` is ever set today |
-| `phone` | varchar(32) | nullable, unused by any current registration path |
 | `logged_at` | timestamptz | best-effort last-login stamp |
 | `created_at`, `updated_at` | timestamptz | GORM-managed |
 
 ### `email_verifications` (Postgres)
 
-One-time codes for signup. `email`, `code` (6 chars), `is_used`, `expires_at`, `created_at`. A code is single-use
-and time-bound; state transitions are read by `internal/infrastructure/auth/email_verifier.go` into
-`ErrCodeInvalid` / `ErrCodeExpired` / `ErrCodeUsed` / `ErrCodeNotIssued`.
+One-time codes for signup. `email`, `code` (6 chars), `is_used`, `attempt_count`, `expires_at`,
+`created_at`. A code is single-use and time-bound, and capped at 3 wrong guesses
+(`maxVerificationAttempts`, `internal/infrastructure/auth/email_verifier.go`) — once exceeded,
+`auth.ErrTooManyAttempts` (429) locks the code out even against the *correct* value, so a locked-out
+attacker learns nothing; the only way out is requesting a fresh code, which resets `attempt_count` back
+to 0. Each wrong guess is recorded via an atomic `UPDATE ... SET attempt_count = attempt_count + 1`
+(`EmailVerificationRepository.IncrementAttempts`), not a read-modify-write, so concurrent parallel
+guesses can't defeat the cap by racing a stale read. State transitions map to `ErrCodeInvalid` /
+`ErrCodeExpired` / `ErrCodeUsed` / `ErrCodeNotIssued` / `ErrTooManyAttempts`.
+
+### OTP request rate limit (Redis, not Postgres)
+
+Key `otp_request:<email>`, set via an atomic `SET NX EX` (60-second TTL) —
+`internal/infrastructure/persistence/otp_rate_limiter.go`. A second `POST /auth/email/verify` for the
+same email inside that window returns `auth.ErrTooManyRequests` (429) without generating a new code or
+sending another email. This is what actually bounds total guesses over time: without it, an attacker
+could request unlimited fresh codes (each resetting `attempt_count` to 0) as fast as the network allows,
+turning the 3-guess cap above into a per-request limit rather than a real one. Deliberately per-email
+only — a network/gateway-level per-IP cap (e.g. Traefik's own `ratelimit` middleware) is a separate,
+not-yet-built layer, needed to stop an attacker rotating through many different emails.
 
 ### `outbox_events` (Postgres)
 
@@ -109,6 +125,14 @@ outbox (unlike the RabbitMQ-side DLX pattern used by restaurant-service/notifica
   `EmailExists` before issuing a code), not only at `Create` — `userRepo.Create` also translates a Postgres
   unique-violation as a race-safe backstop. This is the one endpoint in the service that leaks registration
   status (public, unauthenticated) — accepted as-is.
+- **Email is lowercased at every entry point** — registration, login, and OTP request all normalize the
+  address before it touches the database, so `EmailExists`/`FindByEmail` lookups are case-insensitive in
+  practice despite Postgres string equality being case-sensitive.
+- **Registration input is validated for composition, not just presence.** `Password` requires 8-72
+  characters spanning all four character classes (lowercase, uppercase, digit, ASCII symbol — punctuation
+  only, not the full Unicode symbol range, so a password can't rely on a multi-byte character like an
+  emoji to satisfy the symbol requirement). `FirstName`/`LastName` allow only Unicode letters, spaces,
+  hyphens, and apostrophes, and are trimmed before storage.
 
 ## Event flow
 
@@ -124,8 +148,9 @@ Identity-service consumes nothing — it has no inbound RabbitMQ consumer.
 ## Error convention
 
 `internal/interfaces/http/response/error_response.go`'s `HandleError` is the single `errors.Is`-based dispatcher
-from domain/shared error sentinels to HTTP status, covering `auth.ErrCode*`, `auth.ErrRefreshTokenInvalid`, the
-shared sentinels (`ErrUnauthorized`, `ErrForbidden`, `ErrNotFound`, `ErrConflict`), and `user.ErrEmailAlreadyExists`.
+from domain/shared error sentinels to HTTP status, covering `auth.ErrCode*`, `auth.ErrTooManyAttempts` /
+`auth.ErrTooManyRequests` (both → 429), `auth.ErrRefreshTokenInvalid`, the shared sentinels
+(`ErrUnauthorized`, `ErrForbidden`, `ErrNotFound`, `ErrConflict`), and `user.ErrEmailAlreadyExists`.
 Unhandled errors are logged and returned as a generic 500.
 
 ## Testing
