@@ -252,8 +252,6 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      elasticsearch:
-        condition: service_healthy
       migrate-restaurant:
         condition: service_completed_successfully
     env_file: restaurant-service/.env
@@ -266,6 +264,27 @@ services:
       - "traefik.docker.network=backend"
     networks:
       - backend
+      - internal
+
+  # Restaurant Service (worker)
+  restaurant-worker:
+    container_name: pizza-restaurant-worker
+    build:
+      context: .
+      dockerfile: restaurant-service/Dockerfile
+      target: dev
+    command: ["air", "-c", ".air.worker.toml"]
+    volumes:
+      - ./restaurant-service:/app
+    depends_on:
+      postgres-restaurant:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      migrate-restaurant:
+        condition: service_completed_successfully
+    env_file: restaurant-service/.env
+    networks:
       - internal
 
   # Notification Service

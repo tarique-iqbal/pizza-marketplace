@@ -27,7 +27,8 @@ Routes (behind Traefik, JWT-protected + owner-only):
 Run from inside `restaurant-service/`:
 ```bash
 go run ./cmd/api      # HTTP API (or `air -c .air.toml` for live reload, matches the dev container)
-go run ./cmd/worker   # RabbitMQ consumer for identity events — NOT started by compose.yaml, run manually
+go run ./cmd/worker   # RabbitMQ consumer for identity events (or `air -c .air.worker.toml` for live
+                       # reload, matches the dev container) — IS started by compose.yaml (restaurant-worker)
 go test ./...
 go test ./... -run TestName
 ```

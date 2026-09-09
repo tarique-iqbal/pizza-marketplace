@@ -11,7 +11,7 @@ in this service.
 
 ```
 cmd/api                         → Gin HTTP server
-cmd/worker                      → inbound restaurant.initiated consumer + outbox relay — not started by compose.yaml, run manually
+cmd/worker                      → inbound restaurant.initiated consumer + outbox relay — started by compose.yaml (restaurant-worker)
 cmd/worker/bootstrap            → this service's app/runner setup (graceful shutdown, signal handling, both worker goroutines)
 internal/domain/restaurant      → Restaurant aggregate, Checklist, OpeningHours, events, repository interface
 internal/domain/payout          → PayoutDetails

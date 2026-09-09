@@ -51,7 +51,7 @@ Each service owns its data store. There is no shared database. See the
 | `order-service` | Cart + order placement | JWT-protected, authenticated user |
 | `notification-service` | Notifications via channel adapters — email today (background worker) | — |
 
-`identity-service`, `restaurant-service`, `search-service`, and `order-service` each also run a `cmd/worker` process (outbox relay / event consumer) alongside their API — not separate services. `identity-service`'s, `search-service`'s, and `order-service`'s workers (`identity-worker`, `search-worker`, `order-worker`) each get their own container in `compose.yaml` and run by default in dev — without them, no outbox event ever leaves identity-service/order-service, and the search index stays permanently empty, respectively. `restaurant-service`'s worker is started manually when working on its outbox/consumer code.
+`identity-service`, `restaurant-service`, `search-service`, and `order-service` each also run a `cmd/worker` process (outbox relay / event consumer) alongside their API — not separate services. Each service's worker (`identity-worker`, `restaurant-worker`, `search-worker`, `order-worker`) gets its own container in `compose.yaml` and runs by default in dev — without them, no outbox event ever leaves identity-service/restaurant-service/order-service, and the search index stays permanently empty, respectively.
 
 All services are behind Traefik and not directly reachable from outside the Docker network.
 
