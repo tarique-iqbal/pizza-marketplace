@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -27,12 +28,16 @@ func requestEmailOTP(t *testing.T) *authapp.RequestEmailOTP {
 
 	_ = fixtures.LoadUserFixtures(t, db.DB)
 
+	rdb := testutil.Redis(t)
+	rdb.Flush(t)
+
 	repo = persistence.NewEmailVerificationRepository(db.DB)
 	userRepo := persistence.NewUserRepository(db.DB)
 	outboxRepo := persistence.NewOutboxRepository(db.DB)
 	otp := security.NewOTPGenerator()
+	rateLimiter := persistence.NewOTPRateLimiter(rdb.Client, time.Minute)
 
-	return authapp.NewRequestEmailOTP(db.DB, repo, userRepo, otp, outboxRepo)
+	return authapp.NewRequestEmailOTP(db.DB, repo, userRepo, otp, outboxRepo, rateLimiter)
 }
 
 func TestCreateEmailVerification_Success(t *testing.T) {
@@ -82,6 +87,7 @@ func TestCreateEmailVerification_ResetsAttemptCount(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, 2, ev.AttemptCount)
 
+	testutil.Redis(t).Flush(t)
 	require.NoError(t, emailOTP.Execute(context.Background(), input))
 
 	ev, err = repo.FindByEmail(context.Background(), input.Email)
@@ -105,6 +111,7 @@ func TestCreateEmailVerification_RecoversFromOrphanedUsedCode(t *testing.T) {
 	ev.IsUsed = true
 	require.NoError(t, repo.Updates(context.Background(), ev))
 
+	testutil.Redis(t).Flush(t)
 	err = emailOTP.Execute(context.Background(), input)
 	require.NoError(t, err)
 
@@ -116,6 +123,19 @@ func TestCreateEmailVerification_RecoversFromOrphanedUsedCode(t *testing.T) {
 	require.NoError(t, db.DB.Model(&outbox.OutboxEvent{}).
 		Where("event_name = ?", "email.verification_created").Count(&count).Error)
 	assert.EqualValues(t, 2, count)
+}
+
+func TestCreateEmailVerification_RateLimited(t *testing.T) {
+	emailOTP = requestEmailOTP(t)
+
+	input := authapp.EmailVerificationRequest{
+		Email: "adam.dangelo@example.com",
+	}
+
+	require.NoError(t, emailOTP.Execute(context.Background(), input))
+
+	err := emailOTP.Execute(context.Background(), input)
+	assert.ErrorIs(t, err, auth.ErrTooManyRequests)
 }
 
 func TestCreateEmailVerification_EmailAlreadyRegistered(t *testing.T) {

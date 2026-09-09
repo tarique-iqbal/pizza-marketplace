@@ -11,6 +11,7 @@ var (
 	ErrCodeUsed        = errors.New("verification code already used")
 	ErrCodeNotIssued   = errors.New("verification code not issued")
 	ErrTooManyAttempts = errors.New("too many failed verification attempts")
+	ErrTooManyRequests = errors.New("too many verification requests, try again later")
 )
 
 type EmailVerifier interface {

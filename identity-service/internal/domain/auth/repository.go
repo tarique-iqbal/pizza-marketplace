@@ -19,3 +19,7 @@ type RefreshTokenRepository interface {
 	Find(ctx context.Context, hashedToken string) (UserClaims, error)
 	Delete(ctx context.Context, hashedToken string) error
 }
+
+type OTPRateLimiter interface {
+	Allow(ctx context.Context, email string) (bool, error)
+}

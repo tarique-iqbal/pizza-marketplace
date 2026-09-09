@@ -2,6 +2,7 @@ package container
 
 import (
 	"os"
+	"time"
 
 	authapp "identity-service/internal/application/auth"
 	"identity-service/internal/application/health"
@@ -45,6 +46,7 @@ func NewAPIContainer() (*APIContainer, error) {
 	otp := security.NewOTPGenerator()
 
 	refreshTokenRepo := persistence.NewRefreshTokenRepository(redisStore.Client)
+	otpRateLimiter := persistence.NewOTPRateLimiter(redisStore.Client, 60*time.Second)
 	emailVerificationRepo := persistence.NewEmailVerificationRepository(base.Postgres.DB)
 	userRepo := persistence.NewUserRepository(base.Postgres.DB)
 
@@ -60,7 +62,9 @@ func NewAPIContainer() (*APIContainer, error) {
 
 	// auth
 	login := authapp.NewLogin(userRepo, hasher, jwtManager, refreshTokenRepo, refreshTokenManager)
-	emailOTP := authapp.NewRequestEmailOTP(base.Postgres.DB, emailVerificationRepo, userRepo, otp, base.OutboxRepo)
+	emailOTP := authapp.NewRequestEmailOTP(
+		base.Postgres.DB, emailVerificationRepo, userRepo, otp, base.OutboxRepo, otpRateLimiter,
+	)
 	refreshToken := authapp.NewRefreshToken(jwtManager, refreshTokenRepo, refreshTokenManager)
 	logout := authapp.NewLogout(refreshTokenRepo, refreshTokenManager)
 	authHandler := http.NewAuthHandler(login, emailOTP, refreshToken, logout)

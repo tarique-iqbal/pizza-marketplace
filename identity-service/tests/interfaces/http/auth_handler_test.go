@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -41,12 +42,17 @@ func setupAuthHandler(t *testing.T) (
 	jwt := security.NewJWTManager("TestSecretKey")
 	refreshTokenRepo := persistence.NewRefreshTokenRepository(rdb.Client)
 	refreshTokenManager := security.NewRefreshTokenManager()
+	emailVerificationRepo := persistence.NewEmailVerificationRepository(db.DB)
+	outboxRepo := persistence.NewOutboxRepository(db.DB)
+	otp := security.NewOTPGenerator()
+	rateLimiter := persistence.NewOTPRateLimiter(rdb.Client, time.Minute)
 
 	login := authapp.NewLogin(userRepo, hasher, jwt, refreshTokenRepo, refreshTokenManager)
 	refreshToken := authapp.NewRefreshToken(jwt, refreshTokenRepo, refreshTokenManager)
 	logout := authapp.NewLogout(refreshTokenRepo, refreshTokenManager)
+	emailOTP := authapp.NewRequestEmailOTP(db.DB, emailVerificationRepo, userRepo, otp, outboxRepo, rateLimiter)
 
-	handler := httpui.NewAuthHandler(login, nil, refreshToken, logout)
+	handler := httpui.NewAuthHandler(login, emailOTP, refreshToken, logout)
 
 	return handler, jwt, refreshTokenRepo, refreshTokenManager
 }
@@ -161,6 +167,29 @@ func TestAuthHandler_Login_Failed(t *testing.T) {
 			assert.JSONEq(t, tc.expectedBody, recorder.Body.String())
 		})
 	}
+}
+
+func TestAuthHandler_CreateEmailVerification_RateLimited(t *testing.T) {
+	handler, _, _, _ := setupAuthHandler(t)
+
+	router := gin.Default()
+	router.POST("/auth/email/verify", handler.CreateEmailVerification)
+
+	body, _ := json.Marshal(authapp.EmailVerificationRequest{
+		Email: "new.customer@example.com",
+	})
+
+	req1 := httptest.NewRequest(http.MethodPost, "/auth/email/verify", bytes.NewReader(body))
+	req1.Header.Set("Content-Type", "application/json")
+	w1 := httptest.NewRecorder()
+	router.ServeHTTP(w1, req1)
+	require.Equal(t, http.StatusNoContent, w1.Code)
+
+	req2 := httptest.NewRequest(http.MethodPost, "/auth/email/verify", bytes.NewReader(body))
+	req2.Header.Set("Content-Type", "application/json")
+	w2 := httptest.NewRecorder()
+	router.ServeHTTP(w2, req2)
+	require.Equal(t, http.StatusTooManyRequests, w2.Code)
 }
 
 func TestAuthHandler_Refresh_Success(t *testing.T) {

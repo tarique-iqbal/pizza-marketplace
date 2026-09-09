@@ -16,11 +16,12 @@ import (
 const accessTokenExpiry = 15
 
 type RequestEmailOTP struct {
-	db         *gorm.DB
-	repo       auth.EmailVerificationRepository
-	userRepo   user.UserRepository
-	otp        auth.OTPGenerator
-	outboxRepo outbox.OutboxRepository
+	db          *gorm.DB
+	repo        auth.EmailVerificationRepository
+	userRepo    user.UserRepository
+	otp         auth.OTPGenerator
+	outboxRepo  outbox.OutboxRepository
+	rateLimiter auth.OTPRateLimiter
 }
 
 func NewRequestEmailOTP(
@@ -29,8 +30,16 @@ func NewRequestEmailOTP(
 	userRepo user.UserRepository,
 	otp auth.OTPGenerator,
 	outboxRepo outbox.OutboxRepository,
+	rateLimiter auth.OTPRateLimiter,
 ) *RequestEmailOTP {
-	return &RequestEmailOTP{db: db, repo: repo, userRepo: userRepo, otp: otp, outboxRepo: outboxRepo}
+	return &RequestEmailOTP{
+		db:          db,
+		repo:        repo,
+		userRepo:    userRepo,
+		otp:         otp,
+		outboxRepo:  outboxRepo,
+		rateLimiter: rateLimiter,
+	}
 }
 
 func (uc *RequestEmailOTP) Execute(
@@ -45,6 +54,14 @@ func (uc *RequestEmailOTP) Execute(
 	}
 	if exists {
 		return user.ErrEmailAlreadyExists
+	}
+
+	allowed, err := uc.rateLimiter.Allow(ctx, email)
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return auth.ErrTooManyRequests
 	}
 
 	code, err := uc.otp.Generate(true)
