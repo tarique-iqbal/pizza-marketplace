@@ -34,5 +34,6 @@ build/
 /restaurant-service/tmp
 /search-service/tmp
 /order-service/tmp
+/payment-service/tmp
 
 notes/
