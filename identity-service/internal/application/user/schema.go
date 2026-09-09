@@ -10,7 +10,7 @@ type RegisterCustomerRequest struct {
 	FirstName string `json:"firstName" binding:"required,max=255,name"`
 	LastName  string `json:"lastName" binding:"required,max=255,name"`
 	Email     string `json:"email" binding:"required,email"`
-	Password  string `json:"password" binding:"required,min=8,max=72"`
+	Password  string `json:"password" binding:"required,min=8,max=72,password"`
 	Code      string `json:"code" binding:"required,len=6,numeric"`
 }
 
@@ -18,7 +18,7 @@ type RegisterOwnerRequest struct {
 	FirstName    string `json:"firstName" binding:"required,max=255,name"`
 	LastName     string `json:"lastName" binding:"required,max=255,name"`
 	Email        string `json:"email" binding:"required,email"`
-	Password     string `json:"password" binding:"required,min=8,max=72"`
+	Password     string `json:"password" binding:"required,min=8,max=72,password"`
 	Code         string `json:"code" binding:"required,len=6,numeric"`
 	BusinessName string `json:"businessName" binding:"required,min=2,max=128"`
 	VATNumber    string `json:"vatNumber" binding:"required,len=11,alphanum"`

@@ -23,6 +23,8 @@ func getErrorMsg(fe validator.FieldError) string {
 		return "Maximum length exceeded: " + fe.Param()
 	case "name":
 		return "Only letters, spaces, hyphens, and apostrophes are allowed."
+	case "password":
+		return "Password must contain a lowercase letter, an uppercase letter, a digit, and a symbol."
 	}
 	return "Unknown error"
 }
