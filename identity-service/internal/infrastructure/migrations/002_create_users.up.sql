@@ -20,7 +20,6 @@ CREATE TABLE users (
     password VARCHAR(255) NOT NULL,
     role user_role_enum DEFAULT 'customer',
     status user_status_enum DEFAULT 'active',
-    phone VARCHAR(32),
     logged_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ
