@@ -65,10 +65,6 @@ func (uc *RequestEmailOTP) Execute(
 		return err
 	}
 
-	if existing != nil && existing.IsUsed {
-		return nil
-	}
-
 	emailVerificationCreated := EmailVerificationCreated{
 		Email:      email,
 		Code:       code,
@@ -95,6 +91,7 @@ func (uc *RequestEmailOTP) Execute(
 			existing.Code = code
 			existing.ExpiresAt = verification.ExpiresAt
 			existing.AttemptCount = 0
+			existing.IsUsed = false
 
 			if err := uc.repo.WithTx(tx).Updates(ctx, existing); err != nil {
 				return err

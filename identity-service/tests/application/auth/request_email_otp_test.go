@@ -89,6 +89,35 @@ func TestCreateEmailVerification_ResetsAttemptCount(t *testing.T) {
 	assert.EqualValues(t, 0, ev.AttemptCount)
 }
 
+func TestCreateEmailVerification_RecoversFromOrphanedUsedCode(t *testing.T) {
+	db := testutil.DB(t)
+	emailOTP = requestEmailOTP(t)
+
+	input := authapp.EmailVerificationRequest{
+		Email: "adam.dangelo@example.com",
+	}
+
+	// Simulate a verification that was marked used but never resulted in a created user
+	// (e.g. the registration transaction failed after Verify committed).
+	require.NoError(t, emailOTP.Execute(context.Background(), input))
+	ev, err := repo.FindByEmail(context.Background(), input.Email)
+	require.NoError(t, err)
+	ev.IsUsed = true
+	require.NoError(t, repo.Updates(context.Background(), ev))
+
+	err = emailOTP.Execute(context.Background(), input)
+	require.NoError(t, err)
+
+	ev, err = repo.FindByEmail(context.Background(), input.Email)
+	require.NoError(t, err)
+	assert.False(t, ev.IsUsed)
+
+	var count int64
+	require.NoError(t, db.DB.Model(&outbox.OutboxEvent{}).
+		Where("event_name = ?", "email.verification_created").Count(&count).Error)
+	assert.EqualValues(t, 2, count)
+}
+
 func TestCreateEmailVerification_EmailAlreadyRegistered(t *testing.T) {
 	db := testutil.DB(t)
 	emailOTP = requestEmailOTP(t)
