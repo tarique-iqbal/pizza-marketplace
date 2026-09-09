@@ -50,6 +50,23 @@ services:
       timeout: 5s
       retries: 5
 
+  pg-payment-test:
+    image: postgres:17-alpine
+    container_name: pizza-pg-payment-test
+    environment:
+      POSTGRES_USER: user_test
+      POSTGRES_PASSWORD: pass_test
+      POSTGRES_DB: payment_db_test
+    volumes:
+      - pg_payment_data_test:/var/lib/postgresql/data
+    ports:
+      - "5436:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_test -d payment_db_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   migrate-identity-test:
     image: migrate/migrate
     depends_on:
@@ -91,6 +108,21 @@ services:
       [
         "-path=/migrations",
         "-database=postgres://user_test:pass_test@pg-order-test:5432/order_db_test?sslmode=disable",
+        "up"
+      ]
+    profiles: ["test"]
+
+  migrate-payment-test:
+    image: migrate/migrate
+    depends_on:
+      pg-payment-test:
+        condition: service_healthy
+    volumes:
+      - ./payment-service/internal/infrastructure/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://user_test:pass_test@pg-payment-test:5432/payment_db_test?sslmode=disable",
         "up"
       ]
     profiles: ["test"]
@@ -194,8 +226,24 @@ services:
       migrate-order-test: { condition: service_completed_successfully }
     profiles: ["test"]
 
+  payment-test:
+    build:
+      context: .
+      dockerfile: payment-service/Dockerfile
+      target: dev
+    container_name: pizza-payment-test
+    env_file: payment-service/.env.test
+    volumes:
+      - ./payment-service:/app
+    depends_on:
+      pg-payment-test:      { condition: service_healthy }
+      rabbitmq-test:        { condition: service_healthy }
+      migrate-payment-test: { condition: service_completed_successfully }
+    profiles: ["test"]
+
 volumes:
   pg_identity_data_test:
   pg_restaurant_data_test:
   pg_order_data_test:
+  pg_payment_data_test:
   redis_data_test:
