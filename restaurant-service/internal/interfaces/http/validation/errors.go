@@ -35,6 +35,16 @@ func getErrorMsg(fe validator.FieldError) string {
 		return "Must be a valid BIC/SWIFT code."
 	case "hhmm":
 		return "Must be a valid time in HH:MM format."
+	case "phone":
+		return "Must be a valid phone number."
+	case "houseNumber":
+		return "Only letters, numbers, spaces, parentheses, \"/\", and \"-\" are allowed."
+	case "street":
+		return "Only letters, numbers, spaces, apostrophes, periods, and hyphens are allowed."
+	case "city":
+		return "Only letters, spaces, hyphens, apostrophes, and periods are allowed."
+	case "postalCode":
+		return "Only letters, numbers, spaces, and hyphens are allowed."
 	case "gtfield_open":
 		return "Close must be later than open."
 	case "required_if_delivery":

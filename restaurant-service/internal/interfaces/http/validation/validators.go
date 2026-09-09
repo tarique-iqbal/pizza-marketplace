@@ -14,12 +14,20 @@ import (
 
 var hhmmPattern = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`)
 var phonePattern = regexp.MustCompile(`^\+?[0-9()\-\s]{6,32}$`)
+var houseNumberPattern = regexp.MustCompile(`^[\p{L}\p{N} ()/-]+$`)
+var streetPattern = regexp.MustCompile(`^[\p{L}\p{N} .'-]+$`)
+var cityPattern = regexp.MustCompile(`^[\p{L} '.-]+$`)
+var postalCodePattern = regexp.MustCompile(`^[A-Za-z0-9 -]+$`)
 
 func init() {
 	if engine, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		_ = engine.RegisterValidation("iban", isIban)
 		_ = engine.RegisterValidation("hhmm", isHHMM)
 		_ = engine.RegisterValidation("phone", isPhone)
+		_ = engine.RegisterValidation("houseNumber", isHouseNumber)
+		_ = engine.RegisterValidation("street", isStreet)
+		_ = engine.RegisterValidation("city", isCity)
+		_ = engine.RegisterValidation("postalCode", isPostalCode)
 		engine.RegisterStructValidation(validateDayRange, restaurant.DayRangeRequest{})
 		engine.RegisterStructValidation(validateDelivery, restaurant.UpdateDeliveryRequest{})
 	}
@@ -71,9 +79,7 @@ func isHHMM(fl validator.FieldLevel) bool {
 	return hhmmPattern.MatchString(fl.Field().String())
 }
 
-// isPhone accepts digits with optional leading +, spaces, hyphens, and
-// parentheses, requiring at least 6 digits so strings like "asdf" or
-// all-separator input don't pass.
+// isPhone requires digits (optionally +, spaces, hyphens, parentheses) and at least 6 digits.
 func isPhone(fl validator.FieldLevel) bool {
 	value := fl.Field().String()
 
@@ -89,6 +95,46 @@ func isPhone(fl validator.FieldLevel) bool {
 	}
 
 	return digits >= 6
+}
+
+// isHouseNumber allows Unicode letters/digits, spaces, parentheses, "/", and "-".
+func isHouseNumber(fl validator.FieldLevel) bool {
+	value := strings.TrimSpace(fl.Field().String())
+	if value == "" {
+		return false
+	}
+
+	return houseNumberPattern.MatchString(value)
+}
+
+// isStreet allows Unicode letters/digits, spaces, apostrophes, periods, and hyphens.
+func isStreet(fl validator.FieldLevel) bool {
+	value := strings.TrimSpace(fl.Field().String())
+	if value == "" {
+		return false
+	}
+
+	return streetPattern.MatchString(value)
+}
+
+// isCity allows Unicode letters, spaces, apostrophes, periods, and hyphens.
+func isCity(fl validator.FieldLevel) bool {
+	value := strings.TrimSpace(fl.Field().String())
+	if value == "" {
+		return false
+	}
+
+	return cityPattern.MatchString(value)
+}
+
+// isPostalCode allows ASCII letters/digits, spaces, and hyphens.
+func isPostalCode(fl validator.FieldLevel) bool {
+	value := strings.TrimSpace(fl.Field().String())
+	if value == "" {
+		return false
+	}
+
+	return postalCodePattern.MatchString(value)
 }
 
 func validateDayRange(sl validator.StructLevel) {

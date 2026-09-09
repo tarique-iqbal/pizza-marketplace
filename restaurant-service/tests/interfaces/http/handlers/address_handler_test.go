@@ -128,6 +128,159 @@ func TestAddressHandler_UpdateAddress_Success(t *testing.T) {
 	assert.Equal(t, "12345", updated.Address.PostalCode)
 }
 
+func TestAddressHandler_UpdateAddress_Success_MultiWordCity(t *testing.T) {
+	h := setupAddressHandler(t)
+
+	var res restaurant.Restaurant
+	err := h.DB.First(&res).Error
+	require.NoError(t, err)
+
+	router := gin.Default()
+	router.Use(
+		MockAuthMiddleware(res.OwnerID.String(), "owner"),
+		middleware.RequireRole("owner"),
+	)
+
+	router.PATCH("/restaurants/:id/address", h.Handler.UpdateAddress)
+
+	reqBody := map[string]any{
+		"house":      "350",
+		"street":     "5th Avenue",
+		"city":       "New York",
+		"postalCode": "10118",
+	}
+
+	jsonBody, _ := json.Marshal(reqBody)
+
+	req, _ := http.NewRequest(
+		http.MethodPatch,
+		"/restaurants/"+res.ID.String()+"/address",
+		bytes.NewBuffer(jsonBody),
+	)
+
+	req.Header.Set("Content-Type", "application/json")
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+
+	var response resapp.RestaurantResponse
+	err = json.Unmarshal(recorder.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	assert.Equal(t, "New York", response.Address.City)
+}
+
+func TestAddressHandler_UpdateAddress_Success_UnitStyleHouseNumber(t *testing.T) {
+	h := setupAddressHandler(t)
+
+	var res restaurant.Restaurant
+	err := h.DB.First(&res).Error
+	require.NoError(t, err)
+
+	router := gin.Default()
+	router.Use(
+		MockAuthMiddleware(res.OwnerID.String(), "owner"),
+		middleware.RequireRole("owner"),
+	)
+
+	router.PATCH("/restaurants/:id/address", h.Handler.UpdateAddress)
+
+	reqBody := map[string]any{
+		"house":      "12 (Suite 4)",
+		"street":     "Main Str.",
+		"city":       "Cityville",
+		"postalCode": "12345",
+	}
+
+	jsonBody, _ := json.Marshal(reqBody)
+
+	req, _ := http.NewRequest(
+		http.MethodPatch,
+		"/restaurants/"+res.ID.String()+"/address",
+		bytes.NewBuffer(jsonBody),
+	)
+
+	req.Header.Set("Content-Type", "application/json")
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, req)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+
+	var response resapp.RestaurantResponse
+	err = json.Unmarshal(recorder.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	assert.Equal(t, "12 (Suite 4)", response.Address.House)
+}
+
+func TestAddressHandler_UpdateAddress_Failure_InvalidCharacters(t *testing.T) {
+	h := setupAddressHandler(t)
+
+	var res restaurant.Restaurant
+	err := h.DB.First(&res).Error
+	require.NoError(t, err)
+
+	router := gin.Default()
+	router.Use(
+		MockAuthMiddleware(res.OwnerID.String(), "owner"),
+		middleware.RequireRole("owner"),
+	)
+
+	router.PATCH("/restaurants/:id/address", h.Handler.UpdateAddress)
+
+	tests := []struct {
+		name string
+		body map[string]any
+	}{
+		{
+			name: "house contains a comma",
+			body: map[string]any{
+				"house": "12, A", "street": "Main Str.", "city": "Cityville", "postalCode": "12345",
+			},
+		},
+		{
+			name: "street contains digits-only garbage",
+			body: map[string]any{
+				"house": "1", "street": "<script>", "city": "Cityville", "postalCode": "12345",
+			},
+		},
+		{
+			name: "city contains digits",
+			body: map[string]any{
+				"house": "1", "street": "Main Str.", "city": "Cityville123", "postalCode": "12345",
+			},
+		},
+		{
+			name: "postal code contains symbols",
+			body: map[string]any{
+				"house": "1", "street": "Main Str.", "city": "Cityville", "postalCode": "12345!",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			jsonBody, _ := json.Marshal(tt.body)
+
+			req, _ := http.NewRequest(
+				http.MethodPatch,
+				"/restaurants/"+res.ID.String()+"/address",
+				bytes.NewBuffer(jsonBody),
+			)
+			req.Header.Set("Content-Type", "application/json")
+
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, req)
+
+			assert.Equal(t, http.StatusUnprocessableEntity, recorder.Code)
+			assert.Contains(t, recorder.Body.String(), "errors")
+		})
+	}
+}
+
 func TestAddressHandler_UpdateAddress_Failure_ValidationError(t *testing.T) {
 	h := setupAddressHandler(t)
 

@@ -19,10 +19,10 @@ type RestaurantTag = restaurant.RestaurantTag
 type OpeningHoursResponse = restaurant.OpeningHours
 
 type UpdateAddressRequest struct {
-	House      string `json:"house" binding:"required,max=64"`
-	Street     string `json:"street" binding:"required,max=128"`
-	City       string `json:"city" binding:"required,alphaunicode,max=64"`
-	PostalCode string `json:"postalCode" binding:"required"`
+	House      string `json:"house" binding:"required,max=64,houseNumber"`
+	Street     string `json:"street" binding:"required,max=128,street"`
+	City       string `json:"city" binding:"required,max=64,city"`
+	PostalCode string `json:"postalCode" binding:"required,max=12,postalCode"`
 }
 
 type UpdateContactRequest struct {
