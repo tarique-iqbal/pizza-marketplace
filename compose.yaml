@@ -449,7 +449,14 @@ services:
       migrate-payment:
         condition: service_completed_successfully
     env_file: payment-service/.env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.payment.rule=PathPrefix(`/webhooks/mollie`)"
+      - "traefik.http.routers.payment.entrypoints=web"
+      - "traefik.http.services.payment.loadbalancer.server.port=8080"
+      - "traefik.docker.network=backend"
     networks:
+      - backend
       - internal
 
   # Payment Service (worker)

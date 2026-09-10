@@ -11,6 +11,7 @@ import (
 	"payment-service/internal/infrastructure/observability"
 	logobs "payment-service/internal/infrastructure/observability/logger"
 	"payment-service/internal/interfaces/grpc/pb"
+	"payment-service/internal/interfaces/http/routes"
 )
 
 const grpcAddr = ":50051"
@@ -29,6 +30,8 @@ func main() {
 
 	router := gin.New()
 	router.Use(gin.Recovery(), observability.Middleware(logger))
+
+	routes.SetupRoutes(router, app.Handlers)
 
 	if err := router.Run(":8080"); err != nil {
 		logger.Error("failed to start server", "error", err)
