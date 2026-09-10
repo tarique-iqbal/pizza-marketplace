@@ -147,6 +147,23 @@ services:
     networks:
       - internal
 
+  # Migrations (payment)
+  migrate-payment:
+    image: migrate/migrate
+    depends_on:
+      postgres-payment:
+        condition: service_healthy
+    volumes:
+      - ./payment-service/internal/infrastructure/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://user_dev:pass_dev@postgres-payment:5432/payment_db?sslmode=disable",
+        "up"
+      ]
+    networks:
+      - internal
+
   # Message Broker
   rabbitmq:
     image: rabbitmq:3-management-alpine
@@ -427,6 +444,31 @@ services:
     depends_on:
       postgres-payment:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      migrate-payment:
+        condition: service_completed_successfully
+    env_file: payment-service/.env
+    networks:
+      - internal
+
+  # Payment Service (worker)
+  payment-worker:
+    container_name: pizza-payment-worker
+    build:
+      context: .
+      dockerfile: payment-service/Dockerfile
+      target: dev
+    command: ["air", "-c", ".air.worker.toml"]
+    volumes:
+      - ./payment-service:/app
+    depends_on:
+      postgres-payment:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      migrate-payment:
+        condition: service_completed_successfully
     env_file: payment-service/.env
     networks:
       - internal
