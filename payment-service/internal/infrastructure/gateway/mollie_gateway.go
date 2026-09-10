@@ -91,7 +91,11 @@ func (g *MollieGateway) GetStatus(
 
 	status, reason := mapMollieStatus(resp.Status)
 
-	return payment.PaymentStatusResult{Status: status, Reason: reason}, nil
+	return payment.PaymentStatusResult{
+		Status:      status,
+		Reason:      reason,
+		CheckoutURL: resp.Links.Checkout.Href,
+	}, nil
 }
 
 func mapMollieStatus(mollieStatus string) (payment.PaymentStatus, string) {

@@ -107,6 +107,26 @@ func TestMollieGateway_GetStatus_MapsEveryMollieStatus(t *testing.T) {
 	}
 }
 
+func TestMollieGateway_GetStatus_ReturnsCheckoutURL(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":     "tr_test123",
+			"status": "open",
+			"_links": map[string]any{
+				"checkout": map[string]any{"href": "https://mollie.test/checkout/tr_test123"},
+			},
+		})
+	}))
+	defer server.Close()
+
+	gw := gateway.NewMollieGateway("test_apikey", server.URL)
+
+	result, err := gw.GetStatus(context.Background(), "tr_test123")
+	require.NoError(t, err)
+
+	assert.Equal(t, "https://mollie.test/checkout/tr_test123", result.CheckoutURL)
+}
+
 func TestMollieGateway_CancelPayment_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodDelete, r.Method)

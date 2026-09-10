@@ -30,6 +30,20 @@ func (r *PaymentRepository) Update(ctx context.Context, p *payment.Payment) erro
 	return r.db.WithContext(ctx).Save(p).Error
 }
 
+func (r *PaymentRepository) FindByID(ctx context.Context, id uuid.UUID) (*payment.Payment, error) {
+	var p payment.Payment
+
+	err := r.db.WithContext(ctx).First(&p, "id = ?", id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &p, nil
+}
+
 func (r *PaymentRepository) FindBySubject(
 	ctx context.Context,
 	subjectType string,

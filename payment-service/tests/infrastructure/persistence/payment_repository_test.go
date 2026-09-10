@@ -75,6 +75,26 @@ func TestPaymentRepository_Update(t *testing.T) {
 	assert.Equal(t, "tr_updated", *found.GatewayPaymentID)
 }
 
+func TestPaymentRepository_FindByID_Found(t *testing.T) {
+	repo, fixturePayments := setupPaymentRepo(t)
+
+	target := fixturePayments[0]
+
+	found, err := repo.FindByID(context.Background(), target.ID)
+	require.NoError(t, err)
+	require.NotNil(t, found)
+
+	assert.Equal(t, target.SubjectID, found.SubjectID)
+}
+
+func TestPaymentRepository_FindByID_NotFound(t *testing.T) {
+	repo, _ := setupPaymentRepo(t)
+
+	found, err := repo.FindByID(context.Background(), uuid.New())
+	require.NoError(t, err)
+	assert.Nil(t, found)
+}
+
 func TestPaymentRepository_FindBySubject_Found(t *testing.T) {
 	repo, fixturePayments := setupPaymentRepo(t)
 

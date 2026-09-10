@@ -21,8 +21,9 @@ type CreatePaymentResult struct {
 }
 
 type PaymentStatusResult struct {
-	Status PaymentStatus
-	Reason string
+	Status      PaymentStatus
+	Reason      string
+	CheckoutURL string
 }
 
 type PaymentGateway interface {
