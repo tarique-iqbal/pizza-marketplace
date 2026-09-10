@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package payment.v1;
+
+option go_package = "payment-service/internal/interfaces/grpc/pb";
+
+service PaymentService {
+  rpc CreatePayment(CreatePaymentRequest) returns (CreatePaymentResponse);
+  rpc CancelPayment(CancelPaymentRequest) returns (CancelPaymentResponse);
+}
+
+message CreatePaymentRequest {
+  string subject_type  = 1;
+  string subject_id    = 2;
+  string restaurant_id = 3;
+  string customer_id   = 4;
+  string amount        = 5;
+  string currency      = 6;
+  string redirect_url  = 7;
+}
+
+message CreatePaymentResponse {
+  string payment_id   = 1;
+  string checkout_url = 2;
+  string status       = 3;
+}
+
+message CancelPaymentRequest {
+  string payment_id = 1;
+}
+
+message CancelPaymentResponse {
+  string status = 1;
+}

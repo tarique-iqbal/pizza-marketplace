@@ -34,6 +34,14 @@ test-order:
 
 test: test-up test-identity test-restaurant test-notification test-search test-order
 
+.PHONY: proto
+
+proto:
+	protoc \
+		--go_out=payment-service --go_opt=module=payment-service \
+		--go-grpc_out=payment-service --go-grpc_opt=module=payment-service \
+		payment-service/api/proto/payment/v1/payment.proto
+
 .PHONY: fmt vet lint
 
 fmt:
