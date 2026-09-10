@@ -17,8 +17,9 @@ CMD ["air", "-c", ".air.toml"]
 FROM base AS builder
 COPY payment-service/ .
 RUN CGO_ENABLED=0 GOOS=linux go build -o /payment-api ./cmd/api/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o /payment-worker ./cmd/worker/main.go
 
-# Stage 4: Final API image
+# Stage 4a: Final API image
 FROM alpine:3.21 AS api
 WORKDIR /app
 RUN apk add --no-cache ca-certificates postgresql-client
@@ -26,3 +27,11 @@ COPY --from=base /go/bin/migrate /usr/local/bin/migrate
 COPY --from=builder /payment-api .
 EXPOSE 8080
 CMD ["./payment-api"]
+
+# Stage 4b: Final worker image
+FROM alpine:3.21 AS worker
+WORKDIR /app
+RUN apk add --no-cache ca-certificates postgresql-client
+COPY --from=base /go/bin/migrate /usr/local/bin/migrate
+COPY --from=builder /payment-worker .
+CMD ["./payment-worker"]
