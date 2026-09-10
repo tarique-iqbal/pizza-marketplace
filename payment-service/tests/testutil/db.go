@@ -12,6 +12,7 @@ import (
 
 const (
 	TableOutboxEvent = "outbox_events"
+	TablePayment     = "payments"
 )
 
 type TestDB struct {
