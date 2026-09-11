@@ -31,12 +31,14 @@ func NewContainer() (*Container, error) {
 	emailVerificationCreated := notifapp.NewEmailVerificationCreated(smtpSender, template)
 	restaurantReadyForReview := notifapp.NewRestaurantReadyForReview(smtpSender, template)
 	restaurantApproved := notifapp.NewRestaurantApproved(smtpSender, template)
+	orderConfirmed := notifapp.NewOrderConfirmed(smtpSender, template)
 
 	dispatcher := notifapp.NewEventDispatcher()
 	dispatcher.Register("user.registered", userRegistered)
 	dispatcher.Register("email.verification_created", emailVerificationCreated)
 	dispatcher.Register("restaurant.ready_for_review", restaurantReadyForReview)
 	dispatcher.Register("restaurant.approved", restaurantApproved)
+	dispatcher.Register("order.confirmed", orderConfirmed)
 
 	consumer, err := messaging.NewRabbitMQConsumer(amqpURL)
 

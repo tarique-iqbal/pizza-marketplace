@@ -27,6 +27,9 @@ var Exchanges = map[string][]string{
 		"restaurant.ready_for_review",
 		"restaurant.approved",
 	},
+	"order.events": {
+		"order.confirmed",
+	},
 }
 
 type messageSource interface {
