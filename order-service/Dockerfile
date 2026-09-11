@@ -1,5 +1,5 @@
 # Stage 1: Base (Dependencies & Tools)
-FROM golang:1.24 AS base
+FROM golang:1.26 AS base
 WORKDIR /app
 
 RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1

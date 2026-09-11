@@ -400,6 +400,8 @@ services:
         condition: service_healthy
       migrate-order:
         condition: service_completed_successfully
+      payment-service:
+        condition: service_started
     env_file: order-service/.env
     labels:
       - "traefik.enable=true"

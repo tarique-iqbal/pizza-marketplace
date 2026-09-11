@@ -8,7 +8,8 @@ import (
 )
 
 type Handlers struct {
-	CartHandler *handlers.CartHandler
+	CartHandler  *handlers.CartHandler
+	OrderHandler *handlers.OrderHandler
 }
 
 func SetupRoutes(router *gin.Engine, h *Handlers, m *middleware.Middleware) {
@@ -16,4 +17,5 @@ func SetupRoutes(router *gin.Engine, h *Handlers, m *middleware.Middleware) {
 	SetupUpdateItemQuantityRoutes(router, h.CartHandler, m)
 	SetupRemoveItemRoutes(router, h.CartHandler, m)
 	SetupGetCartRoutes(router, h.CartHandler, m)
+	SetupCheckoutRoutes(router, h.OrderHandler, m)
 }
