@@ -2,10 +2,12 @@ package auth
 
 import (
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type EmailVerification struct {
-	ID           uint      `gorm:"primaryKey"`
+	ID           uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Email        string    `gorm:"size:255;not null;index"`
 	Code         string    `gorm:"type:char(6);not null"`
 	IsUsed       bool      `gorm:"default:false"`

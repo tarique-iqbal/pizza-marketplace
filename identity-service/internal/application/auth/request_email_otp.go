@@ -69,8 +69,14 @@ func (uc *RequestEmailOTP) Execute(
 		return err
 	}
 
+	verificationID, err := uuid.NewV7()
+	if err != nil {
+		return err
+	}
+
 	expiry := time.Duration(accessTokenExpiry) * time.Minute
 	verification := &auth.EmailVerification{
+		ID:        verificationID,
 		Email:     email,
 		Code:      code,
 		IsUsed:    false,
@@ -82,6 +88,11 @@ func (uc *RequestEmailOTP) Execute(
 		return err
 	}
 
+	aggregateID := verification.ID
+	if existing != nil {
+		aggregateID = existing.ID
+	}
+
 	emailVerificationCreated := EmailVerificationCreated{
 		Email:      email,
 		Code:       code,
@@ -90,11 +101,6 @@ func (uc *RequestEmailOTP) Execute(
 	emailVerificationCreated.EventName = emailVerificationCreated.GetEventName()
 
 	payload, err := json.Marshal(emailVerificationCreated)
-	if err != nil {
-		return err
-	}
-
-	aggregateID, err := uuid.NewV7()
 	if err != nil {
 		return err
 	}

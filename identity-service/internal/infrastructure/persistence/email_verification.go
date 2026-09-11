@@ -4,6 +4,7 @@ import (
 	"context"
 	"identity-service/internal/domain/auth"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -50,7 +51,7 @@ func (repo *emailVerificationRepo) Updates(
 
 func (repo *emailVerificationRepo) IncrementAttempts(
 	ctx context.Context,
-	id uint,
+	id uuid.UUID,
 ) error {
 	return repo.db.Model(&auth.EmailVerification{}).
 		Where("id = ?", id).

@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -11,7 +12,7 @@ type EmailVerificationRepository interface {
 	Create(ctx context.Context, emailVerification *EmailVerification) error
 	Updates(ctx context.Context, emailVerification *EmailVerification) error
 	FindByEmail(ctx context.Context, email string) (*EmailVerification, error)
-	IncrementAttempts(ctx context.Context, id uint) error
+	IncrementAttempts(ctx context.Context, id uuid.UUID) error
 }
 
 type RefreshTokenRepository interface {

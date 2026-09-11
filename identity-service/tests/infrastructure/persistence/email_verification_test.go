@@ -25,6 +25,7 @@ func TestEmailVerificationRepository_Create(t *testing.T) {
 	emVerRepo := setupEmailVerificationRepo(t)
 
 	emailVerification := auth.EmailVerification{
+		ID:        testutil.MustNewID(),
 		Email:     "adam.dangelo@example.com",
 		Code:      "467923",
 		IsUsed:    false,
