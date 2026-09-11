@@ -205,10 +205,10 @@ type PaymentSucceededPayload struct {
 // PaymentFailedPayload: same shape + Reason string
 ```
 
-Nothing in this repo consumes these yet — order-service's own `payment.events` consumer
-(`Order.Confirm()`/`Order.Cancel()`) is order-service's own step, not yet built, and its gRPC client calling
-`CreatePayment`/`CancelPayment` is a separate not-yet-built step too. payment-service's own outbox/gRPC
-surface is fully functional independent of either.
+order-service consumes both: its worker's `PaymentSucceededHandler`/`PaymentFailedHandler` call
+`Order.Confirm()`/`Order.Cancel()` in response, and its `Checkout` command calls `CreatePayment` over gRPC
+(via a circuit-breaker-wrapped client) to get the checkout URL in the first place — see order-service's own
+`CLAUDE.md` for that side.
 
 ## gRPC contract — the first gRPC surface in this monorepo
 
@@ -219,9 +219,10 @@ Go plugins on `PATH`; `--go_out`/`--go-grpc_out` must both be `payment-service`,
 `--go_opt=module=payment-service` — the `module` option *strips* that prefix from the `.proto`'s own
 `go_package` path rather than adding it, so `--go_out` has to supply the prefix back).
 
-No shared Go module for the generated code — order-service's own future gRPC client will copy the generated
-client stub into its own tree by hand, kept in sync manually (same per-service-duplication convention this
-repo uses for the RabbitMQ consumer/publisher and every OpenCage client copy). Transport is plaintext, no
+No shared Go module for the generated code — order-service's own gRPC client
+(`internal/infrastructure/payment/`) copies the generated client stub into its own tree by hand, kept in
+sync manually (same per-service-duplication convention this repo uses for the RabbitMQ consumer/publisher
+and every OpenCage client copy). Transport is plaintext, no
 TLS, internal Docker network only — matches this repo's current security posture everywhere else (RabbitMQ/
 Postgres connections are also unencrypted internal traffic).
 
