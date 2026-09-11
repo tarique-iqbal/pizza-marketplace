@@ -28,6 +28,10 @@ var Exchanges = map[string][]string{
 	"identity.events": {
 		"user.registered",
 	},
+	"payment.events": {
+		"payment.succeeded",
+		"payment.failed",
+	},
 }
 
 type messageSource interface {
