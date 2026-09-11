@@ -48,7 +48,7 @@ proto:
 .PHONY: fmt vet lint
 
 fmt:
-	@for svc in identity-service restaurant-service notification-service; do \
+	@for svc in identity-service restaurant-service notification-service search-service order-service payment-service; do \
 		unformatted=$$(cd $$svc && gofmt -l .); \
 		if [ -n "$$unformatted" ]; then \
 			echo "$$unformatted"; \
@@ -57,7 +57,7 @@ fmt:
 	done
 
 vet:
-	@for svc in identity-service restaurant-service notification-service; do \
+	@for svc in identity-service restaurant-service notification-service search-service order-service payment-service; do \
 		(cd $$svc && go vet ./...) || exit 1; \
 	done
 
