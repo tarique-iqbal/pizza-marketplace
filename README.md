@@ -49,9 +49,10 @@ Each service owns its data store. There is no shared database. See the
 | `restaurant-service` | Restaurant & menu CRUD | JWT-protected, owner, admin |
 | `search-service` | Search API + Elasticsearch indexing | public (no auth) |
 | `order-service` | Cart + order placement | JWT-protected, authenticated user |
+| `payment-service` | Payment processing via Mollie | gRPC (internal only) + one public webhook route |
 | `notification-service` | Notifications via channel adapters — email today (background worker) | — |
 
-`identity-service`, `restaurant-service`, `search-service`, and `order-service` each also run a `cmd/worker` process (outbox relay / event consumer) alongside their API — not separate services. Each service's worker (`identity-worker`, `restaurant-worker`, `search-worker`, `order-worker`) gets its own container in `compose.yaml` and runs by default in dev — without them, no outbox event ever leaves identity-service/restaurant-service/order-service, and the search index stays permanently empty, respectively.
+`identity-service`, `restaurant-service`, `search-service`, `order-service`, and `payment-service` each also run a `cmd/worker` process (outbox relay / event consumer) alongside their API — not separate services. Each service's worker (`identity-worker`, `restaurant-worker`, `search-worker`, `order-worker`, `payment-worker`) gets its own container in `compose.yaml` and runs by default in dev — without them, no outbox event ever leaves identity-service/restaurant-service/order-service/payment-service, and the search index stays permanently empty, respectively. `payment-worker` is the exception among these: it has no inbound consumer, it only relays payment-service's own outbox.
 
 All services are behind Traefik and not directly reachable from outside the Docker network.
 
@@ -126,6 +127,7 @@ All routes are served through Traefik on port `80`. See each service's API refer
 - [Restaurant service](docs/api/restaurant-service.md) — `/restaurants`
 - [Search service](docs/api/search-service.md) — `/search`
 - [Order service](docs/api/order-service.md) — `/cart`, `/orders`
+- [Payment service](docs/api/payment-service.md) — gRPC `PaymentService` + `/webhooks/mollie`
 
 
 ## Service documentation
@@ -137,11 +139,12 @@ Architecture, domain model, and design decisions for each implemented service:
 - [Notification service](docs/services/notification-service.md)
 - [Search service](docs/services/search-service.md)
 - [Order service](docs/services/order-service.md)
+- [Payment service](docs/services/payment-service.md)
 
 
 ## Event flow
 
-Events are published to RabbitMQ and consumed asynchronously. `identity-service`, `restaurant-service`, and `order-service` all use the transactional outbox pattern for at-least-once delivery — each outboxes every event it raises, with no best-effort publish path left in any of them. `order-service` doesn't publish anything yet (its `order.confirmed` event is designed but not built).
+Events are published to RabbitMQ and consumed asynchronously. `identity-service`, `restaurant-service`, `order-service`, and `payment-service` all use the transactional outbox pattern for at-least-once delivery — each outboxes every event it raises, with no best-effort publish path left in any of them. `order-service` doesn't publish anything yet (its `order.confirmed` event is designed but not built). `payment-service` publishes `payment.succeeded`/`payment.failed` once its Mollie webhook resolves a payment, but nothing consumes them yet — `order-service`'s own consumer is designed but not built.
 
 ```
 identity-service     ──publishes──► email.verification_created
@@ -154,6 +157,9 @@ restaurant-service   ──publishes──► restaurant.ready_for_review
                                      restaurant.updated
                                      restaurant.pizza_updated
                                      restaurant.topping_prices_updated
+
+payment-service      ──publishes──► payment.succeeded
+                                     payment.failed
 
 notification-service ◄──consumes──  email.verification_created
                                      user.registered
@@ -206,11 +212,11 @@ pizza-marketplace/
 ## Roadmap
 
 - [ ] Customer service — profile, saved addresses, and payment methods for checkout
-- [ ] Payment service — payment processing (designed, not started)
+- [ ] Payment service — payment processing via Mollie, gRPC + webhook (order-service integration pending)
 - [ ] Order service — place and track orders (cart + checkout done, payment wiring pending)
 - [ ] Notification service — SMS/web-push adapters (email adapter shipped)
 - [ ] Analytics service — metrics, reporting, and audit logs
-- [ ] gRPC — inter-service communication requiring synchronous responses
+- [ ] gRPC — inter-service communication requiring synchronous responses (server side built, no caller yet)
 - [ ] Zero-trust networking — trusted proxies, mTLS, and workload identity
 - [ ] Observability stack — centralized logs, metrics, distributed tracing, and monitoring
 - [ ] Orchestration — Kubernetes for auto-scaling, self-healing, and zero-downtime updates
