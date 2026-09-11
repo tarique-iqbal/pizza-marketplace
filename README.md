@@ -1,8 +1,8 @@
 # Pizza Marketplace – Monorepo
 
-**Online pizza ordering marketplace** built with a **microservices architecture**, enabling restaurants to receive and manage orders. Each service is developed using **Go (Gin)**, with **PostgreSQL** for transactional data and **Elasticsearch** for search. Services communicate asynchronously via **RabbitMQ** and expose **HTTP APIs** through a **Traefik API Gateway** with **JWT-based authentication**.
+An online, multi-tenant pizza marketplace connecting customers and restaurants: customers search nearby restaurants, build a cart, and check out with real payment processing; restaurant owners manage their menu, pricing, and incoming orders. Built as independent **Go (Gin)** microservices, each owning its own **PostgreSQL** database — services communicate asynchronously via **RabbitMQ** using the **transactional outbox pattern**, except order-service's call to payment-service, which is synchronous over **gRPC** (with a circuit breaker) for the one operation that genuinely needs an immediate response. Search runs on **Elasticsearch**; **Traefik** fronts every service with **JWT-based authentication**.
 
-The platform follows **Domain-Driven Design** and **Clean Architecture** principles. It implements the **Outbox Pattern** for reliable event delivery and data consistency. **Docker** is used for containerization, and **Kubernetes** orchestration is planned for scalable deployments.
+Follows **Domain-Driven Design** and **Clean Architecture** principles, structured as an **Event-Driven Architecture** throughout. **Docker Compose** runs the full stack locally; **Kubernetes** orchestration is a planned next step for production deployment.
 
 ## Table of contents
 
@@ -24,16 +24,20 @@ Client (Web)
         │
         ▼
 Traefik API Gateway (:80)
-  ├── /auth, /users  ──► Identity Service
-  ├── /restaurants   ──► Restaurant Service  (JWT protected)
-  ├── /search        ──► Search Service      (no auth)
-  └── /cart, /orders ──► Order Service       (JWT protected)
+  ├── /auth, /users     ──► Identity Service
+  ├── /restaurants      ──► Restaurant Service  (JWT protected)
+  ├── /search           ──► Search Service      (no auth)
+  ├── /cart, /orders    ──► Order Service       (JWT protected)
+  └── /webhooks/mollie  ──► Payment Service     (no auth — Mollie's own callback)
+
+Order Service ──gRPC (synchronous)──► Payment Service
 
 RabbitMQ (async events, publish/consume — see Event flow below)
   ├── Identity Service
   ├── Restaurant Service
   ├── Search Service
   ├── Order Service
+  ├── Payment Service
   └── Notification Service (worker only — no HTTP route, reached only via RabbitMQ)
 ```
 
@@ -92,6 +96,7 @@ cp restaurant-service/.env.example   restaurant-service/.env
 cp notification-service/.env.example notification-service/.env
 cp search-service/.env.example       search-service/.env
 cp order-service/.env.example        order-service/.env
+cp payment-service/.env.example      payment-service/.env
 
 # 3. Start all services
 docker compose up --build
@@ -144,7 +149,7 @@ Architecture, domain model, and design decisions for each implemented service:
 
 ## Event flow
 
-Events are published to RabbitMQ and consumed asynchronously. `identity-service`, `restaurant-service`, `order-service`, and `payment-service` all use the transactional outbox pattern for at-least-once delivery — each outboxes every event it raises, with no best-effort publish path left in any of them. `order-service` doesn't publish anything yet (its `order.confirmed` event is designed but not built). `payment-service` publishes `payment.succeeded`/`payment.failed` once its Mollie webhook resolves a payment, but nothing consumes them yet — `order-service`'s own consumer is designed but not built.
+Events are published to RabbitMQ and consumed asynchronously. `identity-service`, `restaurant-service`, `order-service`, and `payment-service` all use the transactional outbox pattern for at-least-once delivery — each outboxes every event it raises, with no best-effort publish path left in any of them. Checkout itself is synchronous (order-service calls payment-service's `CreatePayment`/`CancelPayment` over gRPC directly), but the payment *outcome* is inherently async — Mollie's webhook lands on payment-service, not order-service, so `payment.succeeded`/`payment.failed` is the only way order-service learns whether a payment went through, and confirming/cancelling the order in response is what raises `order.confirmed`.
 
 ```
 identity-service     ──publishes──► email.verification_created
@@ -161,10 +166,13 @@ restaurant-service   ──publishes──► restaurant.ready_for_review
 payment-service      ──publishes──► payment.succeeded
                                      payment.failed
 
+order-service        ──publishes──► order.confirmed
+
 notification-service ◄──consumes──  email.verification_created
                                      user.registered
                                      restaurant.ready_for_review
                                      restaurant.approved
+                                     order.confirmed
 
 restaurant-service   ◄──consumes──  restaurant.initiated
 
@@ -178,6 +186,8 @@ order-service        ◄──consumes──  restaurant.launched
                                      restaurant.pizza_updated
                                      restaurant.topping_prices_updated
                                      user.registered
+                                     payment.succeeded
+                                     payment.failed
 ```
 
 `restaurant.approved` and `restaurant.ready_for_review` are the only restaurant-service events with no
@@ -203,6 +213,7 @@ pizza-marketplace/
 ├── notification-service/
 ├── search-service/
 ├── order-service/
+├── payment-service/
 ├── compose.yaml
 ├── compose.test.yaml
 └── README.md
@@ -212,11 +223,9 @@ pizza-marketplace/
 ## Roadmap
 
 - [ ] Customer service — profile, saved addresses, and payment methods for checkout
-- [ ] Payment service — payment processing via Mollie, gRPC + webhook (order-service integration pending)
-- [ ] Order service — place and track orders (cart + checkout done, payment wiring pending)
-- [ ] Notification service — SMS/web-push adapters (email adapter shipped)
+- [ ] Order service — place and track orders
+- [ ] Notification service — SMS/web-push adapters
 - [ ] Analytics service — metrics, reporting, and audit logs
-- [ ] gRPC — inter-service communication requiring synchronous responses (server side built, no caller yet)
 - [ ] Zero-trust networking — trusted proxies, mTLS, and workload identity
 - [ ] Observability stack — centralized logs, metrics, distributed tracing, and monitoring
 - [ ] Orchestration — Kubernetes for auto-scaling, self-healing, and zero-downtime updates
