@@ -13,8 +13,9 @@ Consumes (see `internal/infrastructure/messaging/rabbitmq_consumer.go`):
 - `user.registered` → `UserRegistered` handler
 - `restaurant.ready_for_review` → `RestaurantReadyForReview` handler — from restaurant-service, not identity-service; sent to `ADMIN_EMAIL`, not the event's own subject, since this is an internal admin notification rather than a transactional email to an end user.
 - `restaurant.approved` → `RestaurantApproved` handler — from restaurant-service; sent to the payload's own `Email` field (the restaurant's contact email, denormalized onto the `restaurant.approved` domain event by `Restaurant.Approve()` itself, guaranteed set by the checklist invariant — see restaurant-service's `CLAUDE.md`), not `ADMIN_EMAIL` — this is an owner-facing notification, not an admin one.
+- `order.confirmed` → `OrderConfirmed` handler — from order-service, raised when its worker confirms an order in response to payment-service's `payment.succeeded` event. The only handler here sending two emails per event: a customer confirmation (`order_confirmed_customer_*` templates) and an owner new-order notification (`order_confirmed_owner_*` templates), both built from the same enriched payload (restaurant name/owner email resolved by order-service's own local read-model, not looked up here).
 
-All four consumed events are published via an outbox now, not best-effort: the two `identity.events` via identity-service's own outbox — see identity-service's `CLAUDE.md` — and `restaurant.ready_for_review`/`restaurant.approved` via restaurant-service's, same as every other event that service raises. See restaurant-service's `CLAUDE.md`.
+All five consumed events are published via an outbox now, not best-effort: the two `identity.events` via identity-service's own outbox — see identity-service's `CLAUDE.md` — `restaurant.ready_for_review`/`restaurant.approved` via restaurant-service's, and `order.confirmed` via order-service's, same as every other event each service raises. See the relevant service's own `CLAUDE.md`.
 
 ## Commands
 

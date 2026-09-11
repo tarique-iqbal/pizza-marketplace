@@ -1,25 +1,25 @@
 # order-service — technical overview
 
 Owns the customer-facing basket (`Cart`) and the `Order` aggregate: placing an order, snapshotting what was
-bought, and (once wired) driving payment via a separate `payment-service` over gRPC. Like restaurant-service,
-it owns its own Postgres database and runs the transactional outbox pattern; like search-service, it keeps a
-local read-model fresh by consuming restaurant-service's events off RabbitMQ, rather than calling
+bought, and driving payment via a separate `payment-service` over gRPC. Like restaurant-service, it owns its
+own Postgres database and runs the transactional outbox pattern; like search-service, it keeps a local
+read-model fresh by consuming restaurant-service's events off RabbitMQ, rather than calling
 restaurant-service synchronously.
 
-**Current state**: cart (add/update-quantity/remove/get) is fully built, wired, and live. `Checkout`
-(`POST /orders`) is fully built and tested but **not yet reachable** — it depends on `order.PaymentProvider`,
-whose only planned implementation is a gRPC client to `payment-service`, which does not exist as a running
-service yet (design finished, build not started). Order lifecycle
-beyond creation (`MarkReady`/`Complete`/`Cancel`, owner-facing order queries, the `payment.succeeded`/
-`payment.failed` consumer that actually confirms an order) is designed but not built.
+**Current state**: cart (add/update-quantity/remove/get) and checkout (`POST /orders`) are both fully built,
+wired, and live — `Checkout` calls payment-service's `CreatePayment` over gRPC (through a circuit-breaker
+decorator) and returns a real Mollie checkout URL. The worker consumes payment-service's `payment.succeeded`/
+`payment.failed` events and calls `Order.Confirm()`/`Cancel()` accordingly, publishing `order.confirmed` via
+its own outbox once confirmed — closing the full checkout→payment→confirmation loop. Order lifecycle beyond
+that (`MarkReady`/`Complete`, owner-facing order queries) is designed but not built.
 
 ## Layered architecture
 
 ```
-cmd/api                              → Gin HTTP server: /cart, /cart/items[/:itemId] (live);
-                                        /orders exists in code but is not wired into the router yet
-cmd/worker                           → RabbitMQ consumer (restaurant.events + identity.events) + outbox relay,
-                                        two goroutines side by side — same shape as restaurant-service's cmd/worker
+cmd/api                              → Gin HTTP server: /cart, /cart/items[/:itemId], /orders — all live
+cmd/worker                           → RabbitMQ consumer (restaurant.events + identity.events + payment.events)
+                                        + outbox relay, two goroutines side by side — same shape as
+                                        restaurant-service's cmd/worker
 internal/domain/order                → Order/OrderItem aggregate + state machine, DomainEvent/OrderConfirmed,
                                         OrderRepository, GeocodeEntry/GeocodeRepository, Geocoder, PaymentProvider
                                         interfaces, errors
@@ -31,7 +31,9 @@ internal/domain/outbox               → OutboxEvent/OutboxStatus/OutboxReposito
                                         restaurant-service's own outbox domain
 internal/application/cart            → schema.go (request/response DTOs), commands/{AddItem,UpdateItemQuantity,
                                         RemoveItem}, queries/GetCart
-internal/application/order           → schema.go (CheckoutRequest/Response), commands/Checkout
+internal/application/order           → schema.go (CheckoutRequest/Response), events.go (OrderConfirmedPayload),
+                                        dispatch.go (DispatchEventsTx/Enricher), commands/Checkout,
+                                        handlers/{PaymentSucceededHandler,PaymentFailedHandler}
 internal/application/readmodel       → one handler per consumed event: UpsertRestaurant, UpdateRestaurant,
                                         SyncPizza, SyncToppingPrices, UpsertCustomer; EventDispatcher impl
 internal/application/outbox          → Worker/Relay — verbatim port of restaurant-service's own outbox application layer
@@ -41,12 +43,15 @@ internal/infrastructure/persistence  → one file per aggregate/read-model table
 internal/infrastructure/geocoder     → OpenCageGeocoder (order-service's own OpenCage client/quota, independent
                                         of restaurant-service's and search-service's) + CachingGeocoder
                                         (Postgres-backed decorator, mirrors search-service's ES-backed one)
+internal/infrastructure/payment      → grpc_client.go (Client, implements PaymentProvider over gRPC) +
+                                        circuit_breaker.go (CircuitBreakerProvider decorator, sony/gobreaker/v2)
+                                        + pb/ (payment-service's generated client code, copied by hand)
 internal/infrastructure/messaging    → RabbitMQ consumer + publisher, same shape as every other service's copy
 internal/infrastructure/observability → copied verbatim from restaurant-service
 internal/interfaces/http             → middleware (Auth/RequireRole — Customer/Owner, no Admin role needed here),
                                         response.HandleError, validation.ExtractValidationErrors, handlers/
-                                        (CartHandler, OrderHandler), routes/ (cart_routes.go — live;
-                                        order_routes.go — compiled, not wired)
+                                        (CartHandler, OrderHandler), routes/ (cart_routes.go, order_routes.go —
+                                        both live)
 internal/container                   → shared.go / api.go / worker.go, manual DI
 internal/shared/{errors,event,money,geo} → errors sentinels, Event interface, Money (JSON trailing-zero fix),
                                         geo.HaversineKm + geo.AddressHash (both ported from search-service)
@@ -248,18 +253,27 @@ own precedent for any command with real transactional behavior.
    with a redirect URL built from `FRONTEND_BASE_URL + "/orders/" + orderID` → `{paymentID, checkoutURL}`.
 9. `UPDATE orders SET payment_id = ?`, return `checkoutUrl` to the caller.
 
-**Not reachable yet**: `OrderHandler.Checkout` and `POST /orders`'s route exist and are fully unit-tested, but
-`routes.Handlers` has no `OrderHandler` field and `SetupRoutes` doesn't call `SetupCheckoutRoutes` —
-deliberately. `Checkout` depends on `order.PaymentProvider`, and the only planned implementation (a gRPC
-client to `payment-service`) doesn't exist yet, because `payment-service` itself hasn't been built (design is
-finished, build not started). Wiring the route now with a nil handler
-would panic on every real request, since cart's own container wiring already made this app live. Both the
-`OrderHandler` field and the route registration land together once the real `PaymentProvider` exists.
+**`PaymentProvider` is `payment.NewClient` (gRPC) wrapped in `payment.NewCircuitBreakerProvider`** —
+`internal/infrastructure/payment/grpc_client.go` implements `order.PaymentProvider` by calling
+payment-service's `CreatePayment`/`CancelPayment` RPCs (plaintext gRPC, internal Docker network only);
+`circuit_breaker.go` decorates it with two independent `sony/gobreaker/v2` breakers (one per method, since
+they return different types), tripping after 5 consecutive failures and translating a breaker-open error to
+`order.ErrPaymentServiceUnavailable` (503) rather than leaking a `gobreaker`-specific error. `APIContainer`
+constructs the raw client, wraps it, and passes the wrapped value into `Checkout` — the raw client is what
+`APIContainer.Close()` closes.
 
-**Also not yet built**: `MarkReady`/`Complete`/`Cancel` commands and their owner-facing endpoints, `GetOrder`/
-list queries, the `payment.succeeded`/`payment.failed` consumer that actually calls `Order.Confirm()`/
-`Cancel()` (this is currently the *only* way an order would ever leave `pending`), and the
-`order.confirmed` → notification-service handler.
+**Confirmation closes the loop asynchronously**: order-service never learns a payment outcome synchronously —
+Mollie's webhook goes to payment-service, not here. The worker's `Exchanges["payment.events"]` binding
+consumes `payment.succeeded`/`payment.failed`; `PaymentSucceededHandler`/`PaymentFailedHandler`
+(`internal/application/order/handlers/`) load the order by the event's `subject_id`, call `Order.Confirm()`/
+`Cancel()`, and (on confirm) dispatch `order.confirmed` via `orderapp.DispatchEventsTx` — order-service's
+first domain event needing outbox dispatch at all, since `Checkout` itself never raises one. Both handlers
+treat `order.ErrInvalidStatusTransition` as an idempotent no-op, since Mollie retries its webhook for up to
+~26h and RabbitMQ redelivery must never double-confirm/double-cancel an order.
+
+**Still not built**: `MarkReady`/`Complete` commands and their owner-facing endpoints, `GetOrder`/list
+queries. A customer/owner-initiated `Cancel` endpoint also doesn't exist yet — today `Cancel()` is only ever
+called from the `payment.failed` handler above.
 
 ## HTTP API
 
@@ -269,7 +283,7 @@ list queries, the `payment.succeeded`/`payment.failed` consumer that actually ca
 | `POST` | `/cart/items` | authenticated user | live |
 | `PATCH` | `/cart/items/:itemId` | authenticated user | live |
 | `DELETE` | `/cart/items/:itemId` | authenticated user | live |
-| `POST` | `/orders` | authenticated user | built, not wired (see above) |
+| `POST` | `/orders` | authenticated user | live |
 
 No `DELETE /cart` (deferred, see Cart section above). No owner-facing order routes yet.
 
@@ -289,8 +303,14 @@ Same shape as restaurant-service: `tests/` mirrors `internal/`, integration-styl
 `compose.test.yaml` (`pg-order-test`, `migrate-order-test`, `order-test`), `tests/testutil/db.go` +
 `TruncateTables`, `tests/infrastructure/db/fixtures/*.go` for seed data. Application-layer commands that don't
 need real transactional behavior (`AddItem`, `UpdateItemQuantity`, `RemoveItem`, `GetCart`) use
-`tests/testutil.Mock*Repository` fakes; `Checkout` (the one command using `db.Transaction`/`WithTx`) uses real
-repositories throughout, with only `Geocoder`/`PaymentProvider` faked locally in its own test file.
+`tests/testutil.Mock*Repository` fakes; any command/handler using `db.Transaction`/`WithTx` (`Checkout`,
+`PaymentSucceededHandler`, `PaymentFailedHandler`) uses real repositories throughout against real Postgres,
+with only genuinely external dependencies (`Geocoder`, `PaymentProvider`) faked locally in their own test
+files — a fake can't validate real transactional/rollback behavior. The gRPC client itself
+(`tests/infrastructure/payment/grpc_client_test.go`) is tested via `google.golang.org/grpc/test/bufconn`
+against a small in-memory `pb.PaymentServiceServer` stub — this repo's first use of bufconn — and the
+circuit breaker (`tests/infrastructure/payment/circuit_breaker_test.go`) against a local fake
+`PaymentProvider`, no gRPC involved.
 
 A new endpoint or handler change is also verified live — booting the real `air`-reload dev container and
 `curl`-ing the happy path plus the main error paths (not-found, validation failure, missing/wrong auth) —

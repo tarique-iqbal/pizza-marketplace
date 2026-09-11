@@ -23,10 +23,10 @@ No price is ever stored on a cart line — `GET /cart` resolves every item's cur
 
 | Method | Path | Auth | Status |
 |---|---|---|---|
-| `POST` | `/orders` | authenticated user | Implemented, **not yet reachable** — see below |
+| `POST` | `/orders` | authenticated user | Live |
 
-`POST /orders` (checkout) converts the customer's current cart into an order: revalidates every line against live prices/availability (`409 Conflict` if any item is no longer available), checks the restaurant supports the requested fulfillment method (`409 Conflict` otherwise) and that the subtotal meets its minimum order (`422` otherwise), geocodes and validates the delivery address against the restaurant's delivery radius for delivery orders (`422` outside the radius, `503` if geocoding itself is unavailable), creates the order, clears the cart, and initiates payment. The command and handler are both implemented (`internal/application/order/commands/checkout.go`, `internal/interfaces/http/handlers/order_handler.go`), but the route isn't registered in `SetupRoutes` yet — it depends on `order.PaymentProvider`, which has no real implementation until payment-service (a separate, not-yet-built service) exists.
+`POST /orders` (checkout) converts the customer's current cart into an order: revalidates every line against live prices/availability (`409 Conflict` if any item is no longer available), checks the restaurant supports the requested fulfillment method (`409 Conflict` otherwise) and that the subtotal meets its minimum order (`422` otherwise), geocodes and validates the delivery address against the restaurant's delivery radius for delivery orders (`422` outside the radius, `503` if geocoding itself is unavailable), creates the order, clears the cart, and calls payment-service's `CreatePayment` over gRPC (through a circuit breaker) to get back a real Mollie checkout URL (`503` if payment-service is unreachable or the breaker is open). The customer is expected to redirect to `checkoutUrl` to complete payment; the order stays `pending` until payment-service's `payment.succeeded`/`payment.failed` event (consumed asynchronously by this service's worker) confirms or cancels it — there is no synchronous "did it work" beyond getting a checkout URL back.
 
 Request body: `{fulfillment: "delivery" | "pickup", deliveryAddress?: {house, street, postalCode, city}, contactPhone?}` — `deliveryAddress` is required when `fulfillment` is `"delivery"`, and an empty cart fails with `422`. Response: `{orderId, checkoutUrl}`.
 
-`POST` returns `201 Created` when wired in; `GET` returns `200 OK`; `PATCH` returns `200 OK`; `DELETE` returns `204 No Content`.
+`POST` returns `201 Created`; `GET` returns `200 OK`; `PATCH` returns `200 OK`; `DELETE` returns `204 No Content`.
