@@ -405,7 +405,7 @@ services:
     env_file: order-service/.env
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.order.rule=PathPrefix(`/orders`) || PathPrefix(`/cart`) || PathPrefix(`/webhooks/stripe`)"
+      - "traefik.http.routers.order.rule=PathPrefix(`/orders`) || PathPrefix(`/cart`)"
       - "traefik.http.routers.order.entrypoints=web"
       - "traefik.http.services.order.loadbalancer.server.port=8080"
       - "traefik.docker.network=backend"
