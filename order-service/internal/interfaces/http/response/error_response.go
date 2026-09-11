@@ -41,6 +41,9 @@ func HandleError(ctx *gin.Context, err error) {
 	case errors.Is(err, order.ErrGeocodingUnavailable):
 		ctx.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
 
+	case errors.Is(err, order.ErrPaymentServiceUnavailable):
+		ctx.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
+
 	case errors.Is(err, order.ErrFulfillmentNotSupported):
 		ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 
