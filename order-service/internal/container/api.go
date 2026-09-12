@@ -8,6 +8,7 @@ import (
 	"order-service/internal/application/cart/commands"
 	"order-service/internal/application/cart/queries"
 	ordercmd "order-service/internal/application/order/commands"
+	orderqry "order-service/internal/application/order/queries"
 	"order-service/internal/infrastructure/geocoder"
 	"order-service/internal/infrastructure/payment"
 	"order-service/internal/infrastructure/persistence"
@@ -72,7 +73,11 @@ func NewAPIContainer() (*APIContainer, error) {
 		paymentProvider,
 		os.Getenv("FRONTEND_BASE_URL"),
 	)
-	orderHandler := handlers.NewOrderHandler(checkout)
+	getOrder := orderqry.NewGetOrder(orderRepo)
+	listMyOrders := orderqry.NewListMyOrders(orderRepo)
+	listRestaurantOrders := orderqry.NewListRestaurantOrders(orderRepo)
+
+	orderHandler := handlers.NewOrderHandler(checkout, getOrder, listMyOrders, listRestaurantOrders)
 
 	return &APIContainer{
 		Shared:       base,

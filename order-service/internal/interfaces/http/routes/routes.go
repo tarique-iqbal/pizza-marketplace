@@ -18,4 +18,7 @@ func SetupRoutes(router *gin.Engine, h *Handlers, m *middleware.Middleware) {
 	SetupRemoveItemRoutes(router, h.CartHandler, m)
 	SetupGetCartRoutes(router, h.CartHandler, m)
 	SetupCheckoutRoutes(router, h.OrderHandler, m)
+	SetupGetOrderRoutes(router, h.OrderHandler, m)
+	SetupListMyOrdersRoutes(router, h.OrderHandler, m)
+	SetupListRestaurantOrdersRoutes(router, h.OrderHandler, m)
 }
