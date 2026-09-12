@@ -90,10 +90,20 @@ func TestOrder_Complete_TransitionsToCompleted(t *testing.T) {
 	require.NotNil(t, o.CompletedAt)
 }
 
-func TestOrder_Complete_FailsIfNotReady(t *testing.T) {
+// MarkReady is an optional milestone, not a hard prerequisite for Complete.
+func TestOrder_Complete_FromConfirmed_TransitionsToCompleted(t *testing.T) {
+	o := order.Order{ID: uuid.New(), Status: order.StatusConfirmed}
+
+	err := o.Complete()
+	require.NoError(t, err)
+
+	assert.Equal(t, order.StatusCompleted, o.Status)
+	require.NotNil(t, o.CompletedAt)
+}
+
+func TestOrder_Complete_FailsIfNotConfirmedOrReady(t *testing.T) {
 	for _, status := range []order.OrderStatus{
 		order.StatusPending,
-		order.StatusConfirmed,
 		order.StatusCompleted,
 		order.StatusCancelled,
 	} {

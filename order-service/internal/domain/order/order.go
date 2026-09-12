@@ -121,8 +121,11 @@ func (o *Order) MarkReady() error {
 	return nil
 }
 
+// Complete accepts StatusConfirmed too, since MarkReady is optional.
 func (o *Order) Complete() error {
-	if o.Status != StatusReady {
+	switch o.Status {
+	case StatusConfirmed, StatusReady:
+	default:
 		return ErrInvalidStatusTransition
 	}
 
