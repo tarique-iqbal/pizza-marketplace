@@ -76,8 +76,12 @@ func NewAPIContainer() (*APIContainer, error) {
 	getOrder := orderqry.NewGetOrder(orderRepo)
 	listMyOrders := orderqry.NewListMyOrders(orderRepo)
 	listRestaurantOrders := orderqry.NewListRestaurantOrders(orderRepo)
+	markReady := ordercmd.NewMarkReady(orderRepo)
+	complete := ordercmd.NewComplete(orderRepo)
 
-	orderHandler := handlers.NewOrderHandler(checkout, getOrder, listMyOrders, listRestaurantOrders)
+	orderHandler := handlers.NewOrderHandler(
+		checkout, getOrder, listMyOrders, listRestaurantOrders, markReady, complete,
+	)
 
 	return &APIContainer{
 		Shared:       base,

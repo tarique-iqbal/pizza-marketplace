@@ -20,6 +20,8 @@ type OrderHandler struct {
 	getOrder             *queries.GetOrder
 	listMyOrders         *queries.ListMyOrders
 	listRestaurantOrders *queries.ListRestaurantOrders
+	markReady            *commands.MarkReady
+	complete             *commands.Complete
 }
 
 func NewOrderHandler(
@@ -27,12 +29,16 @@ func NewOrderHandler(
 	getOrder *queries.GetOrder,
 	listMyOrders *queries.ListMyOrders,
 	listRestaurantOrders *queries.ListRestaurantOrders,
+	markReady *commands.MarkReady,
+	complete *commands.Complete,
 ) *OrderHandler {
 	return &OrderHandler{
 		checkout:             checkout,
 		getOrder:             getOrder,
 		listMyOrders:         listMyOrders,
 		listRestaurantOrders: listRestaurantOrders,
+		markReady:            markReady,
+		complete:             complete,
 	}
 }
 
@@ -127,6 +133,54 @@ func (h *OrderHandler) ListRestaurantOrders(ctx *gin.Context) {
 	limit, _ := strconv.Atoi(ctx.Query("limit"))
 
 	res, err := h.listRestaurantOrders.Execute(reqCtx, restaurantID, ownerID, ctx.Query("cursor"), limit)
+	if err != nil {
+		response.HandleError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, res)
+}
+
+func (h *OrderHandler) MarkReady(ctx *gin.Context) {
+	reqCtx := ctx.Request.Context()
+
+	orderID, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid order id"})
+		return
+	}
+
+	ownerID, err := uuid.Parse(ctx.MustGet(middleware.CtxUserID).(string))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid owner id"})
+		return
+	}
+
+	res, err := h.markReady.Execute(reqCtx, orderID, ownerID)
+	if err != nil {
+		response.HandleError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, res)
+}
+
+func (h *OrderHandler) Complete(ctx *gin.Context) {
+	reqCtx := ctx.Request.Context()
+
+	orderID, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid order id"})
+		return
+	}
+
+	ownerID, err := uuid.Parse(ctx.MustGet(middleware.CtxUserID).(string))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid owner id"})
+		return
+	}
+
+	res, err := h.complete.Execute(reqCtx, orderID, ownerID)
 	if err != nil {
 		response.HandleError(ctx, err)
 		return

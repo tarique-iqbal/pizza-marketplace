@@ -21,4 +21,6 @@ func SetupRoutes(router *gin.Engine, h *Handlers, m *middleware.Middleware) {
 	SetupGetOrderRoutes(router, h.OrderHandler, m)
 	SetupListMyOrdersRoutes(router, h.OrderHandler, m)
 	SetupListRestaurantOrdersRoutes(router, h.OrderHandler, m)
+	SetupMarkReadyRoutes(router, h.OrderHandler, m)
+	SetupCompleteRoutes(router, h.OrderHandler, m)
 }

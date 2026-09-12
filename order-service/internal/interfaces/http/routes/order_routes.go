@@ -42,3 +42,21 @@ func SetupListRestaurantOrdersRoutes(router *gin.Engine, h *handlers.OrderHandle
 
 	ownerOnly.GET("/restaurants/:id", h.ListRestaurantOrders)
 }
+
+func SetupMarkReadyRoutes(router *gin.Engine, h *handlers.OrderHandler, m *middleware.Middleware) {
+	orders := router.Group("/orders")
+
+	ownerOnly := orders.Group("")
+	ownerOnly.Use(m.Auth, m.EnsureOwner)
+
+	ownerOnly.POST("/:id/ready", h.MarkReady)
+}
+
+func SetupCompleteRoutes(router *gin.Engine, h *handlers.OrderHandler, m *middleware.Middleware) {
+	orders := router.Group("/orders")
+
+	ownerOnly := orders.Group("")
+	ownerOnly.Use(m.Auth, m.EnsureOwner)
+
+	ownerOnly.POST("/:id/complete", h.Complete)
+}
