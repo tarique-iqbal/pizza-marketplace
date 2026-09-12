@@ -14,6 +14,11 @@ type OrderRepository interface {
 	FindByID(ctx context.Context, id uuid.UUID) (*Order, error)
 	FindByIDAndCustomer(ctx context.Context, id, customerID uuid.UUID) (*Order, error)
 	FindByIDAndRestaurantOwner(ctx context.Context, id, ownerID uuid.UUID) (*Order, error)
-	ListByCustomer(ctx context.Context, customerID uuid.UUID) ([]Order, error)
-	ListByRestaurantOwner(ctx context.Context, ownerID uuid.UUID) ([]Order, error)
+	ListByCustomer(ctx context.Context, customerID uuid.UUID, after *PageCursor, limit int) ([]Order, error)
+	ListByRestaurant(
+		ctx context.Context,
+		restaurantID, ownerID uuid.UUID,
+		after *PageCursor,
+		limit int,
+	) ([]Order, error)
 }

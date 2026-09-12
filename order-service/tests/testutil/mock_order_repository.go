@@ -23,10 +23,25 @@ type MockOrderRepository struct {
 	FindByIDAndRestaurantOwnerResult *order.Order
 	FindByIDAndRestaurantOwnerErr    error
 
-	ListByCustomerResult        []order.Order
-	ListByCustomerErr           error
-	ListByRestaurantOwnerResult []order.Order
-	ListByRestaurantOwnerErr    error
+	ListByCustomerResult   []order.Order
+	ListByCustomerErr      error
+	ListByCustomerCalls    []ListOrdersCall
+	ListByRestaurantResult []order.Order
+	ListByRestaurantErr    error
+	ListByRestaurantCalls  []ListByRestaurantCall
+}
+
+type ListOrdersCall struct {
+	ID    uuid.UUID
+	After *order.PageCursor
+	Limit int
+}
+
+type ListByRestaurantCall struct {
+	RestaurantID uuid.UUID
+	OwnerID      uuid.UUID
+	After        *order.PageCursor
+	Limit        int
 }
 
 var _ order.OrderRepository = (*MockOrderRepository)(nil)
@@ -63,10 +78,25 @@ func (m *MockOrderRepository) FindByIDAndRestaurantOwner(
 	return m.FindByIDAndRestaurantOwnerResult, m.FindByIDAndRestaurantOwnerErr
 }
 
-func (m *MockOrderRepository) ListByCustomer(_ context.Context, _ uuid.UUID) ([]order.Order, error) {
+func (m *MockOrderRepository) ListByCustomer(
+	_ context.Context,
+	customerID uuid.UUID,
+	after *order.PageCursor,
+	limit int,
+) ([]order.Order, error) {
+	m.ListByCustomerCalls = append(m.ListByCustomerCalls, ListOrdersCall{ID: customerID, After: after, Limit: limit})
 	return m.ListByCustomerResult, m.ListByCustomerErr
 }
 
-func (m *MockOrderRepository) ListByRestaurantOwner(_ context.Context, _ uuid.UUID) ([]order.Order, error) {
-	return m.ListByRestaurantOwnerResult, m.ListByRestaurantOwnerErr
+func (m *MockOrderRepository) ListByRestaurant(
+	_ context.Context,
+	restaurantID, ownerID uuid.UUID,
+	after *order.PageCursor,
+	limit int,
+) ([]order.Order, error) {
+	m.ListByRestaurantCalls = append(
+		m.ListByRestaurantCalls,
+		ListByRestaurantCall{RestaurantID: restaurantID, OwnerID: ownerID, After: after, Limit: limit},
+	)
+	return m.ListByRestaurantResult, m.ListByRestaurantErr
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -89,21 +90,73 @@ func TestOrderRepository_FindByIDAndRestaurantOwner(t *testing.T) {
 func TestOrderRepository_ListByCustomer(t *testing.T) {
 	repo, _, orders := setupOrderRepo(t)
 
-	found, err := repo.ListByCustomer(context.Background(), orders[0].CustomerID)
+	found, err := repo.ListByCustomer(context.Background(), orders[0].CustomerID, nil, 10)
 
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 	assert.Equal(t, orders[0].ID, found[0].ID)
 }
 
-func TestOrderRepository_ListByRestaurantOwner(t *testing.T) {
+func TestOrderRepository_ListByRestaurant(t *testing.T) {
 	repo, restaurants, orders := setupOrderRepo(t)
 
-	found, err := repo.ListByRestaurantOwner(context.Background(), restaurants[0].OwnerID)
+	found, err := repo.ListByRestaurant(context.Background(), restaurants[0].ID, restaurants[0].OwnerID, nil, 10)
 
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 	assert.Equal(t, orders[0].ID, found[0].ID)
+}
+
+func TestOrderRepository_ListByRestaurant_WrongOwner_ReturnsEmpty(t *testing.T) {
+	repo, restaurants, _ := setupOrderRepo(t)
+
+	found, err := repo.ListByRestaurant(context.Background(), restaurants[0].ID, restaurants[1].OwnerID, nil, 10)
+
+	require.NoError(t, err)
+	assert.Empty(t, found, "a different restaurant's owner must not see this restaurant's orders")
+}
+
+func TestOrderRepository_ListByCustomer_KeysetPagination(t *testing.T) {
+	repo, restaurants, _ := setupOrderRepo(t)
+
+	customerID := testutil.MustNewID()
+	var placed []order.Order
+	for i := 0; i < 5; i++ {
+		o := order.NewOrder(
+			testutil.MustNewID(), customerID, restaurants[0].ID,
+			order.FulfillmentPickup, "paging.customer@example.com", nil,
+			nil, nil, nil,
+			[]order.OrderItem{},
+			decimal.NewFromFloat(10.00), decimal.Zero, decimal.NewFromFloat(10.00),
+			"EUR",
+		)
+		require.NoError(t, repo.Create(context.Background(), o))
+		placed = append(placed, *o)
+	}
+
+	page1, err := repo.ListByCustomer(context.Background(), customerID, nil, 2)
+	require.NoError(t, err)
+	require.Len(t, page1, 2)
+
+	last := page1[len(page1)-1]
+	page2, err := repo.ListByCustomer(context.Background(), customerID, &order.PageCursor{
+		PlacedAt: last.PlacedAt, ID: last.ID,
+	}, 2)
+	require.NoError(t, err)
+	require.Len(t, page2, 2)
+
+	seen := map[uuid.UUID]bool{}
+	for _, o := range append(page1, page2...) {
+		assert.False(t, seen[o.ID], "keyset pages must not repeat a row")
+		seen[o.ID] = true
+	}
+
+	page3, err := repo.ListByCustomer(context.Background(), customerID, &order.PageCursor{
+		PlacedAt: page2[len(page2)-1].PlacedAt, ID: page2[len(page2)-1].ID,
+	}, 2)
+	require.NoError(t, err)
+	require.Len(t, page3, 1, "5 orders paged 2 at a time leaves exactly 1 on the last page")
+	assert.False(t, seen[page3[0].ID])
 }
 
 func TestOrderRepository_Update(t *testing.T) {

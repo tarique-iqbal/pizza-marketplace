@@ -84,25 +84,40 @@ func (r *OrderRepository) FindByIDAndRestaurantOwner(
 	return &o, nil
 }
 
-func (r *OrderRepository) ListByCustomer(ctx context.Context, customerID uuid.UUID) ([]order.Order, error) {
+func (r *OrderRepository) ListByCustomer(
+	ctx context.Context,
+	customerID uuid.UUID,
+	after *order.PageCursor,
+	limit int,
+) ([]order.Order, error) {
 	var orders []order.Order
 
-	err := r.db.WithContext(ctx).Preload("Items").
-		Where("customer_id = ?", customerID).
-		Order("placed_at DESC").
-		Find(&orders).Error
+	q := r.db.WithContext(ctx).Preload("Items").Where("customer_id = ?", customerID)
+	if after != nil {
+		q = q.Where("(placed_at, id) < (?, ?)", after.PlacedAt, after.ID)
+	}
+
+	err := q.Order("placed_at DESC, id DESC").Limit(limit).Find(&orders).Error
 
 	return orders, err
 }
 
-func (r *OrderRepository) ListByRestaurantOwner(ctx context.Context, ownerID uuid.UUID) ([]order.Order, error) {
+func (r *OrderRepository) ListByRestaurant(
+	ctx context.Context,
+	restaurantID, ownerID uuid.UUID,
+	after *order.PageCursor,
+	limit int,
+) ([]order.Order, error) {
 	var orders []order.Order
 
-	err := r.db.WithContext(ctx).Preload("Items").
+	q := r.db.WithContext(ctx).Preload("Items").
 		Joins("JOIN restaurants ON restaurants.id = orders.restaurant_id").
-		Where("restaurants.owner_id = ?", ownerID).
-		Order("orders.placed_at DESC").
-		Find(&orders).Error
+		Where("orders.restaurant_id = ? AND restaurants.owner_id = ?", restaurantID, ownerID)
+	if after != nil {
+		q = q.Where("(orders.placed_at, orders.id) < (?, ?)", after.PlacedAt, after.ID)
+	}
+
+	err := q.Order("orders.placed_at DESC, orders.id DESC").Limit(limit).Find(&orders).Error
 
 	return orders, err
 }
