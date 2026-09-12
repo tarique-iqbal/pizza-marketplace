@@ -57,3 +57,8 @@ type OrderResponse struct {
 	CompletedAt     *time.Time        `json:"completedAt,omitempty"`
 	CancelledAt     *time.Time        `json:"cancelledAt,omitempty"`
 }
+
+type ListOrdersResponse struct {
+	Orders     []OrderResponse `json:"orders"`
+	NextCursor string          `json:"nextCursor,omitempty"`
+}
