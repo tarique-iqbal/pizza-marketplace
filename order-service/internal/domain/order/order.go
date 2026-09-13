@@ -136,10 +136,9 @@ func (o *Order) Complete() error {
 	return nil
 }
 
+// Cancel only accepts pending status.
 func (o *Order) Cancel() error {
-	switch o.Status {
-	case StatusPending, StatusConfirmed:
-	default:
+	if o.Status != StatusPending {
 		return ErrInvalidStatusTransition
 	}
 

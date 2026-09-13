@@ -117,23 +117,19 @@ func TestOrder_Complete_FailsIfNotConfirmedOrReady(t *testing.T) {
 }
 
 func TestOrder_Cancel_TransitionsToCancelled(t *testing.T) {
-	for _, status := range []order.OrderStatus{
-		order.StatusPending,
-		order.StatusConfirmed,
-	} {
-		o := order.Order{ID: uuid.New(), Status: status}
+	o := order.Order{ID: uuid.New(), Status: order.StatusPending}
 
-		err := o.Cancel()
-		require.NoError(t, err)
+	err := o.Cancel()
+	require.NoError(t, err)
 
-		assert.Equal(t, order.StatusCancelled, o.Status)
-		require.NotNil(t, o.CancelledAt)
-		assert.Empty(t, o.PullEvents(), "cancellation raises no domain event")
-	}
+	assert.Equal(t, order.StatusCancelled, o.Status)
+	require.NotNil(t, o.CancelledAt)
+	assert.Empty(t, o.PullEvents(), "cancellation raises no domain event")
 }
 
-func TestOrder_Cancel_FailsIfAlreadyTerminal(t *testing.T) {
+func TestOrder_Cancel_FailsIfNotPending(t *testing.T) {
 	for _, status := range []order.OrderStatus{
+		order.StatusConfirmed,
 		order.StatusReady,
 		order.StatusCompleted,
 		order.StatusCancelled,
