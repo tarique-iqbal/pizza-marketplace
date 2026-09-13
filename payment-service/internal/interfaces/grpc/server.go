@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
@@ -10,19 +11,28 @@ import (
 
 	paymentapp "payment-service/internal/application/payment"
 	"payment-service/internal/application/payment/commands"
+	"payment-service/internal/application/payment/queries"
+	apperr "payment-service/internal/shared/errors"
+
 	"payment-service/internal/interfaces/grpc/pb"
 )
 
 type Server struct {
 	pb.UnimplementedPaymentServiceServer
-	createPayment *commands.CreatePayment
-	cancelPayment *commands.CancelPayment
+	createPayment    *commands.CreatePayment
+	cancelPayment    *commands.CancelPayment
+	getPaymentStatus *queries.GetPaymentStatus
 }
 
-func NewServer(createPayment *commands.CreatePayment, cancelPayment *commands.CancelPayment) *Server {
+func NewServer(
+	createPayment *commands.CreatePayment,
+	cancelPayment *commands.CancelPayment,
+	getPaymentStatus *queries.GetPaymentStatus,
+) *Server {
 	return &Server{
-		createPayment: createPayment,
-		cancelPayment: cancelPayment,
+		createPayment:    createPayment,
+		cancelPayment:    cancelPayment,
+		getPaymentStatus: getPaymentStatus,
 	}
 }
 
@@ -84,4 +94,25 @@ func (s *Server) CancelPayment(
 	}
 
 	return &pb.CancelPaymentResponse{Status: "canceled"}, nil
+}
+
+func (s *Server) GetPaymentStatus(
+	ctx context.Context,
+	req *pb.GetPaymentStatusRequest,
+) (*pb.GetPaymentStatusResponse, error) {
+	paymentID, err := uuid.Parse(req.GetPaymentId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid payment_id: %v", err)
+	}
+
+	paymentStatus, err := s.getPaymentStatus.Execute(ctx, paymentID)
+	if err != nil {
+		if errors.Is(err, apperr.ErrNotFound) {
+			return nil, status.Errorf(codes.NotFound, "payment not found")
+		}
+
+		return nil, status.Errorf(codes.Internal, "get payment status: %v", err)
+	}
+
+	return &pb.GetPaymentStatusResponse{Status: string(paymentStatus)}, nil
 }

@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"payment-service/internal/application/payment/commands"
+	"payment-service/internal/application/payment/queries"
 	"payment-service/internal/domain/payment"
 	"payment-service/internal/infrastructure/persistence"
 	grpcserver "payment-service/internal/interfaces/grpc"
@@ -49,8 +50,9 @@ func newTestServer(t *testing.T, gw *fakeGateway) *grpcserver.Server {
 	repo := persistence.NewPaymentRepository(db.DB)
 	createPayment := commands.NewCreatePayment(repo, gw, "https://payment-service.internal")
 	cancelPayment := commands.NewCancelPayment(repo, gw)
+	getPaymentStatus := queries.NewGetPaymentStatus(repo)
 
-	return grpcserver.NewServer(createPayment, cancelPayment)
+	return grpcserver.NewServer(createPayment, cancelPayment, getPaymentStatus)
 }
 
 func TestServer_CreatePayment_Success(t *testing.T) {
@@ -145,4 +147,49 @@ func TestServer_CancelPayment_UnknownPayment_Succeeds(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "canceled", resp.GetStatus())
+}
+
+func TestServer_GetPaymentStatus_ReturnsCurrentStatus(t *testing.T) {
+	gw := &fakeGateway{createResult: payment.CreatePaymentResult{
+		GatewayPaymentID: "tr_abc123",
+		CheckoutURL:      "https://mollie.test/checkout/tr_abc123",
+	}}
+	srv := newTestServer(t, gw)
+
+	created, err := srv.CreatePayment(context.Background(), &pb.CreatePaymentRequest{
+		SubjectType:  "order",
+		SubjectId:    uuid.New().String(),
+		RestaurantId: uuid.New().String(),
+		CustomerId:   uuid.New().String(),
+		Amount:       "24.50",
+		Currency:     "EUR",
+		RedirectUrl:  "https://frontend.example/orders/abc",
+	})
+	require.NoError(t, err)
+
+	resp, err := srv.GetPaymentStatus(context.Background(), &pb.GetPaymentStatusRequest{
+		PaymentId: created.GetPaymentId(),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, string(payment.StatusPending), resp.GetStatus())
+}
+
+func TestServer_GetPaymentStatus_InvalidPaymentID_ReturnsInvalidArgument(t *testing.T) {
+	srv := newTestServer(t, &fakeGateway{})
+
+	_, err := srv.GetPaymentStatus(context.Background(), &pb.GetPaymentStatusRequest{
+		PaymentId: "not-a-uuid",
+	})
+	require.Error(t, err)
+	assert.Equal(t, codes.InvalidArgument, status.Code(err))
+}
+
+func TestServer_GetPaymentStatus_UnknownPayment_ReturnsNotFound(t *testing.T) {
+	srv := newTestServer(t, &fakeGateway{})
+
+	_, err := srv.GetPaymentStatus(context.Background(), &pb.GetPaymentStatusRequest{
+		PaymentId: uuid.New().String(),
+	})
+	require.Error(t, err)
+	assert.Equal(t, codes.NotFound, status.Code(err))
 }

@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"payment-service/internal/application/payment/commands"
+	"payment-service/internal/application/payment/queries"
 	"payment-service/internal/infrastructure/gateway"
 	"payment-service/internal/infrastructure/persistence"
 	grpcserver "payment-service/internal/interfaces/grpc"
@@ -30,8 +31,9 @@ func NewAPIContainer() (*APIContainer, error) {
 	createPayment := commands.NewCreatePayment(paymentRepo, mollieGateway, publicBaseURL)
 	cancelPayment := commands.NewCancelPayment(paymentRepo, mollieGateway)
 	handleMollieWebhook := commands.NewHandleMollieWebhook(base.DB, paymentRepo, mollieGateway, base.OutboxRepo)
+	getPaymentStatus := queries.NewGetPaymentStatus(paymentRepo)
 
-	grpcServer := grpcserver.NewServer(createPayment, cancelPayment)
+	grpcServer := grpcserver.NewServer(createPayment, cancelPayment, getPaymentStatus)
 	webhookHandler := handlers.NewWebhookHandler(handleMollieWebhook)
 
 	return &APIContainer{
