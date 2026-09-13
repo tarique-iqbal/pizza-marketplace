@@ -6,23 +6,26 @@ own Postgres database and runs the transactional outbox pattern; like search-ser
 read-model fresh by consuming restaurant-service's events off RabbitMQ, rather than calling
 restaurant-service synchronously.
 
-**Current state**: cart (add/update-quantity/remove/get) and checkout (`POST /orders`) are both fully built,
-wired, and live — `Checkout` calls payment-service's `CreatePayment` over gRPC (through a circuit-breaker
-decorator) and returns a real Mollie checkout URL. The worker consumes payment-service's `payment.succeeded`/
-`payment.failed` events and calls `Order.Confirm()`/`Cancel()` accordingly, publishing `order.confirmed` via
-its own outbox once confirmed — closing the full checkout→payment→confirmation loop. Order lifecycle beyond
-that (`MarkReady`/`Complete`, owner-facing order queries) is designed but not built.
+**Current state**: cart, checkout, order tracking (customer and owner), and the full order lifecycle
+(`MarkReady`/`Complete`/`Cancel`) are all fully built, wired, and live. `Checkout` calls payment-service's
+`CreatePayment` over gRPC (through a circuit-breaker decorator) and returns a real Mollie checkout URL.
+The worker consumes payment-service's `payment.succeeded`/`payment.failed` events and calls
+`Order.Confirm()`/`Cancel()` accordingly, publishing `order.confirmed` via its own outbox once
+confirmed — closing the full checkout→payment→confirmation loop. `Cancel` additionally calls
+payment-service's `GetPaymentStatus` synchronously to guard against cancelling an order whose payment
+already succeeded.
 
 ## Layered architecture
 
 ```
-cmd/api                              → Gin HTTP server: /cart, /cart/items[/:itemId], /orders — all live
+cmd/api                              → Gin HTTP server: /cart, /cart/items[/:itemId], /orders and its
+                                        tracking/lifecycle sub-routes — all live
 cmd/worker                           → RabbitMQ consumer (restaurant.events + identity.events + payment.events)
                                         + outbox relay, two goroutines side by side — same shape as
                                         restaurant-service's cmd/worker
 internal/domain/order                → Order/OrderItem aggregate + state machine, DomainEvent/OrderConfirmed,
-                                        OrderRepository, GeocodeEntry/GeocodeRepository, Geocoder, PaymentProvider
-                                        interfaces, errors
+                                        OrderRepository (incl. PageCursor keyset pagination), GeocodeEntry/
+                                        GeocodeRepository, Geocoder, PaymentProvider interfaces, errors
 internal/domain/cart                 → Cart/CartItem aggregate, CartRepository, errors
 internal/domain/readmodel            → local mirror of restaurant-service's data: Restaurant, Pizza, PizzaPrice,
                                         ToppingPrice, Customer + their repository interfaces, EventDispatcher/
@@ -31,8 +34,11 @@ internal/domain/outbox               → OutboxEvent/OutboxStatus/OutboxReposito
                                         restaurant-service's own outbox domain
 internal/application/cart            → schema.go (request/response DTOs), commands/{AddItem,UpdateItemQuantity,
                                         RemoveItem}, queries/GetCart
-internal/application/order           → schema.go (CheckoutRequest/Response), events.go (OrderConfirmedPayload),
-                                        dispatch.go (DispatchEventsTx/Enricher), commands/Checkout,
+internal/application/order           → schema.go (Checkout/OrderResponse DTOs), events.go
+                                        (OrderConfirmedPayload), dispatch.go (DispatchEventsTx/Enricher),
+                                        cursor.go (keyset pagination codec), mapper.go (ToOrderResponse),
+                                        commands/{Checkout,MarkReady,Complete,Cancel},
+                                        queries/{GetOrder,ListMyOrders,ListRestaurantOrders},
                                         handlers/{PaymentSucceededHandler,PaymentFailedHandler}
 internal/application/readmodel       → one handler per consumed event: UpsertRestaurant, UpdateRestaurant,
                                         SyncPizza, SyncToppingPrices, UpsertCustomer; EventDispatcher impl
@@ -43,9 +49,11 @@ internal/infrastructure/persistence  → one file per aggregate/read-model table
 internal/infrastructure/geocoder     → OpenCageGeocoder (order-service's own OpenCage client/quota, independent
                                         of restaurant-service's and search-service's) + CachingGeocoder
                                         (Postgres-backed decorator, mirrors search-service's ES-backed one)
-internal/infrastructure/payment      → grpc_client.go (Client, implements PaymentProvider over gRPC) +
-                                        circuit_breaker.go (CircuitBreakerProvider decorator, sony/gobreaker/v2)
-                                        + pb/ (payment-service's generated client code, copied by hand)
+internal/infrastructure/payment      → grpc_client.go (Client, implements PaymentProvider over gRPC:
+                                        CreatePayment/CancelPayment/GetPaymentStatus) + circuit_breaker.go
+                                        (CircuitBreakerProvider decorator, 3 independent sony/gobreaker/v2
+                                        breakers) + pb/ (payment-service's generated client code, copied by
+                                        hand)
 internal/infrastructure/messaging    → RabbitMQ consumer + publisher, same shape as every other service's copy
 internal/infrastructure/observability → copied verbatim from restaurant-service
 internal/interfaces/http             → middleware (Auth/RequireRole — Customer/Owner, no Admin role needed here),
@@ -255,12 +263,12 @@ own precedent for any command with real transactional behavior.
 
 **`PaymentProvider` is `payment.NewClient` (gRPC) wrapped in `payment.NewCircuitBreakerProvider`** —
 `internal/infrastructure/payment/grpc_client.go` implements `order.PaymentProvider` by calling
-payment-service's `CreatePayment`/`CancelPayment` RPCs (plaintext gRPC, internal Docker network only);
-`circuit_breaker.go` decorates it with two independent `sony/gobreaker/v2` breakers (one per method, since
-they return different types), tripping after 5 consecutive failures and translating a breaker-open error to
-`order.ErrPaymentServiceUnavailable` (503) rather than leaking a `gobreaker`-specific error. `APIContainer`
-constructs the raw client, wraps it, and passes the wrapped value into `Checkout` — the raw client is what
-`APIContainer.Close()` closes.
+payment-service's `CreatePayment`/`CancelPayment`/`GetPaymentStatus` RPCs (plaintext gRPC, internal Docker
+network only); `circuit_breaker.go` decorates it with three independent `sony/gobreaker/v2` breakers (one
+per method, since they return different types), tripping after 5 consecutive failures and translating a
+breaker-open error to `order.ErrPaymentServiceUnavailable` (503) rather than leaking a `gobreaker`-specific
+error. `APIContainer` constructs the raw client, wraps it, and passes the wrapped value into `Checkout` —
+the raw client is what `APIContainer.Close()` closes.
 
 **Confirmation closes the loop asynchronously**: order-service never learns a payment outcome synchronously —
 Mollie's webhook goes to payment-service, not here. The worker's `Exchanges["payment.events"]` binding
@@ -271,9 +279,53 @@ first domain event needing outbox dispatch at all, since `Checkout` itself never
 treat `order.ErrInvalidStatusTransition` as an idempotent no-op, since Mollie retries its webhook for up to
 ~26h and RabbitMQ redelivery must never double-confirm/double-cancel an order.
 
-**Still not built**: `MarkReady`/`Complete` commands and their owner-facing endpoints, `GetOrder`/list
-queries. A customer/owner-initiated `Cancel` endpoint also doesn't exist yet — today `Cancel()` is only ever
-called from the `payment.failed` handler above.
+## Order tracking, lifecycle, and Cancel
+
+`GetOrder`/`ListMyOrders`/`ListRestaurantOrders`/`MarkReady`/`Complete`/`Cancel`
+(`internal/application/order/{queries,commands}/`) are this codebase's first **customer-or-owner** and
+**owner-only** routes beyond checkout. None touch a transaction — each is a single repository call plus
+(for the mutating ones) a single `Update` — so all are tested against `tests/testutil.MockOrderRepository`
+rather than real Postgres.
+
+**Ownership is always re-verified server-side, never trusted from a path parameter or JWT claim alone.**
+`GetOrder`/`Cancel` branch on `X-User-Role`: `owner` uses `FindByIDAndRestaurantOwner`, anything else uses
+`FindByIDAndCustomer`. Both return `apperr.ErrNotFound` on a miss (verified directly against this service's
+own persistence code — a real divergence from restaurant-service's `(nil, nil)` convention for the
+equivalent lookup), which the query/command translates to `403 Forbidden` — "doesn't exist" and "exists but
+you don't own it" are deliberately indistinguishable from outside.
+
+**List queries use keyset (cursor) pagination**, chosen over limit/offset specifically because `OFFSET`
+skips/duplicates rows under concurrent inserts, which a restaurant's continuously-growing order history
+guarantees over time. Both list methods seek on `(placed_at, id) DESC` via Postgres row-value comparison
+(`WHERE (placed_at, id) < (?, ?)`); `internal/application/order/cursor.go` encodes/decodes the opaque
+cursor and clamps `limit` (default 20, max 100); the query layer fetches `limit+1` and trims to detect a
+next page without a separate `COUNT`. `ListByRestaurant` (not `ListByRestaurantOwner`, its original name)
+takes both a `restaurantID` and an `ownerID` — an owner can run more than one restaurant
+(`restaurants.owner_id` has no uniqueness constraint), so the owner-facing list is scoped to one
+restaurant, with ownership re-checked in the same query rather than trusted from the URL.
+
+**`Complete()` accepts both `confirmed` and `ready`** — `MarkReady` is an optional milestone, not a hard
+prerequisite, since a real order can be delivered without ever passing through the intermediate "ready"
+status. `Cancel()` only accepts `pending` — cancelling a `confirmed` (already-paid) order would need a
+refund, which this system has no mechanism for.
+
+**`Cancel` re-checks the real payment status with payment-service before proceeding, because the local
+order status can be stale.** order-service only learns a payment outcome by consuming
+`payment.succeeded`/`payment.failed`, so a cancel request can race a payment that already succeeded at
+payment-service but hasn't been consumed by this service's worker yet. `Cancel` calls
+`PaymentProvider.GetPaymentStatus` and blocks with `409 Conflict` only when the payment already
+`succeeded` — a `failed` payment is allowed to proceed, since that reaches the same `cancelled` end state
+`PaymentFailedHandler` would reach anyway once it catches up. This narrows the race window from the
+worker's full consumption lag down to a single request's round trip; it does not eliminate it — closing it
+completely would need a distributed lock against payment-service's own state, which is out of scope. The
+post-cancel gateway `CancelPayment` call stays best-effort (logged on failure, never propagated) — the
+order's own cancellation has already committed by that point.
+
+**`GetPaymentStatus` is payment-service's third gRPC method**, added specifically to make this check
+possible — `payment.proto` gained `rpc GetPaymentStatus(GetPaymentStatusRequest) returns
+(GetPaymentStatusResponse)`, backed by a new `queries.GetPaymentStatus` (payment-service's own first
+`queries/` package, split out from `commands/` per that service's established read/write package split)
+wrapping a plain `PaymentRepository.FindByID`.
 
 ## HTTP API
 
@@ -284,8 +336,12 @@ called from the `payment.failed` handler above.
 | `PATCH` | `/cart/items/:itemId` | authenticated user | live |
 | `DELETE` | `/cart/items/:itemId` | authenticated user | live |
 | `POST` | `/orders` | authenticated user | live |
-
-No `DELETE /cart` (deferred, see Cart section above). No owner-facing order routes yet.
+| `GET` | `/orders` | authenticated user (customer) | live |
+| `GET` | `/orders/:id` | customer or owning restaurant's owner | live |
+| `POST` | `/orders/:id/cancel` | customer or owning restaurant's owner | live |
+| `GET` | `/orders/restaurants/:id` | owner | live |
+| `POST` | `/orders/:id/ready` | owner | live |
+| `POST` | `/orders/:id/complete` | owner | live |
 
 ## Migrations
 
@@ -301,12 +357,15 @@ those read-model rows can be hard-deleted on archive).
 
 Same shape as restaurant-service: `tests/` mirrors `internal/`, integration-style against real Postgres via
 `compose.test.yaml` (`pg-order-test`, `migrate-order-test`, `order-test`), `tests/testutil/db.go` +
-`TruncateTables`, `tests/infrastructure/db/fixtures/*.go` for seed data. Application-layer commands that don't
-need real transactional behavior (`AddItem`, `UpdateItemQuantity`, `RemoveItem`, `GetCart`) use
-`tests/testutil.Mock*Repository` fakes; any command/handler using `db.Transaction`/`WithTx` (`Checkout`,
-`PaymentSucceededHandler`, `PaymentFailedHandler`) uses real repositories throughout against real Postgres,
-with only genuinely external dependencies (`Geocoder`, `PaymentProvider`) faked locally in their own test
-files — a fake can't validate real transactional/rollback behavior. The gRPC client itself
+`TruncateTables`, `tests/infrastructure/db/fixtures/*.go` for seed data. Application-layer commands/queries
+that don't need real transactional behavior (`AddItem`, `UpdateItemQuantity`, `RemoveItem`, `GetCart`,
+`GetOrder`, `ListMyOrders`, `ListRestaurantOrders`, `MarkReady`, `Complete`, `Cancel`) use
+`tests/testutil.Mock*Repository` fakes — `MockOrderRepository` also records each list call's cursor/limit
+so the keyset pagination logic (limit+1/trim/next-cursor) is verifiable without a real database; any
+command/handler using `db.Transaction`/`WithTx` (`Checkout`, `PaymentSucceededHandler`,
+`PaymentFailedHandler`) uses real repositories throughout against real Postgres, with only genuinely
+external dependencies (`Geocoder`, `PaymentProvider`) faked locally in their own test files — a fake can't
+validate real transactional/rollback behavior. The gRPC client itself
 (`tests/infrastructure/payment/grpc_client_test.go`) is tested via `google.golang.org/grpc/test/bufconn`
 against a small in-memory `pb.PaymentServiceServer` stub — this repo's first use of bufconn — and the
 circuit breaker (`tests/infrastructure/payment/circuit_breaker_test.go`) against a local fake

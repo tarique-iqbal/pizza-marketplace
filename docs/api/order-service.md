@@ -24,9 +24,23 @@ No price is ever stored on a cart line — `GET /cart` resolves every item's cur
 | Method | Path | Auth | Status |
 |---|---|---|---|
 | `POST` | `/orders` | authenticated user | Live |
+| `GET` | `/orders` | authenticated user (customer) | Live |
+| `GET` | `/orders/:id` | customer or owning restaurant's owner | Live |
+| `POST` | `/orders/:id/cancel` | customer or owning restaurant's owner | Live |
+| `GET` | `/orders/restaurants/:id` | owner | Live |
+| `POST` | `/orders/:id/ready` | owner | Live |
+| `POST` | `/orders/:id/complete` | owner | Live |
 
 `POST /orders` (checkout) converts the customer's current cart into an order: revalidates every line against live prices/availability (`409 Conflict` if any item is no longer available), checks the restaurant supports the requested fulfillment method (`409 Conflict` otherwise) and that the subtotal meets its minimum order (`422` otherwise), geocodes and validates the delivery address against the restaurant's delivery radius for delivery orders (`422` outside the radius, `503` if geocoding itself is unavailable), creates the order, clears the cart, and calls payment-service's `CreatePayment` over gRPC (through a circuit breaker) to get back a real Mollie checkout URL (`503` if payment-service is unreachable or the breaker is open). The customer is expected to redirect to `checkoutUrl` to complete payment; the order stays `pending` until payment-service's `payment.succeeded`/`payment.failed` event (consumed asynchronously by this service's worker) confirms or cancels it — there is no synchronous "did it work" beyond getting a checkout URL back.
 
 Request body: `{fulfillment: "delivery" | "pickup", deliveryAddress?: {house, street, postalCode, city}, contactPhone?}` — `deliveryAddress` is required when `fulfillment` is `"delivery"`, and an empty cart fails with `422`. Response: `{orderId, checkoutUrl}`.
 
-`POST` returns `201 Created`; `GET` returns `200 OK`; `PATCH` returns `200 OK`; `DELETE` returns `204 No Content`.
+`GET /orders/:id` and `POST /orders/:id/cancel` accept either the order's own customer or the owner of the restaurant it belongs to — the only role check is `m.Auth` (any authenticated user), and the command itself branches on `X-User-Role` to pick the right ownership-scoped repository lookup (`FindByIDAndCustomer` vs `FindByIDAndRestaurantOwner`). Neither "doesn't exist" nor "exists but you don't own it" is distinguishable from outside — both return `403 Forbidden`.
+
+`GET /orders` returns the caller's own orders (customer), newest first, cursor-paginated: `?cursor=&limit=` (default `limit` 20, max 100). `GET /orders/restaurants/:id` is the owner-facing equivalent, scoped to one restaurant — an owner running multiple restaurants sees only that restaurant's orders, with ownership re-verified server-side rather than trusted from the URL. Both return `{orders: [...], nextCursor?: "..."}` — `nextCursor` is present only when there are more results; pass it back as `?cursor=` to fetch the next page. The cursor is an opaque, forward-only token (encodes the last row's `placedAt`/`id`) — it isn't a page number and can't be decremented.
+
+`POST /orders/:id/ready` (`confirmed → ready`) and `POST /orders/:id/complete` (`confirmed` or `ready` → `completed`) are owner-only. `MarkReady` is optional, not a prerequisite for `Complete` — an order can be completed directly from `confirmed` if the intermediate "ready" step was never recorded. Either returns `409 Conflict` on an invalid transition (e.g. completing an order that's still `pending`).
+
+`POST /orders/:id/cancel` only succeeds while the order is still `pending`. Before cancelling, it re-checks the *real* payment status directly with payment-service (not the local, possibly-stale order status) — if the payment already succeeded there, it returns `409 Conflict` rather than cancelling an order whose money was already captured (this system has no refund mechanism yet). A payment that already failed is still allowed to cancel through. On success it also best-effort cancels the payment at the gateway (failure there is logged, not surfaced — the order stays cancelled regardless).
+
+`POST` returns `201 Created` (checkout only); `GET` returns `200 OK`; `PATCH` returns `200 OK`; `DELETE` returns `204 No Content`; the three lifecycle `POST` endpoints (`ready`/`complete`/`cancel`) return `200 OK` with the updated order.
