@@ -7,6 +7,7 @@ option go_package = "payment-service/internal/interfaces/grpc/pb";
 service PaymentService {
   rpc CreatePayment(CreatePaymentRequest) returns (CreatePaymentResponse);
   rpc CancelPayment(CancelPaymentRequest) returns (CancelPaymentResponse);
+  rpc GetPaymentStatus(GetPaymentStatusRequest) returns (GetPaymentStatusResponse);
 }
 
 message CreatePaymentRequest {
@@ -30,5 +31,13 @@ message CancelPaymentRequest {
 }
 
 message CancelPaymentResponse {
+  string status = 1;
+}
+
+message GetPaymentStatusRequest {
+  string payment_id = 1;
+}
+
+message GetPaymentStatusResponse {
   string status = 1;
 }
