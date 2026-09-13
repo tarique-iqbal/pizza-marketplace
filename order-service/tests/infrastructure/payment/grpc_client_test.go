@@ -28,6 +28,9 @@ type fakeServer struct {
 	createErr  error
 	cancelReq  *pb.CancelPaymentRequest
 	cancelErr  error
+	statusReq  *pb.GetPaymentStatusRequest
+	statusResp *pb.GetPaymentStatusResponse
+	statusErr  error
 }
 
 func (s *fakeServer) CreatePayment(
@@ -52,6 +55,18 @@ func (s *fakeServer) CancelPayment(
 	}
 
 	return &pb.CancelPaymentResponse{Status: "canceled"}, nil
+}
+
+func (s *fakeServer) GetPaymentStatus(
+	_ context.Context,
+	req *pb.GetPaymentStatusRequest,
+) (*pb.GetPaymentStatusResponse, error) {
+	s.statusReq = req
+	if s.statusErr != nil {
+		return nil, s.statusErr
+	}
+
+	return s.statusResp, nil
 }
 
 func newTestClient(t *testing.T, srv *fakeServer) *payment.Client {
@@ -144,6 +159,28 @@ func TestClient_CancelPayment_PropagatesGRPCError(t *testing.T) {
 	client := newTestClient(t, srv)
 
 	err := client.CancelPayment(context.Background(), "pay_123")
+
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, order.ErrPaymentServiceUnavailable))
+}
+
+func TestClient_GetPaymentStatus_MapsFieldsBothWays(t *testing.T) {
+	srv := &fakeServer{statusResp: &pb.GetPaymentStatusResponse{Status: "succeeded"}}
+	client := newTestClient(t, srv)
+
+	result, err := client.GetPaymentStatus(context.Background(), "pay_123")
+	require.NoError(t, err)
+
+	require.NotNil(t, srv.statusReq)
+	assert.Equal(t, "pay_123", srv.statusReq.GetPaymentId())
+	assert.Equal(t, order.PaymentStatusSucceeded, result)
+}
+
+func TestClient_GetPaymentStatus_PropagatesGRPCError(t *testing.T) {
+	srv := &fakeServer{statusErr: status.Error(codes.NotFound, "payment not found")}
+	client := newTestClient(t, srv)
+
+	_, err := client.GetPaymentStatus(context.Background(), "pay_123")
 
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, order.ErrPaymentServiceUnavailable))

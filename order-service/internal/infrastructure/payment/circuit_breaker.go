@@ -14,6 +14,7 @@ type CircuitBreakerProvider struct {
 	inner         order.PaymentProvider
 	createBreaker *gobreaker.CircuitBreaker[order.CreatePaymentResult]
 	cancelBreaker *gobreaker.CircuitBreaker[struct{}]
+	statusBreaker *gobreaker.CircuitBreaker[order.PaymentStatus]
 }
 
 func NewCircuitBreakerProvider(inner order.PaymentProvider) *CircuitBreakerProvider {
@@ -32,6 +33,13 @@ func NewCircuitBreakerProvider(inner order.PaymentProvider) *CircuitBreakerProvi
 		}),
 		cancelBreaker: gobreaker.NewCircuitBreaker[struct{}](gobreaker.Settings{
 			Name:        "payment-service.cancel_payment",
+			MaxRequests: 1,
+			Interval:    60 * time.Second,
+			Timeout:     30 * time.Second,
+			ReadyToTrip: readyToTrip,
+		}),
+		statusBreaker: gobreaker.NewCircuitBreaker[order.PaymentStatus](gobreaker.Settings{
+			Name:        "payment-service.get_payment_status",
 			MaxRequests: 1,
 			Interval:    60 * time.Second,
 			Timeout:     30 * time.Second,
@@ -63,6 +71,20 @@ func (p *CircuitBreakerProvider) CancelPayment(ctx context.Context, paymentID st
 	}
 
 	return err
+}
+
+func (p *CircuitBreakerProvider) GetPaymentStatus(
+	ctx context.Context,
+	paymentID string,
+) (order.PaymentStatus, error) {
+	result, err := p.statusBreaker.Execute(func() (order.PaymentStatus, error) {
+		return p.inner.GetPaymentStatus(ctx, paymentID)
+	})
+	if isBreakerOpen(err) {
+		return "", order.ErrPaymentServiceUnavailable
+	}
+
+	return result, err
 }
 
 func isBreakerOpen(err error) bool {

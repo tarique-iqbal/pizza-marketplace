@@ -21,7 +21,16 @@ type CreatePaymentResult struct {
 	CheckoutURL string
 }
 
+type PaymentStatus string
+
+const (
+	PaymentStatusPending   PaymentStatus = "pending"
+	PaymentStatusSucceeded PaymentStatus = "succeeded"
+	PaymentStatusFailed    PaymentStatus = "failed"
+)
+
 type PaymentProvider interface {
 	CreatePayment(ctx context.Context, req CreatePaymentRequest) (CreatePaymentResult, error)
 	CancelPayment(ctx context.Context, paymentID string) error
+	GetPaymentStatus(ctx context.Context, paymentID string) (PaymentStatus, error)
 }

@@ -17,6 +17,8 @@ type fakeProvider struct {
 	createErr    error
 	createResult order.CreatePaymentResult
 	cancelErr    error
+	statusErr    error
+	statusResult order.PaymentStatus
 }
 
 func (f *fakeProvider) CreatePayment(
@@ -32,6 +34,12 @@ func (f *fakeProvider) CancelPayment(_ context.Context, _ string) error {
 	f.callCount++
 
 	return f.cancelErr
+}
+
+func (f *fakeProvider) GetPaymentStatus(_ context.Context, _ string) (order.PaymentStatus, error) {
+	f.callCount++
+
+	return f.statusResult, f.statusErr
 }
 
 func TestCircuitBreakerProvider_CreatePayment_PassesThroughSuccess(t *testing.T) {
@@ -81,6 +89,32 @@ func TestCircuitBreakerProvider_CancelPayment_TripsAfterConsecutiveFailures(t *t
 	require.Equal(t, 5, fake.callCount)
 
 	err := cb.CancelPayment(context.Background(), "pay_123")
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, order.ErrPaymentServiceUnavailable))
+	assert.Equal(t, 5, fake.callCount, "breaker should short-circuit without calling the inner provider again")
+}
+
+func TestCircuitBreakerProvider_GetPaymentStatus_PassesThroughSuccess(t *testing.T) {
+	fake := &fakeProvider{statusResult: order.PaymentStatusSucceeded}
+	cb := payment.NewCircuitBreakerProvider(fake)
+
+	result, err := cb.GetPaymentStatus(context.Background(), "pay_123")
+	require.NoError(t, err)
+	assert.Equal(t, order.PaymentStatusSucceeded, result)
+	assert.Equal(t, 1, fake.callCount)
+}
+
+func TestCircuitBreakerProvider_GetPaymentStatus_TripsAfterConsecutiveFailures(t *testing.T) {
+	fake := &fakeProvider{statusErr: errors.New("boom")}
+	cb := payment.NewCircuitBreakerProvider(fake)
+
+	for i := 0; i < 5; i++ {
+		_, err := cb.GetPaymentStatus(context.Background(), "pay_123")
+		require.Error(t, err)
+	}
+	require.Equal(t, 5, fake.callCount)
+
+	_, err := cb.GetPaymentStatus(context.Background(), "pay_123")
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, order.ErrPaymentServiceUnavailable))
 	assert.Equal(t, 5, fake.callCount, "breaker should short-circuit without calling the inner provider again")

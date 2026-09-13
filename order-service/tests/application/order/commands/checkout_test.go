@@ -49,6 +49,10 @@ func (f *fakePaymentProvider) CancelPayment(_ context.Context, _ string) error {
 	return nil
 }
 
+func (f *fakePaymentProvider) GetPaymentStatus(_ context.Context, _ string) (order.PaymentStatus, error) {
+	return order.PaymentStatusPending, nil
+}
+
 type checkoutSeed struct {
 	db         *gorm.DB
 	restaurant readmodel.Restaurant

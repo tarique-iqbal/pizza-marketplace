@@ -60,6 +60,15 @@ func (c *Client) CancelPayment(ctx context.Context, paymentID string) error {
 	return nil
 }
 
+func (c *Client) GetPaymentStatus(ctx context.Context, paymentID string) (order.PaymentStatus, error) {
+	resp, err := c.client.GetPaymentStatus(ctx, &pb.GetPaymentStatusRequest{PaymentId: paymentID})
+	if err != nil {
+		return "", fmt.Errorf("%w: %s", order.ErrPaymentServiceUnavailable, err)
+	}
+
+	return order.PaymentStatus(resp.GetStatus()), nil
+}
+
 func (c *Client) Close() error {
 	return c.conn.Close()
 }
