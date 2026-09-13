@@ -52,7 +52,7 @@ Each service owns its data store. There is no shared database. See the
 | `identity-service` | Auth, JWT, user management | mixed (public and JWT-protected) |
 | `restaurant-service` | Restaurant & menu CRUD | JWT-protected, owner, admin |
 | `search-service` | Search API + Elasticsearch indexing | public (no auth) |
-| `order-service` | Cart + order placement | JWT-protected, authenticated user |
+| `order-service` | Cart, checkout, and order tracking/lifecycle | JWT-protected, authenticated user, owner |
 | `payment-service` | Payment processing via Mollie | gRPC (internal only) + one public webhook route |
 | `notification-service` | Notifications via channel adapters — email today (background worker) | — |
 
@@ -149,7 +149,7 @@ Architecture, domain model, and design decisions for each implemented service:
 
 ## Event flow
 
-Events are published to RabbitMQ and consumed asynchronously. `identity-service`, `restaurant-service`, `order-service`, and `payment-service` all use the transactional outbox pattern for at-least-once delivery — each outboxes every event it raises, with no best-effort publish path left in any of them. Checkout itself is synchronous (order-service calls payment-service's `CreatePayment`/`CancelPayment` over gRPC directly), but the payment *outcome* is inherently async — Mollie's webhook lands on payment-service, not order-service, so `payment.succeeded`/`payment.failed` is the only way order-service learns whether a payment went through, and confirming/cancelling the order in response is what raises `order.confirmed`.
+Events are published to RabbitMQ and consumed asynchronously. `identity-service`, `restaurant-service`, `order-service`, and `payment-service` all use the transactional outbox pattern for at-least-once delivery — each outboxes every event it raises, with no best-effort publish path left in any of them. Checkout and order cancellation are synchronous (order-service calls payment-service's `CreatePayment`/`CancelPayment`/`GetPaymentStatus` over gRPC directly), but the payment *outcome* is inherently async — Mollie's webhook lands on payment-service, not order-service, so `payment.succeeded`/`payment.failed` is the only way order-service learns whether a payment went through, and confirming/cancelling the order in response is what raises `order.confirmed`.
 
 ```
 identity-service     ──publishes──► email.verification_created
@@ -222,8 +222,7 @@ pizza-marketplace/
 
 ## Roadmap
 
-- [ ] Customer service — profile, saved addresses, and payment methods for checkout
-- [ ] Order service — place and track orders
+- [ ] Customer service — profile, phone, addresses, and payment methods
 - [ ] Notification service — SMS/web-push adapters
 - [ ] Analytics service — metrics, reporting, and audit logs
 - [ ] Zero-trust networking — trusted proxies, mTLS, and workload identity
