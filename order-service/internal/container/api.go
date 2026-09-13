@@ -78,9 +78,10 @@ func NewAPIContainer() (*APIContainer, error) {
 	listRestaurantOrders := orderqry.NewListRestaurantOrders(orderRepo)
 	markReady := ordercmd.NewMarkReady(orderRepo)
 	complete := ordercmd.NewComplete(orderRepo)
+	cancel := ordercmd.NewCancel(orderRepo, paymentProvider)
 
 	orderHandler := handlers.NewOrderHandler(
-		checkout, getOrder, listMyOrders, listRestaurantOrders, markReady, complete,
+		checkout, getOrder, listMyOrders, listRestaurantOrders, markReady, complete, cancel,
 	)
 
 	return &APIContainer{

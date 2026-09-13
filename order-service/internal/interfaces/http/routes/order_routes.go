@@ -60,3 +60,12 @@ func SetupCompleteRoutes(router *gin.Engine, h *handlers.OrderHandler, m *middle
 
 	ownerOnly.POST("/:id/complete", h.Complete)
 }
+
+func SetupCancelRoutes(router *gin.Engine, h *handlers.OrderHandler, m *middleware.Middleware) {
+	orders := router.Group("/orders")
+
+	protected := orders.Group("")
+	protected.Use(m.Auth)
+
+	protected.POST("/:id/cancel", h.Cancel)
+}

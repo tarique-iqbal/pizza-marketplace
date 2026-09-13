@@ -22,6 +22,7 @@ type OrderHandler struct {
 	listRestaurantOrders *queries.ListRestaurantOrders
 	markReady            *commands.MarkReady
 	complete             *commands.Complete
+	cancel               *commands.Cancel
 }
 
 func NewOrderHandler(
@@ -31,6 +32,7 @@ func NewOrderHandler(
 	listRestaurantOrders *queries.ListRestaurantOrders,
 	markReady *commands.MarkReady,
 	complete *commands.Complete,
+	cancel *commands.Cancel,
 ) *OrderHandler {
 	return &OrderHandler{
 		checkout:             checkout,
@@ -39,6 +41,7 @@ func NewOrderHandler(
 		listRestaurantOrders: listRestaurantOrders,
 		markReady:            markReady,
 		complete:             complete,
+		cancel:               cancel,
 	}
 }
 
@@ -181,6 +184,31 @@ func (h *OrderHandler) Complete(ctx *gin.Context) {
 	}
 
 	res, err := h.complete.Execute(reqCtx, orderID, ownerID)
+	if err != nil {
+		response.HandleError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, res)
+}
+
+func (h *OrderHandler) Cancel(ctx *gin.Context) {
+	reqCtx := ctx.Request.Context()
+
+	orderID, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid order id"})
+		return
+	}
+
+	userID, err := uuid.Parse(ctx.MustGet(middleware.CtxUserID).(string))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+	role := ctx.MustGet(middleware.CtxUserRole).(string)
+
+	res, err := h.cancel.Execute(reqCtx, orderID, userID, role)
 	if err != nil {
 		response.HandleError(ctx, err)
 		return
