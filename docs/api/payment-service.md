@@ -30,6 +30,16 @@ Idempotent on `(subject_type, subject_id)` — calling twice with the same pair 
 
 Response: `status`. Best-effort — cancelling a payment that already reached a final state at Mollie is treated as a normal outcome, not an error.
 
+### `GetPaymentStatus`
+
+| Field | Type | Notes |
+|---|---|---|
+| `payment_id` | string (UUID) | This service's own `Payment.ID` |
+
+Response: `status` (`"pending"` \| `"succeeded"` \| `"failed"`) — a plain read of the locally-stored status, no live Mollie call. `codes.NotFound` if `payment_id` doesn't exist, `codes.InvalidArgument` if it isn't a valid UUID.
+
+Added for order-service's `Cancel` command: order-service only learns a payment outcome asynchronously (by consuming `payment.succeeded`/`payment.failed`), so its own local order status can be briefly stale relative to the true state here. `Cancel` calls this synchronously to verify a payment hasn't already succeeded before cancelling the order it belongs to.
+
 ## Webhook — `/webhooks/mollie`
 
 | Method | Path | Auth | Description |

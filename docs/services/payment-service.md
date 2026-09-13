@@ -24,7 +24,9 @@ internal/domain/outbox                → OutboxEvent/OutboxStatus/OutboxReposit
                                         identity-service's/restaurant-service's own outbox domain
 internal/application/payment          → schema.go (CreatePaymentRequest/Response DTOs), events.go
                                         (PaymentSucceededPayload/PaymentFailedPayload), commands/
-                                        {CreatePayment,CancelPayment,HandleMollieWebhook}
+                                        {CreatePayment,CancelPayment,HandleMollieWebhook},
+                                        queries/GetPaymentStatus — this service's first read-only use
+                                        case, split out of commands/ per the repo-wide convention
 internal/application/outbox           → Worker/Relay — verbatim port of the same outbox application layer
 internal/infrastructure/persistence   → payment.go, outbox.go — thin GORM wrappers, domain structs double as
                                         GORM models
@@ -208,7 +210,9 @@ type PaymentSucceededPayload struct {
 order-service consumes both: its worker's `PaymentSucceededHandler`/`PaymentFailedHandler` call
 `Order.Confirm()`/`Order.Cancel()` in response, and its `Checkout` command calls `CreatePayment` over gRPC
 (via a circuit-breaker-wrapped client) to get the checkout URL in the first place — see order-service's own
-`CLAUDE.md` for that side.
+`CLAUDE.md` for that side. order-service's `Cancel` command also calls `GetPaymentStatus` synchronously
+before cancelling an order, since it only learns outcomes asynchronously and its local order status can be
+briefly stale relative to this service's true state.
 
 ## gRPC contract — the first gRPC surface in this monorepo
 
@@ -234,10 +238,12 @@ Same shape as identity-service/restaurant-service: `tests/` mirrors `internal/`,
 (method/path/headers/body), every Mollie status value's mapping to `PaymentStatus`, and non-2xx error
 surfacing are all covered without a real network call or API key. Application-layer command tests
 (`CreatePayment`/`CancelPayment`/`HandleMollieWebhook`) use a locally-defined `fakeGateway` implementing
-`PaymentGateway`, per test file rather than a shared mock package. The gRPC server layer
-(`tests/interfaces/grpc/server_test.go`) is exercised by calling `Server.CreatePayment`/`CancelPayment`
-directly as plain Go methods — no `bufconn`, since the only real risk at that layer is field-translation and
-gRPC status-code mapping, not wire/transport behavior.
+`PaymentGateway`, per test file rather than a shared mock package. `GetPaymentStatus` needs no fake at
+all — it's a plain `PaymentRepository.FindByID` read, tested against real Postgres like everything else
+here, no gateway involved. The gRPC server layer (`tests/interfaces/grpc/server_test.go`) is exercised by
+calling `Server.CreatePayment`/`CancelPayment`/`GetPaymentStatus` directly as plain Go methods — no
+`bufconn`, since the only real risk at that layer is field-translation and gRPC status-code mapping, not
+wire/transport behavior.
 
 Verified live, twice, against real external systems: a throwaway gRPC client (inside the running container)
 calling `CreatePayment` reached Mollie's actual v2 API and got a genuine `400 Bad Request` back for a dummy
