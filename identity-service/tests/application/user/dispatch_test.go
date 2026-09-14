@@ -34,7 +34,10 @@ func (f *fakeOutboxRepo) Create(ctx context.Context, e *outbox.OutboxEvent) erro
 	return nil
 }
 
-func (f *fakeOutboxRepo) FetchAndMarkProcessing(ctx context.Context, limit int) ([]outbox.OutboxEvent, error) {
+func (f *fakeOutboxRepo) FetchAndMarkProcessing(
+	ctx context.Context,
+	limit int,
+) ([]outbox.OutboxEvent, error) {
 	return nil, nil
 }
 
@@ -42,7 +45,12 @@ func (f *fakeOutboxRepo) MarkProcessed(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (f *fakeOutboxRepo) ReleaseForRetry(ctx context.Context, id int64, errMsg string, delay time.Duration) error {
+func (f *fakeOutboxRepo) ReleaseForRetry(
+	ctx context.Context,
+	id int64,
+	errMsg string,
+	delay time.Duration,
+) error {
 	return nil
 }
 
@@ -80,7 +88,7 @@ func TestDispatchEventsTx_RoutesRestaurantInitiatedUnderRestaurantID(t *testing.
 	require.Len(t, outboxRepo.events, 1)
 
 	stored := outboxRepo.events[0]
-	assert.Equal(t, restaurantID, stored.AggregateID, "restaurant.initiated must use restaurantID, not the owner's userID")
+	assert.Equal(t, restaurantID, stored.AggregateID, "restaurant.initiated must use restaurantID")
 	assert.NotEqual(t, u.ID, stored.AggregateID)
 	assert.Equal(t, "restaurant.initiated", stored.EventName)
 

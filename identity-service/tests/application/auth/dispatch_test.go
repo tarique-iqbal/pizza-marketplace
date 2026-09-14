@@ -34,7 +34,10 @@ func (f *fakeOutboxRepo) Create(ctx context.Context, e *outbox.OutboxEvent) erro
 	return nil
 }
 
-func (f *fakeOutboxRepo) FetchAndMarkProcessing(ctx context.Context, limit int) ([]outbox.OutboxEvent, error) {
+func (f *fakeOutboxRepo) FetchAndMarkProcessing(
+	ctx context.Context,
+	limit int,
+) ([]outbox.OutboxEvent, error) {
 	return nil, nil
 }
 
@@ -42,7 +45,12 @@ func (f *fakeOutboxRepo) MarkProcessed(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (f *fakeOutboxRepo) ReleaseForRetry(ctx context.Context, id int64, errMsg string, delay time.Duration) error {
+func (f *fakeOutboxRepo) ReleaseForRetry(
+	ctx context.Context,
+	id int64,
+	errMsg string,
+	delay time.Duration,
+) error {
 	return nil
 }
 

@@ -53,7 +53,9 @@ func NewAPIContainer() (*APIContainer, error) {
 	codeVerifier := authinfra.NewEmailVerifier(emailVerificationRepo)
 
 	// user
-	registerCustomer := user.NewRegisterCustomer(base.Postgres.DB, codeVerifier, userRepo, hasher, base.OutboxRepo)
+	registerCustomer := user.NewRegisterCustomer(
+		base.Postgres.DB, codeVerifier, userRepo, hasher, base.OutboxRepo,
+	)
 	registerOwner := user.NewRegisterOwner(
 		base.Postgres.DB, codeVerifier, hasher, userRepo, base.OutboxRepo,
 	)
