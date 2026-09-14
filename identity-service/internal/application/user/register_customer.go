@@ -2,12 +2,10 @@ package user
 
 import (
 	"context"
-	"encoding/json"
 	"identity-service/internal/domain/auth"
 	"identity-service/internal/domain/outbox"
 	"identity-service/internal/domain/user"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -64,27 +62,14 @@ func (uc *RegisterCustomer) Execute(ctx context.Context, input RegisterCustomerR
 	}
 	newUser.ID = userID
 
-	userRegistered := UserRegistered{
-		UserID:     newUser.ID,
-		Email:      newUser.Email,
-		FirstName:  newUser.FirstName,
-		Role:       newUser.Role,
-		OccurredAt: time.Now().UTC(),
-	}
-	userRegistered.EventName = userRegistered.GetEventName()
-
-	payload, err := json.Marshal(userRegistered)
-	if err != nil {
-		return Response{}, err
-	}
+	newUser.MarkRegistered()
 
 	err = uc.db.Transaction(func(tx *gorm.DB) error {
 		if err := uc.repo.WithTx(tx).Create(ctx, &newUser); err != nil {
 			return err
 		}
 
-		outboxEvent := outbox.NewOutboxEvent(newUser.ID, outbox.EventUserRegistered, payload)
-		return uc.outboxRepo.WithTx(tx).Create(ctx, &outboxEvent)
+		return DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), &newUser)
 	})
 	if err != nil {
 		return Response{}, err

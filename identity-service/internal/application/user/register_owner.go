@@ -2,12 +2,10 @@ package user
 
 import (
 	"context"
-	"encoding/json"
 	"identity-service/internal/domain/auth"
 	"identity-service/internal/domain/outbox"
 	"identity-service/internal/domain/user"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -69,46 +67,15 @@ func (uc *RegisterOwner) Execute(ctx context.Context, input RegisterOwnerRequest
 		Status:    user.DefaultStatus,
 	}
 
-	restaurantInitiatedPayload, err := json.Marshal(map[string]interface{}{
-		"restaurant_id": restaurantID,
-		"owner_id":      userID,
-		"business_name": input.BusinessName,
-		"vat_number":    input.VATNumber,
-	})
-	if err != nil {
-		return Response{}, err
-	}
-
-	userRegistered := UserRegistered{
-		UserID:     userID,
-		Email:      newUser.Email,
-		FirstName:  newUser.FirstName,
-		Role:       newUser.Role,
-		OccurredAt: time.Now().UTC(),
-	}
-	userRegistered.EventName = userRegistered.GetEventName()
-
-	userRegisteredPayload, err := json.Marshal(userRegistered)
-	if err != nil {
-		return Response{}, err
-	}
+	newUser.MarkRegistered()
+	newUser.MarkRestaurantInitiated(restaurantID, input.BusinessName, input.VATNumber)
 
 	err = uc.db.Transaction(func(tx *gorm.DB) error {
 		if err := uc.repo.WithTx(tx).Create(ctx, &newUser); err != nil {
 			return err
 		}
 
-		restaurantInitiated := outbox.NewOutboxEvent(
-			restaurantID,
-			outbox.EventRestaurantInitiated,
-			restaurantInitiatedPayload,
-		)
-		if err := uc.outboxRepo.WithTx(tx).Create(ctx, &restaurantInitiated); err != nil {
-			return err
-		}
-
-		userRegisteredEvent := outbox.NewOutboxEvent(userID, outbox.EventUserRegistered, userRegisteredPayload)
-		return uc.outboxRepo.WithTx(tx).Create(ctx, &userRegisteredEvent)
+		return DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), &newUser)
 	})
 	if err != nil {
 		return Response{}, err
