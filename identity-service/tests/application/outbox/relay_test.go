@@ -10,45 +10,30 @@ import (
 
 	outboxapp "identity-service/internal/application/outbox"
 	"identity-service/internal/domain/outbox"
-	"identity-service/internal/shared/event"
 )
 
-type PublishedRawMessage struct {
-	Topic   string
-	Payload []byte
+type PublishedMessage struct {
+	RoutingKey string
+	Payload    []byte
 }
 
 type MockEventPublisher struct {
-	PublishedEvent []event.Event
-	PublishedRaw   []PublishedRawMessage
-	ShouldFail     bool
+	Published  []PublishedMessage
+	ShouldFail bool
 }
 
-func (m *MockEventPublisher) PublishEvent(
+func (m *MockEventPublisher) Publish(
 	ctx context.Context,
-	e event.Event,
+	routingKey string,
+	payload []byte,
 ) error {
-	m.PublishedEvent = append(m.PublishedEvent, e)
-
-	if m.ShouldFail {
-		return errors.New("mock event publish failure")
-	}
-
-	return nil
-}
-
-func (m *MockEventPublisher) PublishRaw(
-	ctx context.Context,
-	topic string,
-	jsonData []byte,
-) error {
-	m.PublishedRaw = append(m.PublishedRaw, PublishedRawMessage{
-		Topic:   topic,
-		Payload: jsonData,
+	m.Published = append(m.Published, PublishedMessage{
+		RoutingKey: routingKey,
+		Payload:    payload,
 	})
 
 	if m.ShouldFail {
-		return errors.New("mock raw publish failure")
+		return errors.New("mock publish failure")
 	}
 
 	return nil
@@ -68,11 +53,11 @@ func TestRelay_Process_Success(t *testing.T) {
 
 	require.NoError(t, err)
 
-	require.Len(t, mockPublisher.PublishedRaw, 1)
+	require.Len(t, mockPublisher.Published, 1)
 
-	msg := mockPublisher.PublishedRaw[0]
+	msg := mockPublisher.Published[0]
 
-	assert.Equal(t, "restaurant.initiated", msg.Topic)
+	assert.Equal(t, "restaurant.initiated", msg.RoutingKey)
 
 	assert.JSONEq(
 		t,
@@ -97,8 +82,8 @@ func TestRelay_Process_PublishError(t *testing.T) {
 
 	require.Error(t, err)
 
-	assert.Equal(t, "mock raw publish failure", err.Error())
+	assert.Equal(t, "mock publish failure", err.Error())
 
 	// publish still attempted
-	require.Len(t, mockPublisher.PublishedRaw, 1)
+	require.Len(t, mockPublisher.Published, 1)
 }

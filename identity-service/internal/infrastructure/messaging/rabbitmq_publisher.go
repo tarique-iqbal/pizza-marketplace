@@ -2,7 +2,6 @@ package messaging
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -11,7 +10,6 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 
 	logobs "identity-service/internal/infrastructure/observability/logger"
-	"identity-service/internal/shared/event"
 )
 
 const exchangeName = "identity.events"
@@ -78,32 +76,10 @@ func (p *RabbitMQPublisher) ensureConnected(ctx context.Context) error {
 	return p.connect()
 }
 
-func (p *RabbitMQPublisher) PublishEvent(ctx context.Context, evt event.Event) error {
-	body, err := json.Marshal(evt)
-	if err != nil {
-		logobs.FromContext(ctx).Warn(
-			"failed to marshal event",
-			"error", err,
-			"event", evt.GetEventName(),
-		)
-		return err
-	}
-
-	return p.publish(ctx, evt.GetEventName(), body)
-}
-
-func (p *RabbitMQPublisher) PublishRaw(
+func (p *RabbitMQPublisher) Publish(
 	ctx context.Context,
 	routingKey string,
-	body []byte,
-) error {
-	return p.publish(ctx, routingKey, body)
-}
-
-func (p *RabbitMQPublisher) publish(
-	ctx context.Context,
-	routingKey string,
-	body []byte,
+	payload []byte,
 ) error {
 	select {
 	case <-ctx.Done():
@@ -132,7 +108,7 @@ func (p *RabbitMQPublisher) publish(
 			false,
 			amqp.Publishing{
 				ContentType:  "application/json",
-				Body:         body,
+				Body:         payload,
 				DeliveryMode: amqp.Persistent,
 				MessageId:    uuid.NewString(),
 				Timestamp:    time.Now().UTC(),
@@ -159,7 +135,7 @@ func (p *RabbitMQPublisher) publish(
 			logobs.FromContext(ctx).Warn(
 				"failed to publish message",
 				"error", err,
-				"body", string(body),
+				"payload", string(payload),
 				"event", routingKey,
 			)
 			return err
