@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"encoding/json"
 	"identity-service/internal/domain/auth"
 	"identity-service/internal/domain/outbox"
 	"identity-service/internal/domain/user"
@@ -88,28 +87,13 @@ func (uc *RequestEmailOTP) Execute(
 		return err
 	}
 
-	aggregateID := verification.ID
-	if existing != nil {
-		aggregateID = existing.ID
-	}
-
-	emailVerificationCreated := EmailVerificationCreated{
-		Email:      email,
-		Code:       code,
-		OccurredAt: time.Now().UTC(),
-	}
-	emailVerificationCreated.EventName = emailVerificationCreated.GetEventName()
-
-	payload, err := json.Marshal(emailVerificationCreated)
-	if err != nil {
-		return err
-	}
-
 	return uc.db.Transaction(func(tx *gorm.DB) error {
+		var ev *auth.EmailVerification
 		if existing == nil {
 			if err := uc.repo.WithTx(tx).Create(ctx, verification); err != nil {
 				return err
 			}
+			ev = verification
 		} else {
 			existing.Code = code
 			existing.ExpiresAt = verification.ExpiresAt
@@ -119,9 +103,10 @@ func (uc *RequestEmailOTP) Execute(
 			if err := uc.repo.WithTx(tx).Updates(ctx, existing); err != nil {
 				return err
 			}
+			ev = existing
 		}
 
-		outboxEvent := outbox.NewOutboxEvent(aggregateID, outbox.EventEmailVerificationCreated, payload)
-		return uc.outboxRepo.WithTx(tx).Create(ctx, &outboxEvent)
+		ev.MarkCreated()
+		return DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), ev)
 	})
 }
