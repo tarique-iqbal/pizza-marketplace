@@ -22,15 +22,8 @@ type Handlers struct {
 }
 
 func SetupRoutes(router *gin.Engine, h *Handlers, m *middleware.Middleware) {
-	SetupGetRestaurantRoutes(router, h.GetRestaurantHandler, m)
-	SetupAddressRoutes(router, h.AddressHandler, m)
-	SetupContactRoutes(router, h.ContactHandler, m)
-	SetupDeliveryRoutes(router, h.DeliveryHandler, m)
-	SetupTagsRoutes(router, h.TagsHandler, m)
+	SetupRestaurantRoutes(router, h, m)
 	SetupPayoutRoutes(router, h.PayoutHandler, m)
-	SetupOpeningHoursRoutes(router, h.OpeningHoursHandler, m)
 	SetupToppingPriceRoutes(router, h.ToppingPriceHandler, m)
 	SetupPizzaRoutes(router, h.PizzaHandler, m)
-	SetupApproveRoutes(router, h.ApproveHandler, m)
-	SetupLaunchRoutes(router, h.LaunchHandler, m)
 }
