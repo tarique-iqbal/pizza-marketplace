@@ -41,7 +41,9 @@ func setupListPizzas(t *testing.T) listPizzasSetup {
 	toppingRepo := persistence.NewToppingRepository(db.DB)
 	toppingPriceRepo := persistence.NewToppingPriceRepository(db.DB)
 
-	pizzaCatalog := queries.NewPizzaCatalog(pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo)
+	pizzaCatalog := queries.NewPizzaCatalog(
+		pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo,
+	)
 
 	return listPizzasSetup{
 		DB:         db.DB,

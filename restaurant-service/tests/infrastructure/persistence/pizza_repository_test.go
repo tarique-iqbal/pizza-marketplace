@@ -112,7 +112,9 @@ func TestPizzaRepository_FindByIDAndRestaurant(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, found)
 
-	notFound, err := setup.PizzaRepo.FindByIDAndRestaurant(context.Background(), existing.ID, testutil.MustNewID())
+	notFound, err := setup.PizzaRepo.FindByIDAndRestaurant(
+		context.Background(), existing.ID, testutil.MustNewID(),
+	)
 	require.NoError(t, err)
 	assert.Nil(t, notFound)
 }

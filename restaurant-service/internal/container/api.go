@@ -45,7 +45,9 @@ func NewAPIContainer() (*APIContainer, error) {
 	payoutDetailsRepo := persistence.NewPayoutDetailsRepository(base.DB)
 
 	geocoder := geocoder.NewOpenCageGeocoder(opencageApiKey)
-	updateAddress := commands.NewUpdateAddress(base.DB, geocoder, restaurantRepo, payoutDetailsRepo, base.OutboxRepo)
+	updateAddress := commands.NewUpdateAddress(
+		base.DB, geocoder, restaurantRepo, payoutDetailsRepo, base.OutboxRepo,
+	)
 	addressHandler := handlers.NewAddressHandler(updateAddress)
 
 	updateContact := commands.NewUpdateContact(base.DB, restaurantRepo, payoutDetailsRepo, base.OutboxRepo)
@@ -61,7 +63,9 @@ func NewAPIContainer() (*APIContainer, error) {
 	updatePayout := payoutcmd.NewUpdatePayout(restaurantRepo, payoutDetailsRepo)
 	payoutHandler := handlers.NewPayoutHandler(createPayout, updatePayout)
 
-	updateOpeningHours := commands.NewUpdateOpeningHours(base.DB, restaurantRepo, payoutDetailsRepo, base.OutboxRepo)
+	updateOpeningHours := commands.NewUpdateOpeningHours(
+		base.DB, restaurantRepo, payoutDetailsRepo, base.OutboxRepo,
+	)
 	openingHoursHandler := handlers.NewOpeningHoursHandler(updateOpeningHours)
 
 	toppingRepo := persistence.NewToppingRepository(base.DB)
@@ -92,7 +96,9 @@ func NewAPIContainer() (*APIContainer, error) {
 	getRestaurant := resqry.NewGetRestaurant(restaurantRepo, payoutDetailsRepo, pizzaCatalog)
 	getRestaurantHandler := handlers.NewGetRestaurantHandler(getRestaurant)
 
-	approveRestaurant := commands.NewApproveRestaurant(base.DB, restaurantRepo, payoutDetailsRepo, base.OutboxRepo)
+	approveRestaurant := commands.NewApproveRestaurant(
+		base.DB, restaurantRepo, payoutDetailsRepo, base.OutboxRepo,
+	)
 	approveHandler := handlers.NewApproveHandler(approveRestaurant)
 
 	launchRestaurant := commands.NewLaunchRestaurant(

@@ -38,7 +38,9 @@ func setupGetLaunchReadiness(t *testing.T) getLaunchReadinessSetup {
 	toppingRepo := persistence.NewToppingRepository(db.DB)
 	toppingPriceRepo := persistence.NewToppingPriceRepository(db.DB)
 
-	pizzaCatalog := pizzaqry.NewPizzaCatalog(pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo)
+	pizzaCatalog := pizzaqry.NewPizzaCatalog(
+		pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo,
+	)
 
 	return getLaunchReadinessSetup{
 		DB:                 db.DB,

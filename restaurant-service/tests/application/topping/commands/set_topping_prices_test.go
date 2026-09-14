@@ -47,7 +47,12 @@ func setupSetToppingPrices(t *testing.T) setToppingPricesSetup {
 	}
 }
 
-func firstOutboxEvent(t *testing.T, db *gorm.DB, restaurantID uuid.UUID, eventName string) outbox.OutboxEvent {
+func firstOutboxEvent(
+	t *testing.T,
+	db *gorm.DB,
+	restaurantID uuid.UUID,
+	eventName string,
+) outbox.OutboxEvent {
 	t.Helper()
 
 	var found outbox.OutboxEvent
@@ -84,8 +89,10 @@ func TestSetToppingPrices_Success(t *testing.T) {
 		byToppingID[p.ToppingID] = p
 	}
 
-	assert.True(t, decimal.RequireFromString("1.00").Equal(decimal.Decimal(byToppingID[toppings[0].ID].ExtraPrice)))
-	assert.True(t, decimal.RequireFromString("1.50").Equal(decimal.Decimal(byToppingID[toppings[1].ID].ExtraPrice)))
+	price0 := decimal.Decimal(byToppingID[toppings[0].ID].ExtraPrice)
+	price1 := decimal.Decimal(byToppingID[toppings[1].ID].ExtraPrice)
+	assert.True(t, decimal.RequireFromString("1.00").Equal(price0))
+	assert.True(t, decimal.RequireFromString("1.50").Equal(price1))
 }
 
 func TestSetToppingPrices_PublishesToppingPricesUpdatedEvent_WhenActive(t *testing.T) {

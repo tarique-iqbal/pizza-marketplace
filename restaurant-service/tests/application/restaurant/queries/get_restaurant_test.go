@@ -38,7 +38,9 @@ func setupGetRestaurant(t *testing.T) getRestaurantSetup {
 	toppingRepo := persistence.NewToppingRepository(db.DB)
 	toppingPriceRepo := persistence.NewToppingPriceRepository(db.DB)
 
-	pizzaCatalog := pizzaqry.NewPizzaCatalog(pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo)
+	pizzaCatalog := pizzaqry.NewPizzaCatalog(
+		pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo,
+	)
 
 	return getRestaurantSetup{
 		DB:            db.DB,
@@ -75,7 +77,8 @@ func TestGetRestaurant_IncludesPizzas(t *testing.T) {
 	require.NoError(t, env.DB.Where("slug = ?", "anatolische-kueche").Take(&res).Error)
 
 	var margherita pizza.Pizza
-	require.NoError(t, env.DB.Where("restaurant_id = ? AND name = ?", res.ID, "Margherita").Take(&margherita).Error)
+	err := env.DB.Where("restaurant_id = ? AND name = ?", res.ID, "Margherita").Take(&margherita).Error
+	require.NoError(t, err)
 	require.NoError(t, env.DB.Model(&margherita).Update("status", pizza.PizzaUnavailable).Error)
 
 	output, err := env.GetRestaurant.Execute(context.Background(), res.ID, res.OwnerID)

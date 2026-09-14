@@ -44,7 +44,9 @@ func setupLaunchRestaurant(t *testing.T) launchRestaurantSetup {
 	toppingRepo := persistence.NewToppingRepository(db.DB)
 	toppingPriceRepo := persistence.NewToppingPriceRepository(db.DB)
 
-	pizzaCatalog := queries.NewPizzaCatalog(pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo)
+	pizzaCatalog := queries.NewPizzaCatalog(
+		pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo,
+	)
 	outboxRepo := persistence.NewOutboxRepository(db.DB)
 	launchRestaurant := commands.NewLaunchRestaurant(
 		db.DB, restaurantRepo, payoutDetailsRepo, pizzaCatalog, toppingRepo, toppingPriceRepo, outboxRepo,
@@ -284,7 +286,8 @@ func TestLaunchRestaurant_FailsIfNotEnoughPizzas(t *testing.T) {
 	assert.ErrorIs(t, err, apperr.ErrConflict)
 
 	var eventCount int64
-	require.NoError(t, env.DB.Model(&outbox.OutboxEvent{}).Where("aggregate_id = ?", res.ID).Count(&eventCount).Error)
+	err = env.DB.Model(&outbox.OutboxEvent{}).Where("aggregate_id = ?", res.ID).Count(&eventCount).Error
+	require.NoError(t, err)
 	assert.Zero(t, eventCount, "no outbox event should be created when launch is rejected")
 
 	var unchanged restaurant.Restaurant

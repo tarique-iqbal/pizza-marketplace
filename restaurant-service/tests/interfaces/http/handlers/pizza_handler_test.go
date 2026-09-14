@@ -46,7 +46,9 @@ func setupPizzaHandler(t *testing.T) pizzaHandlerSetup {
 	toppingPriceRepo := persistence.NewToppingPriceRepository(db.DB)
 	outboxRepo := persistence.NewOutboxRepository(db.DB)
 
-	pizzaCatalog := queries.NewPizzaCatalog(pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo)
+	pizzaCatalog := queries.NewPizzaCatalog(
+		pizzaRepo, pizzaPriceRepo, pizzaSizeRepo, toppingRepo, toppingPriceRepo,
+	)
 
 	handler := handlers.NewPizzaHandler(
 		commands.NewCreatePizza(restaurantRepo, pizzaRepo, toppingRepo),
@@ -124,7 +126,9 @@ func TestPizzaHandler_CreatePizza_ValidationError_MissingName(t *testing.T) {
 
 	router := pizzaRouter(h.Handler, res.OwnerID.String(), "owner")
 
-	req, _ := http.NewRequest(http.MethodPost, "/restaurants/"+res.ID.String()+"/pizzas", bytes.NewBufferString(`{}`))
+	req, _ := http.NewRequest(
+		http.MethodPost, "/restaurants/"+res.ID.String()+"/pizzas", bytes.NewBufferString(`{}`),
+	)
 	req.Header.Set("Content-Type", "application/json")
 
 	recorder := httptest.NewRecorder()

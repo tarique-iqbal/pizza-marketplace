@@ -17,7 +17,9 @@ import (
 	"restaurant-service/tests/testutil"
 )
 
-func setupPizzaPriceRepo(t *testing.T) (*gorm.DB, pizza.PizzaPriceRepository, pizza.Pizza, []pizza.PizzaSize) {
+func setupPizzaPriceRepo(
+	t *testing.T,
+) (*gorm.DB, pizza.PizzaPriceRepository, pizza.Pizza, []pizza.PizzaSize) {
 	db := testutil.DB(t)
 	db.TruncateTables(t, testutil.TableRestaurant)
 
@@ -78,9 +80,11 @@ func TestPizzaPriceRepository_ReplacePrices_UpsertsAndDeactivates(t *testing.T) 
 	}
 
 	assert.False(t, byID[sizes[0].ID].IsActive, "dropped size becomes inactive, not deleted")
-	assert.NotNil(t, byID[sizes[0].ID].UpdatedAt, "deactivation must set UpdatedAt manually (autoUpdateTime disabled)")
+	assert.NotNil(t, byID[sizes[0].ID].UpdatedAt,
+		"deactivation must set UpdatedAt manually (autoUpdateTime disabled)")
 	assert.True(t, byID[sizes[1].ID].IsActive)
-	assert.True(t, decimal.RequireFromString("13.50").Equal(byID[sizes[1].ID].Price), "price updated on re-upsert")
+	assert.True(t, decimal.RequireFromString("13.50").Equal(byID[sizes[1].ID].Price),
+		"price updated on re-upsert")
 	assert.True(t, byID[sizes[2].ID].IsActive)
 }
 

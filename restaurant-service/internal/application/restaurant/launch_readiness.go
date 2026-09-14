@@ -59,7 +59,11 @@ func ToLaunchReadinessResponse(r *restaurant.Restaurant, readiness LaunchReadine
 	}
 }
 
-func launchReadinessComment(status restaurant.RestaurantStatus, readyToLaunch bool, readiness LaunchReadiness) string {
+func launchReadinessComment(
+	status restaurant.RestaurantStatus,
+	readyToLaunch bool,
+	readiness LaunchReadiness,
+) string {
 	if readyToLaunch {
 		return "Welcome to launch! Your restaurant is ready to go live."
 	}

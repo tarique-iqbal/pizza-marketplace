@@ -26,7 +26,10 @@ func (r *OutboxRepository) Create(ctx context.Context, e *outbox.OutboxEvent) er
 	return r.db.WithContext(ctx).Create(e).Error
 }
 
-func (r *OutboxRepository) FetchAndMarkProcessing(ctx context.Context, limit int) ([]outbox.OutboxEvent, error) {
+func (r *OutboxRepository) FetchAndMarkProcessing(
+	ctx context.Context,
+	limit int,
+) ([]outbox.OutboxEvent, error) {
 	var events []outbox.OutboxEvent
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

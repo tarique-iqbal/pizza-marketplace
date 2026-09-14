@@ -58,7 +58,9 @@ func LoadRestaurantFixtures(t *testing.T, db *gorm.DB) error {
 				Saturday:  []restaurant.DayRange{{Open: "12:00", Close: "23:00"}},
 				Sunday:    []restaurant.DayRange{{Open: "12:00", Close: "21:00"}},
 			},
-			Tags:            []restaurant.RestaurantTag{restaurant.TagVegetarian, restaurant.TagVegan, restaurant.TagHalal},
+			Tags: []restaurant.RestaurantTag{
+				restaurant.TagVegetarian, restaurant.TagVegan, restaurant.TagHalal,
+			},
 			Pickup:          true,
 			Currency:        "EUR",
 			DeliveryType:    restaurant.DeliveryOwn,

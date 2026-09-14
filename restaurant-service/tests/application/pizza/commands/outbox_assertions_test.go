@@ -10,7 +10,12 @@ import (
 	"restaurant-service/internal/domain/outbox"
 )
 
-func firstOutboxEvent(t *testing.T, db *gorm.DB, restaurantID uuid.UUID, eventName string) outbox.OutboxEvent {
+func firstOutboxEvent(
+	t *testing.T,
+	db *gorm.DB,
+	restaurantID uuid.UUID,
+	eventName string,
+) outbox.OutboxEvent {
 	t.Helper()
 
 	var found outbox.OutboxEvent

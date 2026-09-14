@@ -157,14 +157,20 @@ func validateDelivery(sl validator.StructLevel) {
 			sl.ReportError(reflect.ValueOf(req.DeliveryKm), "DeliveryKm", "DeliveryKm", "required_if_delivery", "")
 		}
 		if req.DeliveryTimeMin == nil {
-			sl.ReportError(reflect.ValueOf(req.DeliveryTimeMin), "DeliveryTimeMin", "DeliveryTimeMin", "required_if_delivery", "")
+			sl.ReportError(
+				reflect.ValueOf(req.DeliveryTimeMin), "DeliveryTimeMin", "DeliveryTimeMin", "required_if_delivery", "",
+			)
 		}
 		if req.DeliveryTimeMax == nil {
-			sl.ReportError(reflect.ValueOf(req.DeliveryTimeMax), "DeliveryTimeMax", "DeliveryTimeMax", "required_if_delivery", "")
+			sl.ReportError(
+				reflect.ValueOf(req.DeliveryTimeMax), "DeliveryTimeMax", "DeliveryTimeMax", "required_if_delivery", "",
+			)
 		}
 	}
 
 	if req.DeliveryTimeMin != nil && req.DeliveryTimeMax != nil && *req.DeliveryTimeMax <= *req.DeliveryTimeMin {
-		sl.ReportError(reflect.ValueOf(req.DeliveryTimeMax), "DeliveryTimeMax", "DeliveryTimeMax", "gtfield_deliverytimemax", "")
+		sl.ReportError(
+			reflect.ValueOf(req.DeliveryTimeMax), "DeliveryTimeMax", "DeliveryTimeMax", "gtfield_deliverytimemax", "",
+		)
 	}
 }
