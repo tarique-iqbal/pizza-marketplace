@@ -36,6 +36,7 @@ func (u *User) MarkRegistered() {
 		UserID:     u.ID,
 		Email:      u.Email,
 		FirstName:  u.FirstName,
+		LastName:   u.LastName,
 		Role:       u.Role,
 		OccurredAt: time.Now().UTC(),
 	})

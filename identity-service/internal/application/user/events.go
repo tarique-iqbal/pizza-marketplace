@@ -12,6 +12,7 @@ type UserRegisteredPayload struct {
 	UserID     uuid.UUID `json:"user_id"`
 	Email      string    `json:"email"`
 	FirstName  string    `json:"first_name"`
+	LastName   string    `json:"last_name"`
 	Role       string    `json:"role"`
 	EventName  string    `json:"event_name"`
 	OccurredAt time.Time `json:"occurred_at"`
@@ -26,6 +27,7 @@ func newUserRegisteredPayload(e user.UserRegistered) UserRegisteredPayload {
 		UserID:     e.UserID,
 		Email:      e.Email,
 		FirstName:  e.FirstName,
+		LastName:   e.LastName,
 		Role:       e.Role,
 		OccurredAt: e.OccurredAt,
 	}

@@ -57,10 +57,12 @@ func TestRegisterOwner_Success(t *testing.T) {
 		UserID    string `json:"user_id"`
 		Email     string `json:"email"`
 		FirstName string `json:"first_name"`
+		LastName  string `json:"last_name"`
 	}
 	require.NoError(t, json.Unmarshal(outboxEvent.Payload, &payload))
 	assert.Equal(t, newUser.ID.String(), payload.UserID)
 	assert.Equal(t, "Sophie", payload.FirstName)
+	assert.Equal(t, "Müller", payload.LastName)
 	assert.Equal(t, "sophie.mueller@example.com", payload.Email)
 }
 

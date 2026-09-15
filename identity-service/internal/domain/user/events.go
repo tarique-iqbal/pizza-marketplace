@@ -14,6 +14,7 @@ type UserRegistered struct {
 	UserID     uuid.UUID
 	Email      string
 	FirstName  string
+	LastName   string
 	Role       string
 	OccurredAt time.Time
 }

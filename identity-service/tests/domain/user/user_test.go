@@ -14,6 +14,7 @@ func TestUser_MarkRegistered_AppendsEvent(t *testing.T) {
 	u := user.User{
 		ID:        uuid.New(),
 		FirstName: "Ada",
+		LastName:  "Lovelace",
 		Email:     "ada@example.com",
 		Role:      user.RoleCustomer,
 	}
@@ -29,6 +30,7 @@ func TestUser_MarkRegistered_AppendsEvent(t *testing.T) {
 	assert.Equal(t, u.ID, event.UserID)
 	assert.Equal(t, u.Email, event.Email)
 	assert.Equal(t, u.FirstName, event.FirstName)
+	assert.Equal(t, u.LastName, event.LastName)
 	assert.Equal(t, u.Role, event.Role)
 	assert.Equal(t, "user.registered", event.GetEventName())
 	assert.False(t, event.OccurredAt.IsZero())
