@@ -22,5 +22,5 @@ func NewRelay(publisher event.EventPublisher) *Relay {
 func (r *Relay) Process(ctx context.Context, event outbox.OutboxEvent) error {
 	routingKey := event.EventName
 
-	return r.publisher.PublishRaw(ctx, routingKey, event.Payload)
+	return r.publisher.Publish(ctx, routingKey, event.Payload)
 }
