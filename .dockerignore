@@ -48,3 +48,4 @@ notification-service/tmp
 identity-service/tmp
 restaurant-service/tmp
 order-service/tmp
+customer-service/tmp

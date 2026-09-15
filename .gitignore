@@ -35,5 +35,6 @@ build/
 /search-service/tmp
 /order-service/tmp
 /payment-service/tmp
+/customer-service/tmp
 
 notes/

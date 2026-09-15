@@ -96,6 +96,26 @@ services:
     networks:
       - internal
 
+  # Database (customer)
+  postgres-customer:
+    image: postgres:17-alpine
+    container_name: pizza-pg-customer
+    environment:
+      POSTGRES_USER: user_dev
+      POSTGRES_PASSWORD: pass_dev
+      POSTGRES_DB: customer_db
+    volumes:
+      - pg_customer:/var/lib/postgresql/data
+    ports:
+      - "5436:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_dev -d customer_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
   # Migrations (identity)
   migrate-identity:
     image: migrate/migrate
@@ -483,11 +503,38 @@ services:
     networks:
       - internal
 
+  # Customer Service (API)
+  customer-service:
+    container_name: pizza-customer-service
+    build:
+      context: .
+      dockerfile: customer-service/Dockerfile
+      target: dev
+    volumes:
+      - ./customer-service:/app
+    depends_on:
+      postgres-customer:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    env_file: customer-service/.env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.customer.rule=PathPrefix(`/customers`)"
+      - "traefik.http.routers.customer.entrypoints=web"
+      - "traefik.http.routers.customer.middlewares=jwt@docker"
+      - "traefik.http.services.customer.loadbalancer.server.port=8080"
+      - "traefik.docker.network=backend"
+    networks:
+      - backend
+      - internal
+
 volumes:
   pg_identity:
   pg_restaurant:
   pg_order:
   pg_payment:
+  pg_customer:
   elasticsearch_data:
   redis_data:
 
