@@ -184,6 +184,23 @@ services:
     networks:
       - internal
 
+  # Migrations (customer)
+  migrate-customer:
+    image: migrate/migrate
+    depends_on:
+      postgres-customer:
+        condition: service_healthy
+    volumes:
+      - ./customer-service/internal/infrastructure/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://user_dev:pass_dev@postgres-customer:5432/customer_db?sslmode=disable",
+        "up"
+      ]
+    networks:
+      - internal
+
   # Message Broker
   rabbitmq:
     image: rabbitmq:3-management-alpine
@@ -517,6 +534,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      migrate-customer:
+        condition: service_completed_successfully
     env_file: customer-service/.env
     labels:
       - "traefik.enable=true"
@@ -527,6 +546,27 @@ services:
       - "traefik.docker.network=backend"
     networks:
       - backend
+      - internal
+
+  # Customer Service (worker)
+  customer-worker:
+    container_name: pizza-customer-worker
+    build:
+      context: .
+      dockerfile: customer-service/Dockerfile
+      target: dev
+    command: ["air", "-c", ".air.worker.toml"]
+    volumes:
+      - ./customer-service:/app
+    depends_on:
+      postgres-customer:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      migrate-customer:
+        condition: service_completed_successfully
+    env_file: customer-service/.env
+    networks:
       - internal
 
 volumes:
