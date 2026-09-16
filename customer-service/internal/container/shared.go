@@ -1,13 +1,16 @@
 package container
 
 import (
+	"os"
+
 	"gorm.io/gorm"
 
 	"customer-service/internal/infrastructure/db"
 )
 
 type Shared struct {
-	DB *gorm.DB
+	AMQPURL string
+	DB      *gorm.DB
 }
 
 func NewShared() (*Shared, error) {
@@ -17,6 +20,7 @@ func NewShared() (*Shared, error) {
 	}
 
 	return &Shared{
-		DB: postgres.DB,
+		AMQPURL: os.Getenv("RABBITMQ_URL"),
+		DB:      postgres.DB,
 	}, nil
 }
