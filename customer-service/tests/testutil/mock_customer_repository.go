@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"customer-service/internal/domain/customer"
 )
@@ -17,6 +18,10 @@ type MockCustomerRepository struct {
 }
 
 var _ customer.CustomerRepository = (*MockCustomerRepository)(nil)
+
+func (m *MockCustomerRepository) WithTx(_ *gorm.DB) customer.CustomerRepository {
+	return m
+}
 
 func (m *MockCustomerRepository) FindByID(_ context.Context, _ uuid.UUID) (*customer.Customer, error) {
 	return m.FindByIDResult, m.FindByIDErr

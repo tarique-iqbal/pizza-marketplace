@@ -19,7 +19,11 @@ func NewCustomerRepository(db *gorm.DB) customer.CustomerRepository {
 	return &CustomerRepository{db: db}
 }
 
-// Upsert is redelivery-safe only — user.registered fires exactly once per user, ever.
+func (r *CustomerRepository) WithTx(tx *gorm.DB) customer.CustomerRepository {
+	return &CustomerRepository{db: tx}
+}
+
+// Upsert is redelivery-safe only: user.registered fires exactly once per user, ever.
 func (r *CustomerRepository) Upsert(ctx context.Context, c customer.Customer) error {
 	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "id"}},

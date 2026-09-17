@@ -6,6 +6,10 @@ import (
 	"github.com/google/uuid"
 )
 
+type UpdatePhoneRequest struct {
+	Phone string `json:"phone" binding:"required,max=32"`
+}
+
 type GetProfileResponse struct {
 	ID        uuid.UUID  `json:"id"`
 	Email     string     `json:"email"`
