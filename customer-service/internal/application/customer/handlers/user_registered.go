@@ -10,7 +10,7 @@ import (
 	"customer-service/internal/domain/customer"
 )
 
-// userRegisteredPayload mirrors identity-service's wire shape — a local, independent copy.
+// userRegisteredPayload mirrors identity-service's wire shape: a local, independent copy.
 type userRegisteredPayload struct {
 	UserID    uuid.UUID `json:"user_id"`
 	Email     string    `json:"email"`
@@ -26,7 +26,7 @@ func NewUserRegistered(customerRepo customer.CustomerRepository) *UserRegistered
 	return &UserRegistered{customerRepo: customerRepo}
 }
 
-// Handle stores every registered user, regardless of role — an owner can place orders too.
+// Handle stores every registered user, regardless of role: an owner can place orders too.
 func (h *UserRegistered) Handle(event customer.EventPayload) error {
 	var payload userRegisteredPayload
 	if err := json.Unmarshal(event.Data, &payload); err != nil {
