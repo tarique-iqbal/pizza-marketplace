@@ -13,6 +13,7 @@ import (
 const (
 	TableCustomer        = "customers"
 	TableCustomerAddress = "customer_addresses"
+	TableOutboxEvent     = "outbox_events"
 )
 
 type TestDB struct {
