@@ -31,6 +31,10 @@ on:
         description: Run payment-service tests
         type: boolean
         default: false
+      run_customer:
+        description: Run customer-service tests
+        type: boolean
+        default: false
 
 jobs:
   detect-changes:
@@ -43,6 +47,7 @@ jobs:
       search: ${{ steps.filter.outputs.search }}
       order: ${{ steps.filter.outputs.order }}
       payment: ${{ steps.filter.outputs.payment }}
+      customer: ${{ steps.filter.outputs.customer }}
     steps:
       - uses: actions/checkout@v5
       - uses: dorny/paths-filter@v4
@@ -70,6 +75,10 @@ jobs:
               - 'compose.test.yaml'
             payment:
               - 'payment-service/**'
+              - 'compose.yaml'
+              - 'compose.test.yaml'
+            customer:
+              - 'customer-service/**'
               - 'compose.yaml'
               - 'compose.test.yaml'
 
@@ -354,6 +363,58 @@ jobs:
 
       - name: Run tests
         run: docker compose -f compose.test.yaml exec -T payment-test sh -c "cd /app && go test -p 1 -count=1 ./tests/..."
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f compose.test.yaml down -v
+
+  customer-ci:
+    needs: detect-changes
+    if: |
+      always() &&
+      (needs.detect-changes.outputs.customer == 'true' ||
+        (github.event_name == 'workflow_dispatch' && inputs.run_customer))
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: customer-service/go.mod
+
+      - name: Check formatting
+        run: |
+          cd customer-service
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Run go vet
+        run: cd customer-service && go vet ./...
+
+      - name: Write .env.test
+        run: |
+          cat > customer-service/.env.test <<'EOF'
+          APP_ENV=test
+          LOG_LEVEL=info
+          POSTGRES_USER=user_test
+          POSTGRES_PASSWORD=pass_test
+          POSTGRES_DB=customer_db_test
+          POSTGRES_HOST=pg-customer-test
+          POSTGRES_PORT=5432
+          RABBITMQ_URL=amqp://user_test:pass_test@rabbitmq-test:5672/
+          EOF
+
+      - name: Start test stack
+        run: docker compose -f compose.test.yaml --profile test up -d customer-test
+
+      - name: Run migrations
+        run: docker compose -f compose.test.yaml --profile test up migrate-customer-test
+
+      - name: Run tests
+        run: docker compose -f compose.test.yaml exec -T customer-test sh -c "cd /app && go test -p 1 -count=1 ./tests/..."
 
       - name: Tear down
         if: always()
