@@ -9,7 +9,7 @@ down:
 down-v:
 	docker compose down -v
 
-.PHONY: test-up test-down test-identity test-restaurant test-notification test-search test-order test-payment test
+.PHONY: test-up test-down test-identity test-restaurant test-notification test-search test-order test-payment test-customer test
 
 test-up:
 	docker compose -f compose.test.yaml --profile test up -d
@@ -35,7 +35,10 @@ test-order:
 test-payment:
 	docker compose -f compose.test.yaml exec -T payment-test sh -c "cd /app && go test -p 1 -count=1 ./tests/..."
 
-test: test-up test-identity test-restaurant test-notification test-search test-order test-payment
+test-customer:
+	docker compose -f compose.test.yaml exec -T customer-test sh -c "cd /app && go test -p 1 -count=1 ./tests/..."
+
+test: test-up test-identity test-restaurant test-notification test-search test-order test-payment test-customer
 
 .PHONY: proto
 
@@ -48,7 +51,7 @@ proto:
 .PHONY: fmt vet lint
 
 fmt:
-	@for svc in identity-service restaurant-service notification-service search-service order-service payment-service; do \
+	@for svc in identity-service restaurant-service notification-service search-service order-service payment-service customer-service; do \
 		unformatted=$$(cd $$svc && gofmt -l .); \
 		if [ -n "$$unformatted" ]; then \
 			echo "$$unformatted"; \
@@ -57,7 +60,7 @@ fmt:
 	done
 
 vet:
-	@for svc in identity-service restaurant-service notification-service search-service order-service payment-service; do \
+	@for svc in identity-service restaurant-service notification-service search-service order-service payment-service customer-service; do \
 		(cd $$svc && go vet ./...) || exit 1; \
 	done
 
