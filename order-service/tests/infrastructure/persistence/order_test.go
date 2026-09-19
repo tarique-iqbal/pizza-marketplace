@@ -37,7 +37,7 @@ func TestOrderRepository_Create(t *testing.T) {
 		nil, nil, nil,
 		[]order.OrderItem{},
 		decimal.NewFromFloat(10.00), decimal.Zero, decimal.NewFromFloat(10.00),
-		"EUR",
+		"EUR", false,
 	)
 
 	require.NoError(t, repo.Create(context.Background(), newOrder))
@@ -128,7 +128,7 @@ func TestOrderRepository_ListByCustomer_KeysetPagination(t *testing.T) {
 			nil, nil, nil,
 			[]order.OrderItem{},
 			decimal.NewFromFloat(10.00), decimal.Zero, decimal.NewFromFloat(10.00),
-			"EUR",
+			"EUR", false,
 		)
 		require.NoError(t, repo.Create(context.Background(), o))
 		placed = append(placed, *o)

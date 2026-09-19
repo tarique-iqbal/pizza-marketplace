@@ -69,6 +69,7 @@ func NewAPIContainer() (*APIContainer, error) {
 		pizzaRepo,
 		pizzaPriceRepo,
 		toppingPriceRepo,
+		base.OutboxRepo,
 		cachingGeocoder,
 		paymentProvider,
 		os.Getenv("FRONTEND_BASE_URL"),

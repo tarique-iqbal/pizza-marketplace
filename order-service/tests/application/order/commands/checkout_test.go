@@ -2,6 +2,7 @@ package commands_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"order-service/internal/application/order/commands"
 	"order-service/internal/domain/cart"
 	"order-service/internal/domain/order"
+	"order-service/internal/domain/outbox"
 	"order-service/internal/domain/readmodel"
 	"order-service/internal/infrastructure/persistence"
 	apperr "order-service/internal/shared/errors"
@@ -67,7 +69,10 @@ type checkoutSeed struct {
 
 func seedCheckout(t *testing.T, configureRestaurant func(*readmodel.Restaurant)) checkoutSeed {
 	db := testutil.DB(t)
-	db.TruncateTables(t, testutil.TableRestaurant, testutil.TableCustomer, testutil.TableCart)
+	db.TruncateTables(
+		t,
+		testutil.TableRestaurant, testutil.TableCustomer, testutil.TableCart, testutil.TableOutboxEvent,
+	)
 
 	deliveryKm := int16(10)
 	restaurant := readmodel.Restaurant{
@@ -131,6 +136,7 @@ func seedCheckout(t *testing.T, configureRestaurant func(*readmodel.Restaurant))
 		persistence.NewPizzaRepository(db.DB),
 		persistence.NewPizzaPriceRepository(db.DB),
 		persistence.NewToppingPriceRepository(db.DB),
+		persistence.NewOutboxRepository(db.DB),
 		geocoder,
 		payment,
 		"https://frontend.example.com",
@@ -258,6 +264,63 @@ func TestCheckout_DeliveryHappyPath(t *testing.T) {
 	assert.True(t, found.Total.Equal(decimal.NewFromFloat(17.50)))
 	require.NotNil(t, found.DeliveryAddress)
 	assert.Equal(t, "Main St", found.DeliveryAddress.Street)
+}
+
+func TestCheckout_SaveAddress_PublishesAddressSaved(t *testing.T) {
+	seed := seedCheckout(t, func(r *readmodel.Restaurant) { r.DeliveryType = readmodel.DeliveryOwn })
+	seed.geocoder.lat = 53.5600
+	seed.geocoder.lon = 9.9900
+
+	res, err := seed.checkout.Execute(context.Background(), seed.customer.ID, orderapp.CheckoutRequest{
+		Fulfillment: "delivery",
+		DeliveryAddress: &orderapp.AddressInput{
+			House: "1", Street: "Main St", City: "Hamburg", PostalCode: "12345",
+		},
+		SaveAddress: true,
+	})
+	require.NoError(t, err)
+
+	var event outbox.OutboxEvent
+	require.NoError(t, seed.db.First(&event, "aggregate_id = ?", res.OrderID).Error)
+	assert.Equal(t, "order.address_saved", event.EventName)
+
+	var decoded orderapp.AddressSavedPayload
+	require.NoError(t, json.Unmarshal(event.Payload, &decoded))
+	assert.Equal(t, seed.customer.ID, decoded.CustomerID)
+	assert.Equal(t, "Main St", decoded.Street)
+	assert.Equal(t, "Hamburg", decoded.City)
+}
+
+func TestCheckout_NoSaveAddress_NoEventPublished(t *testing.T) {
+	seed := seedCheckout(t, func(r *readmodel.Restaurant) { r.DeliveryType = readmodel.DeliveryOwn })
+	seed.geocoder.lat = 53.5600
+	seed.geocoder.lon = 9.9900
+
+	_, err := seed.checkout.Execute(context.Background(), seed.customer.ID, orderapp.CheckoutRequest{
+		Fulfillment: "delivery",
+		DeliveryAddress: &orderapp.AddressInput{
+			House: "1", Street: "Main St", City: "Hamburg", PostalCode: "12345",
+		},
+	})
+	require.NoError(t, err)
+
+	var count int64
+	require.NoError(t, seed.db.Model(&outbox.OutboxEvent{}).Count(&count).Error)
+	assert.Equal(t, int64(0), count)
+}
+
+func TestCheckout_SaveAddress_PickupIgnored(t *testing.T) {
+	seed := seedCheckout(t, nil)
+
+	_, err := seed.checkout.Execute(context.Background(), seed.customer.ID, orderapp.CheckoutRequest{
+		Fulfillment: "pickup",
+		SaveAddress: true,
+	})
+	require.NoError(t, err)
+
+	var count int64
+	require.NoError(t, seed.db.Model(&outbox.OutboxEvent{}).Count(&count).Error)
+	assert.Equal(t, int64(0), count)
 }
 
 func TestCheckout_OutsideDeliveryRadius(t *testing.T) {

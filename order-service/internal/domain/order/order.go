@@ -70,8 +70,9 @@ func NewOrder(
 	items []OrderItem,
 	subtotal, deliveryFee, total decimal.Decimal,
 	currency string,
+	saveAddress bool,
 ) *Order {
-	return &Order{
+	o := &Order{
 		ID:              id,
 		CustomerID:      customerID,
 		RestaurantID:    restaurantID,
@@ -88,6 +89,19 @@ func NewOrder(
 		Total:           total,
 		Currency:        currency,
 	}
+
+	if saveAddress && deliveryAddress != nil {
+		o.events = append(o.events, AddressSaved{
+			CustomerID: customerID,
+			House:      deliveryAddress.House,
+			Street:     deliveryAddress.Street,
+			City:       deliveryAddress.City,
+			PostalCode: deliveryAddress.PostalCode,
+			OccurredAt: time.Now().UTC(),
+		})
+	}
+
+	return o
 }
 
 func (o *Order) Confirm() error {
@@ -121,7 +135,7 @@ func (o *Order) MarkReady() error {
 	return nil
 }
 
-// Complete accepts StatusConfirmed too, since MarkReady is optional.
+// Complete accepts StatusConfirmed; MarkReady optional.
 func (o *Order) Complete() error {
 	switch o.Status {
 	case StatusConfirmed, StatusReady:

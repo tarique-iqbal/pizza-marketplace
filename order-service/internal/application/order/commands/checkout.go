@@ -12,6 +12,7 @@ import (
 	orderapp "order-service/internal/application/order"
 	"order-service/internal/domain/cart"
 	"order-service/internal/domain/order"
+	"order-service/internal/domain/outbox"
 	"order-service/internal/domain/readmodel"
 	apperr "order-service/internal/shared/errors"
 	"order-service/internal/shared/geo"
@@ -26,6 +27,7 @@ type Checkout struct {
 	pizzaRepo        readmodel.PizzaRepository
 	pizzaPriceRepo   readmodel.PizzaPriceRepository
 	toppingPriceRepo readmodel.ToppingPriceRepository
+	outboxRepo       outbox.OutboxRepository
 	geocoder         order.Geocoder
 	paymentProvider  order.PaymentProvider
 	frontendBaseURL  string
@@ -40,6 +42,7 @@ func NewCheckout(
 	pizzaRepo readmodel.PizzaRepository,
 	pizzaPriceRepo readmodel.PizzaPriceRepository,
 	toppingPriceRepo readmodel.ToppingPriceRepository,
+	outboxRepo outbox.OutboxRepository,
 	geocoder order.Geocoder,
 	paymentProvider order.PaymentProvider,
 	frontendBaseURL string,
@@ -53,6 +56,7 @@ func NewCheckout(
 		pizzaRepo:        pizzaRepo,
 		pizzaPriceRepo:   pizzaPriceRepo,
 		toppingPriceRepo: toppingPriceRepo,
+		outboxRepo:       outboxRepo,
 		geocoder:         geocoder,
 		paymentProvider:  paymentProvider,
 		frontendBaseURL:  frontendBaseURL,
@@ -166,7 +170,7 @@ func (uc *Checkout) Execute(
 		fulfillment, customer.Email, input.ContactPhone,
 		deliveryAddress, deliveryLat, deliveryLon,
 		items, subtotal, deliveryFee, total,
-		restaurant.Currency,
+		restaurant.Currency, input.SaveAddress,
 	)
 
 	err = uc.db.Transaction(func(tx *gorm.DB) error {
@@ -178,7 +182,7 @@ func (uc *Checkout) Execute(
 			return fmt.Errorf("failed to clear cart: %w", err)
 		}
 
-		return nil
+		return orderapp.DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), newOrder)
 	})
 	if err != nil {
 		return orderapp.CheckoutResponse{}, err

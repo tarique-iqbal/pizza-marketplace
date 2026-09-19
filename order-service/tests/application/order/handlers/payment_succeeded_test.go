@@ -67,6 +67,7 @@ func seedPendingOrder(t *testing.T) (*testutil.TestDB, readmodel.Restaurant, *or
 		decimal.Zero,
 		decimal.NewFromFloat(15.00),
 		"EUR",
+		false,
 	)
 	require.NoError(t, persistence.NewOrderRepository(db.DB).Create(context.Background(), ord))
 
