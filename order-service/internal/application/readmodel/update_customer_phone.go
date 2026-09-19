@@ -30,7 +30,8 @@ func (h *UpdateCustomerPhone) Handle(event readmodel.EventPayload) error {
 		return fmt.Errorf("failed to unmarshal %s payload: %w", event.Name, err)
 	}
 
-	if err := h.customerRepo.UpdatePhone(context.Background(), payload.CustomerID, payload.Phone); err != nil {
+	err := h.customerRepo.UpdatePhone(context.Background(), payload.CustomerID, payload.Phone)
+	if err != nil {
 		return fmt.Errorf("failed to update customer phone: %w", err)
 	}
 
