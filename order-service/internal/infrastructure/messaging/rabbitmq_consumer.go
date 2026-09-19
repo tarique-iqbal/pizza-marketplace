@@ -32,6 +32,9 @@ var Exchanges = map[string][]string{
 		"payment.succeeded",
 		"payment.failed",
 	},
+	"customer.events": {
+		"customer.phone_updated",
+	},
 }
 
 type messageSource interface {
