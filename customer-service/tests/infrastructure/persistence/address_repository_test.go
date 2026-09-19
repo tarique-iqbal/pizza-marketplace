@@ -136,6 +136,40 @@ func TestAddressRepository_SetDefault_UnknownID_ReturnsNotFound(t *testing.T) {
 	assert.ErrorIs(t, err, apperr.ErrNotFound)
 }
 
+func TestAddressRepository_ExistsForCustomer_MatchingAddress_ReturnsTrue(t *testing.T) {
+	repo, owner, fixtureAddresses := setupAddressRepo(t)
+
+	target := fixtureAddresses[0]
+
+	exists, err := repo.ExistsForCustomer(
+		context.Background(), owner.ID, target.House, target.Street, target.City, target.PostalCode,
+	)
+	require.NoError(t, err)
+	assert.True(t, exists)
+}
+
+func TestAddressRepository_ExistsForCustomer_NoMatch_ReturnsFalse(t *testing.T) {
+	repo, owner, _ := setupAddressRepo(t)
+
+	exists, err := repo.ExistsForCustomer(
+		context.Background(), owner.ID, "99", "Nowhere St", "Berlin", "00000",
+	)
+	require.NoError(t, err)
+	assert.False(t, exists)
+}
+
+func TestAddressRepository_ExistsForCustomer_DifferentCustomer_ReturnsFalse(t *testing.T) {
+	repo, _, fixtureAddresses := setupAddressRepo(t)
+
+	target := fixtureAddresses[0]
+
+	exists, err := repo.ExistsForCustomer(
+		context.Background(), uuid.New(), target.House, target.Street, target.City, target.PostalCode,
+	)
+	require.NoError(t, err)
+	assert.False(t, exists)
+}
+
 func TestAddressRepository_WithTx_UnsetThenSetDefault(t *testing.T) {
 	db := testutil.DB(t)
 	repo, owner, fixtureAddresses := setupAddressRepo(t)

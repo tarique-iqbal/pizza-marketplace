@@ -96,3 +96,21 @@ func (r *AddressRepository) SetDefault(ctx context.Context, id uuid.UUID) error 
 
 	return nil
 }
+
+func (r *AddressRepository) ExistsForCustomer(
+	ctx context.Context,
+	customerID uuid.UUID,
+	house, street, city, postalCode string,
+) (bool, error) {
+	var count int64
+
+	err := r.db.WithContext(ctx).
+		Model(&customer.Address{}).
+		Where(
+			"customer_id = ? AND house = ? AND street = ? AND city = ? AND postal_code = ?",
+			customerID, house, street, city, postalCode,
+		).
+		Count(&count).Error
+
+	return count > 0, err
+}
