@@ -22,6 +22,9 @@ var Exchanges = map[string][]string{
 	"identity.events": {
 		"user.registered",
 	},
+	"order.events": {
+		"order.address_saved",
+	},
 }
 
 type messageSource interface {
