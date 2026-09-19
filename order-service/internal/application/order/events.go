@@ -29,6 +29,26 @@ func (OrderConfirmedPayload) GetEventName() string {
 	return "order.confirmed"
 }
 
+func NewOrderConfirmedPayload(
+	e order.OrderConfirmed,
+	ord *order.Order,
+	restaurantName string,
+	ownerEmail string,
+	items []OrderItemPayload,
+) OrderConfirmedPayload {
+	return OrderConfirmedPayload{
+		OrderID:        e.OrderID,
+		RestaurantID:   e.RestaurantID,
+		RestaurantName: restaurantName,
+		CustomerEmail:  ord.ContactEmail,
+		OwnerEmail:     ownerEmail,
+		Items:          items,
+		Total:          ord.Total.StringFixed(2),
+		Currency:       ord.Currency,
+		ConfirmedAt:    e.OccurredAt,
+	}
+}
+
 type AddressSavedPayload struct {
 	CustomerID uuid.UUID `json:"customer_id"`
 	House      string    `json:"house"`

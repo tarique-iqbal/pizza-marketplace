@@ -88,25 +88,24 @@ func (h *PaymentSucceededHandler) Handle(evt readmodel.EventPayload) error {
 			items = append(items, orderapp.OrderItemPayload{Name: item.PizzaName, Quantity: item.Quantity})
 		}
 
-		enricher := func(e order.DomainEvent) (event.Event, bool) {
-			confirmed, ok := e.(order.OrderConfirmed)
-			if !ok {
-				return nil, false
-			}
-
-			return orderapp.OrderConfirmedPayload{
-				OrderID:        confirmed.OrderID,
-				RestaurantID:   confirmed.RestaurantID,
-				RestaurantName: restaurant.Name,
-				CustomerEmail:  ord.ContactEmail,
-				OwnerEmail:     restaurant.OwnerEmail,
-				Items:          items,
-				Total:          ord.Total.StringFixed(2),
-				Currency:       ord.Currency,
-				ConfirmedAt:    confirmed.OccurredAt,
-			}, true
-		}
+		enricher := h.enrichConfirmed(ord, restaurant.Name, restaurant.OwnerEmail, items)
 
 		return orderapp.DispatchEventsTx(ctx, h.outboxRepo.WithTx(tx), ord, enricher)
 	})
+}
+
+func (h *PaymentSucceededHandler) enrichConfirmed(
+	ord *order.Order,
+	restaurantName string,
+	ownerEmail string,
+	items []orderapp.OrderItemPayload,
+) orderapp.Enricher {
+	return func(e order.DomainEvent) (event.Event, bool) {
+		confirmed, ok := e.(order.OrderConfirmed)
+		if !ok {
+			return nil, false
+		}
+
+		return orderapp.NewOrderConfirmedPayload(confirmed, ord, restaurantName, ownerEmail, items), true
+	}
 }
