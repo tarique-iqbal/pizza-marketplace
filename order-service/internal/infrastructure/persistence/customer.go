@@ -41,3 +41,10 @@ func (r *CustomerRepository) Upsert(ctx context.Context, customer readmodel.Cust
 		DoNothing: true,
 	}).Create(&customer).Error
 }
+
+func (r *CustomerRepository) UpdatePhone(ctx context.Context, id uuid.UUID, phone string) error {
+	return r.db.WithContext(ctx).
+		Model(&readmodel.Customer{}).
+		Where("id = ?", id).
+		Update("phone", phone).Error
+}

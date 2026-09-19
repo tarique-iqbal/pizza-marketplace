@@ -9,4 +9,5 @@ import (
 type CustomerRepository interface {
 	FindByID(ctx context.Context, id uuid.UUID) (*Customer, error)
 	Upsert(ctx context.Context, customer Customer) error
+	UpdatePhone(ctx context.Context, id uuid.UUID, phone string) error
 }

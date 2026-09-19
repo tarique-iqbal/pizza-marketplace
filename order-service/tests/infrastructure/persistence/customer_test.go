@@ -71,3 +71,16 @@ func TestCustomerRepository_Upsert_RedeliveryIsNoOp(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, original.FirstName, found.FirstName)
 }
+
+func TestCustomerRepository_UpdatePhone(t *testing.T) {
+	repo, seeded := setupCustomerRepo(t)
+	target := seeded[1]
+
+	err := repo.UpdatePhone(context.Background(), target.ID, "+49 89 9998877")
+	require.NoError(t, err)
+
+	found, err := repo.FindByID(context.Background(), target.ID)
+	require.NoError(t, err)
+	require.NotNil(t, found.Phone)
+	assert.Equal(t, "+49 89 9998877", *found.Phone)
+}
