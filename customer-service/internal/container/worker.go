@@ -26,10 +26,13 @@ func NewWorkerContainer(logger *slog.Logger) (*WorkerContainer, error) {
 	}
 
 	customerRepo := persistence.NewCustomerRepository(base.DB)
+	addressRepo := persistence.NewAddressRepository(base.DB)
 	userRegistered := handlers.NewUserRegistered(customerRepo)
+	addressSaved := handlers.NewAddressSaved(addressRepo)
 
 	dispatcher := appcustomer.NewEventDispatcher()
-	dispatcher.Register(messaging.Exchanges["identity.events"][0], userRegistered)
+	dispatcher.Register("user.registered", userRegistered)
+	dispatcher.Register("order.address_saved", addressSaved)
 
 	consumer, err := messaging.NewRabbitMQConsumer(base.AMQPURL)
 	if err != nil {
