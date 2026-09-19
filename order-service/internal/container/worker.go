@@ -37,6 +37,7 @@ func NewWorkerContainer(logger *slog.Logger) (*WorkerContainer, error) {
 	syncPizza := appreadmodel.NewSyncPizza(pizzaRepo, pizzaPriceRepo)
 	syncToppingPrices := appreadmodel.NewSyncToppingPrices(toppingPriceRepo)
 	upsertCustomer := appreadmodel.NewUpsertCustomer(customerRepo)
+	updateCustomerPhone := appreadmodel.NewUpdateCustomerPhone(customerRepo)
 	paymentSucceeded := orderhandlers.NewPaymentSucceededHandler(base.DB, orderRepo, base.OutboxRepo, restaurantRepo)
 	paymentFailed := orderhandlers.NewPaymentFailedHandler(base.DB, orderRepo)
 
@@ -46,6 +47,7 @@ func NewWorkerContainer(logger *slog.Logger) (*WorkerContainer, error) {
 	dispatcher.Register("restaurant.pizza_updated", syncPizza)
 	dispatcher.Register("restaurant.topping_prices_updated", syncToppingPrices)
 	dispatcher.Register("user.registered", upsertCustomer)
+	dispatcher.Register("customer.phone_updated", updateCustomerPhone)
 	dispatcher.Register("payment.succeeded", paymentSucceeded)
 	dispatcher.Register("payment.failed", paymentFailed)
 
