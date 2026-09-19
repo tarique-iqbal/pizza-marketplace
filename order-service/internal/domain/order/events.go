@@ -20,3 +20,16 @@ type OrderConfirmed struct {
 func (OrderConfirmed) GetEventName() string {
 	return "order.confirmed"
 }
+
+type AddressSaved struct {
+	CustomerID uuid.UUID
+	House      string
+	Street     string
+	City       string
+	PostalCode string
+	OccurredAt time.Time
+}
+
+func (AddressSaved) GetEventName() string {
+	return "order.address_saved"
+}

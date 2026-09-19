@@ -21,6 +21,9 @@ func DispatchEventsTx(
 	for _, e := range ord.PullEvents() {
 		payload, ok := enrich(e, enrichers)
 		if !ok {
+			payload, ok = toEventPayload(e)
+		}
+		if !ok {
 			continue
 		}
 
@@ -46,4 +49,13 @@ func enrich(e order.DomainEvent, enrichers []Enricher) (event.Event, bool) {
 	}
 
 	return nil, false
+}
+
+func toEventPayload(e order.DomainEvent) (event.Event, bool) {
+	switch evt := e.(type) {
+	case order.AddressSaved:
+		return newAddressSavedPayload(evt), true
+	default:
+		return nil, false
+	}
 }
