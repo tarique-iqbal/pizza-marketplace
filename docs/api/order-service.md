@@ -21,19 +21,19 @@ No price is ever stored on a cart line — `GET /cart` resolves every item's cur
 
 ## Orders — `/orders`
 
-| Method | Path | Auth | Status |
+| Method | Path | Auth | Notes |
 |---|---|---|---|
-| `POST` | `/orders` | authenticated user | Live |
-| `GET` | `/orders` | authenticated user (customer) | Live |
-| `GET` | `/orders/:id` | customer or owning restaurant's owner | Live |
-| `POST` | `/orders/:id/cancel` | customer or owning restaurant's owner | Live |
-| `GET` | `/orders/restaurants/:id` | owner | Live |
-| `POST` | `/orders/:id/ready` | owner | Live |
-| `POST` | `/orders/:id/complete` | owner | Live |
+| `POST` | `/orders` | authenticated user | Checkout: convert the cart into an order and get a payment `checkoutUrl` |
+| `GET` | `/orders` | authenticated user (customer) | The caller's own orders, cursor-paginated |
+| `GET` | `/orders/:id` | customer or owning restaurant's owner | One order |
+| `POST` | `/orders/:id/cancel` | customer or owning restaurant's owner | Cancel a `pending` order |
+| `GET` | `/orders/restaurants/:id` | owner | A restaurant's orders, cursor-paginated |
+| `POST` | `/orders/:id/ready` | owner | Mark a `confirmed` order ready |
+| `POST` | `/orders/:id/complete` | owner | Complete a `ready` or `confirmed` order |
 
 `POST /orders` (checkout) converts the customer's current cart into an order: revalidates every line against live prices/availability (`409 Conflict` if any item is no longer available), checks the restaurant supports the requested fulfillment method (`409 Conflict` otherwise) and that the subtotal meets its minimum order (`422` otherwise), geocodes and validates the delivery address against the restaurant's delivery radius for delivery orders (`422` outside the radius, `503` if geocoding itself is unavailable), creates the order, clears the cart, and calls payment-service's `CreatePayment` over gRPC (through a circuit breaker) to get back a real Mollie checkout URL (`503` if payment-service is unreachable or the breaker is open). The customer is expected to redirect to `checkoutUrl` to complete payment; the order stays `pending` until payment-service's `payment.succeeded`/`payment.failed` event (consumed asynchronously by this service's worker) confirms or cancels it — there is no synchronous "did it work" beyond getting a checkout URL back.
 
-Request body: `{fulfillment: "delivery" | "pickup", deliveryAddress?: {house, street, postalCode, city}, contactPhone?}` — `deliveryAddress` is required when `fulfillment` is `"delivery"`, and an empty cart fails with `422`. Response: `{orderId, checkoutUrl}`.
+Request body: `{fulfillment: "delivery" | "pickup", deliveryAddress?: {house, street, postalCode, city}, saveAddress?}` — `deliveryAddress` is required when `fulfillment` is `"delivery"`, and an empty cart fails with `422`. There is no phone field: the order takes the customer's own phone from the profile mirror, and a delivery order fails with `422` if the customer has none saved. Response: `{orderId, checkoutUrl}`.
 
 `GET /orders/:id` and `POST /orders/:id/cancel` accept either the order's own customer or the owner of the restaurant it belongs to — the only role check is `m.Auth` (any authenticated user), and the command itself branches on `X-User-Role` to pick the right ownership-scoped repository lookup (`FindByIDAndCustomer` vs `FindByIDAndRestaurantOwner`). Neither "doesn't exist" nor "exists but you don't own it" is distinguishable from outside — both return `403 Forbidden`.
 
