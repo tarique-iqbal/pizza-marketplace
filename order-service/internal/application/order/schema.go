@@ -19,7 +19,6 @@ type AddressInput struct {
 type CheckoutRequest struct {
 	Fulfillment     string        `json:"fulfillment" binding:"required,oneof=delivery pickup"`
 	DeliveryAddress *AddressInput `json:"deliveryAddress" binding:"required_if=Fulfillment delivery"`
-	ContactPhone    *string       `json:"contactPhone"`
 	SaveAddress     bool          `json:"saveAddress"`
 }
 

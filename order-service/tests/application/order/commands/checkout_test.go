@@ -107,8 +107,9 @@ func seedCheckout(t *testing.T, configureRestaurant func(*readmodel.Restaurant))
 	}
 	require.NoError(t, db.DB.Create(&price).Error)
 
+	phone := "+49 30 12345678"
 	customer := readmodel.Customer{
-		ID: testutil.MustNewID(), Email: "customer@example.com", FirstName: "Nina",
+		ID: testutil.MustNewID(), Email: "customer@example.com", FirstName: "Nina", Phone: &phone,
 	}
 	require.NoError(t, db.DB.Create(&customer).Error)
 
@@ -243,6 +244,33 @@ func TestCheckout_PickupHappyPath(t *testing.T) {
 	assert.True(t, seed.payment.calls[0].Amount.Equal(decimal.NewFromFloat(15.00)))
 }
 
+func TestCheckout_DeliveryWithoutPhone(t *testing.T) {
+	seed := seedCheckout(t, func(r *readmodel.Restaurant) { r.DeliveryType = readmodel.DeliveryOwn })
+	err := seed.db.Model(&readmodel.Customer{}).Where("id = ?", seed.customer.ID).Update("phone", nil).Error
+	require.NoError(t, err)
+
+	_, err = seed.checkout.Execute(context.Background(), seed.customer.ID, orderapp.CheckoutRequest{
+		Fulfillment: "delivery",
+		DeliveryAddress: &orderapp.AddressInput{
+			House: "1", Street: "Main St", City: "Hamburg", PostalCode: "12345",
+		},
+	})
+
+	assert.ErrorIs(t, err, apperr.ErrInvalid)
+}
+
+func TestCheckout_PickupWithoutPhone(t *testing.T) {
+	seed := seedCheckout(t, nil)
+	err := seed.db.Model(&readmodel.Customer{}).Where("id = ?", seed.customer.ID).Update("phone", nil).Error
+	require.NoError(t, err)
+
+	_, err = seed.checkout.Execute(context.Background(), seed.customer.ID, orderapp.CheckoutRequest{
+		Fulfillment: "pickup",
+	})
+
+	require.NoError(t, err)
+}
+
 func TestCheckout_DeliveryHappyPath(t *testing.T) {
 	seed := seedCheckout(t, func(r *readmodel.Restaurant) { r.DeliveryType = readmodel.DeliveryOwn })
 	seed.geocoder.lat = 53.5600
@@ -264,6 +292,8 @@ func TestCheckout_DeliveryHappyPath(t *testing.T) {
 	assert.True(t, found.Total.Equal(decimal.NewFromFloat(17.50)))
 	require.NotNil(t, found.DeliveryAddress)
 	assert.Equal(t, "Main St", found.DeliveryAddress.Street)
+	require.NotNil(t, found.ContactPhone)
+	assert.Equal(t, "+49 30 12345678", *found.ContactPhone)
 }
 
 func TestCheckout_SaveAddress_PublishesAddressSaved(t *testing.T) {

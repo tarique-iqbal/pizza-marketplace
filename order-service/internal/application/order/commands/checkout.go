@@ -99,6 +99,9 @@ func (uc *Checkout) Execute(
 	if err != nil {
 		return orderapp.CheckoutResponse{}, fmt.Errorf("failed to look up customer: %w", err)
 	}
+	if fulfillment == order.FulfillmentDelivery && (customer.Phone == nil || *customer.Phone == "") {
+		return orderapp.CheckoutResponse{}, fmt.Errorf("phone required for delivery: %w", apperr.ErrInvalid)
+	}
 
 	toppingPrices, err := uc.toppingPriceRepo.ListByRestaurant(ctx, c.RestaurantID)
 	if err != nil {
@@ -167,7 +170,7 @@ func (uc *Checkout) Execute(
 
 	newOrder := order.NewOrder(
 		orderID, customerID, c.RestaurantID,
-		fulfillment, customer.Email, input.ContactPhone,
+		fulfillment, customer.Email, customer.Phone,
 		deliveryAddress, deliveryLat, deliveryLon,
 		items, subtotal, deliveryFee, total,
 		restaurant.Currency, input.SaveAddress,
