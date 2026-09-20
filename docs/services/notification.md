@@ -2,7 +2,7 @@
 
 Sends transactional notifications in response to RabbitMQ events published by `identity-service` and
 `restaurant-service`, via a channel-adapter design: one channel-agnostic `Sender` interface, with email as its
-first (and today, only) implementation. The simplest service in the repo: no database, no HTTP API, no
+only implementation today. The simplest service in the repo: no database, no HTTP API, no
 `cmd/api`/`cmd/worker` split — `cmd/main.go` is the only binary. Unlike identity-worker/restaurant-worker, it *is*
 started directly by the root `compose.yaml`, since without it running the service simply never sends
 notifications (no queue to drain into a local store, no user-visible failure otherwise).
@@ -92,8 +92,8 @@ also relies on the RabbitMQ consumer's own DLX/retry mechanism below, independen
 
 Handler wiring in `internal/container/container.go` registers each handler against a literal routing-key string
 (e.g. `dispatcher.Register("user.registered", userRegistered)`), matching search-service's `container/worker.go`
-— not indexed into `messaging.Exchanges[...]` by position, which previously made a reorder of that slice able to
-silently bind the wrong handler to the wrong routing key.
+— not indexed into `messaging.Exchanges[...]` by position, since a reorder of that slice could then silently
+bind the wrong handler to the wrong routing key.
 
 ## Consumer reliability
 
