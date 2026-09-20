@@ -198,13 +198,12 @@ unlike the restaurant tables below). `restaurants`/`pizzas`/`pizza_prices`/`topp
 guarded by `updated_at` (`ON CONFLICT ... WHERE excluded.updated_at > table.updated_at`), the same
 out-of-order-redelivery protection search-service's own Painless-scripted guards provide.
 
-**A real, previously-shipped bug found and fixed while building `Checkout`**: `readmodel.Restaurant.Pickup`
-and `readmodel.PizzaPrice.IsActive` both carried a GORM `default:true` tag. GORM's `Create`/upsert path omits
-a field from the `INSERT` entirely whenever it's the Go zero value *and* carries a `default:` tag — for a
-`bool`, the zero value is `false`, which is also a completely legitimate business value ("no pickup," "this
-size is deactivated"). So every real sync of a pickup-disabled restaurant or a deactivated price was silently
-corrupted to `true`/active. Fixed by dropping the gorm-tag default (the migration's own `DEFAULT true` is
-untouched — that's a harmless DB-level backstop, not the bug).
+**Boolean read-model fields carry no GORM `default:` tag**: `readmodel.Restaurant.Pickup` and
+`readmodel.PizzaPrice.IsActive` are plain `bool` fields. GORM's `Create`/upsert path omits a field from the
+`INSERT` entirely whenever it's the Go zero value *and* carries a `default:` tag — for a `bool`, the zero
+value is `false`, which is also a legitimate business value ("no pickup," "this size is deactivated"). A tag
+default would silently turn every sync of a pickup-disabled restaurant or a deactivated price into
+`true`/active, so neither field has one. The migration's own `DEFAULT true` stays as a DB-level backstop.
 
 ## Geocoding — Postgres-backed, ported from search-service
 
@@ -294,8 +293,8 @@ the raw client is what `APIContainer.Close()` closes.
 Mollie's webhook goes to payment-service, not here. The worker's `Exchanges["payment.events"]` binding
 consumes `payment.succeeded`/`payment.failed`; `PaymentSucceededHandler`/`PaymentFailedHandler`
 (`internal/application/order/handlers/`) load the order by the event's `subject_id`, call `Order.Confirm()`/
-`Cancel()`, and (on confirm) dispatch `order.confirmed` via `orderapp.DispatchEventsTx` — order-service's
-first domain event needing outbox dispatch at all, since `Checkout` itself never raises one. Both handlers
+`Cancel()`, and (on confirm) dispatch `order.confirmed` via `orderapp.DispatchEventsTx`. `Checkout` raises no `order.placed`; its only
+event is `order.address_saved`, raised when the request has `saveAddress` set on a delivery order. Both handlers
 treat `order.ErrInvalidStatusTransition` as an idempotent no-op, since Mollie retries its webhook for up to
 ~26h and RabbitMQ redelivery must never double-confirm/double-cancel an order.
 
@@ -314,8 +313,8 @@ stateDiagram-v2
 ```
 
 `GetOrder`/`ListMyOrders`/`ListRestaurantOrders`/`MarkReady`/`Complete`/`Cancel`
-(`internal/application/order/{queries,commands}/`) are this codebase's first **customer-or-owner** and
-**owner-only** routes beyond checkout. None touch a transaction — each is a single repository call plus
+(`internal/application/order/{queries,commands}/`) are the **customer-or-owner** and **owner-only**
+routes beyond checkout. None touch a transaction — each is a single repository call plus
 (for the mutating ones) a single `Update` — so all are tested against `tests/testutil.MockOrderRepository`
 rather than real Postgres.
 
@@ -353,11 +352,10 @@ completely would need a distributed lock against payment-service's own state, wh
 post-cancel gateway `CancelPayment` call stays best-effort (logged on failure, never propagated) — the
 order's own cancellation has already committed by that point.
 
-**`GetPaymentStatus` is payment-service's third gRPC method**, added specifically to make this check
-possible — `payment.proto` gained `rpc GetPaymentStatus(GetPaymentStatusRequest) returns
-(GetPaymentStatusResponse)`, backed by a new `queries.GetPaymentStatus` (payment-service's own first
-`queries/` package, split out from `commands/` per that service's established read/write package split)
-wrapping a plain `PaymentRepository.FindByID`.
+**`GetPaymentStatus` is payment-service's third gRPC method**, the one this check calls —
+`payment.proto` defines `rpc GetPaymentStatus(GetPaymentStatusRequest) returns (GetPaymentStatusResponse)`,
+backed by `queries.GetPaymentStatus` in payment-service's `queries/` package (kept separate from
+`commands/`), which wraps a plain `PaymentRepository.FindByID`.
 
 ## Migrations
 
@@ -383,7 +381,7 @@ command/handler using `db.Transaction`/`WithTx` (`Checkout`, `PaymentSucceededHa
 external dependencies (`Geocoder`, `PaymentProvider`) faked locally in their own test files — a fake can't
 validate real transactional/rollback behavior. The gRPC client itself
 (`tests/infrastructure/payment/grpc_client_test.go`) is tested via `google.golang.org/grpc/test/bufconn`
-against a small in-memory `pb.PaymentServiceServer` stub — this repo's first use of bufconn — and the
+against a small in-memory `pb.PaymentServiceServer` stub — no network listener — and the
 circuit breaker (`tests/infrastructure/payment/circuit_breaker_test.go`) against a local fake
 `PaymentProvider`, no gRPC involved.
 
