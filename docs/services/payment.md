@@ -25,8 +25,8 @@ internal/domain/outbox                → OutboxEvent/OutboxStatus/OutboxReposit
 internal/application/payment          → schema.go (CreatePaymentRequest/Response DTOs), events.go
                                         (PaymentSucceededPayload/PaymentFailedPayload), commands/
                                         {CreatePayment,CancelPayment,HandleMollieWebhook},
-                                        queries/GetPaymentStatus — this service's first read-only use
-                                        case, split out of commands/ per the repo-wide convention
+                                        queries/GetPaymentStatus (read-only use case, kept out of
+                                        commands/ per the read/write package split)
 internal/application/outbox           → Worker/Relay — verbatim port of the same outbox application layer
 internal/infrastructure/persistence   → payment.go, outbox.go — thin GORM wrappers, domain structs double as
                                         GORM models
@@ -81,10 +81,10 @@ func (p *Payment) MarkSucceeded() error                           // pending -> 
 func (p *Payment) MarkFailed(reason string) error                 // pending -> failed
 ```
 
-**`Gateway`/`GatewayPaymentID`, not `MolliePaymentID`.** The schema was generalized before the first commit
-landed, specifically so a second gateway (Stripe, PayPal, …) needs no rename later — just a new
-`PaymentGateway` implementation and, when that day comes, a small selection layer in `container.go` (today
-there's exactly one `PaymentGateway` field wired in, no registry). `gateway` has no `DEFAULT` in the
+**`Gateway`/`GatewayPaymentID`.** The schema is gateway-agnostic, specifically so a
+second gateway (Stripe, PayPal, …) needs no rename later — just a new `PaymentGateway` implementation and,
+when that day comes, a small selection layer in `container.go` (today there's exactly one `PaymentGateway`
+field wired in, no registry). `gateway` has no `DEFAULT` in the
 migration — always set explicitly by application code, avoiding the same GORM zero-value-plus-`default:`-tag
 bug class already fixed elsewhere in this repo (a `DEFAULT` on a column the app always sets risks silently
 masking a bug where it forgot to).
@@ -214,7 +214,20 @@ order-service consumes both: its worker's `PaymentSucceededHandler`/`PaymentFail
 before cancelling an order, since it only learns outcomes asynchronously and its local order status can be
 briefly stale relative to this service's true state.
 
-## gRPC contract — the first gRPC surface in this monorepo
+## gRPC contract
+
+`PaymentService` (`internal/interfaces/grpc/server.go`) listens on `:50051` (`cmd/api/main.go`), started in a
+goroutine next to the Gin HTTP server in the same process. Each RPC is a thin wrapper over one use case;
+field-level detail is in `docs/api/payment.md`.
+
+| RPC | Backed by | Result | Errors |
+|---|---|---|---|
+| `CreatePayment` | `commands.CreatePayment` | `payment_id`, `checkout_url`, `status` | `InvalidArgument` for a malformed `subject_id`/`restaurant_id`/`customer_id`/`amount`; `Internal` for any other failure |
+| `CancelPayment` | `commands.CancelPayment` | `status` is always `"canceled"` | `InvalidArgument` for a malformed `payment_id`; `Internal` only if the payment lookup itself fails |
+| `GetPaymentStatus` | `queries.GetPaymentStatus` | current `status` | `InvalidArgument` for a malformed `payment_id`; `NotFound` for an unknown payment; `Internal` otherwise |
+
+`CancelPayment` is best-effort: an unknown payment, a payment with no gateway id yet, or a gateway failure
+(logged at `Warn`) all still return success, since the caller's own cancellation has already committed.
 
 Canonical `.proto`: `api/proto/payment/v1/payment.proto`. Generated code committed to
 `internal/interfaces/grpc/pb/` (`payment.pb.go`, `payment_grpc.pb.go`) — regenerate via `make proto` from the
