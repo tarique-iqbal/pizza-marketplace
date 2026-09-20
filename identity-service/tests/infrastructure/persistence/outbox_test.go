@@ -168,3 +168,59 @@ func TestOutboxRepository_FetchAndMarkProcessing_SkipLocked(t *testing.T) {
 		assert.NotEqual(t, event.ID, e.ID)
 	}
 }
+
+func TestOutboxRepository_FetchAndMarkProcessing_ReclaimsExpiredLock(t *testing.T) {
+	db := testutil.DB(t)
+	repo := setupOutboxRepo(t)
+
+	var event outbox.OutboxEvent
+	require.NoError(t, db.DB.First(&event).Error)
+
+	require.NoError(t, db.DB.Model(&event).Updates(map[string]interface{}{
+		"status":       outbox.StatusProcessing,
+		"attempts":     1,
+		"locked_until": time.Now().UTC().Add(-time.Minute),
+	}).Error)
+
+	events, err := repo.FetchAndMarkProcessing(context.Background(), 10)
+	require.NoError(t, err)
+
+	var reclaimed *outbox.OutboxEvent
+	for i := range events {
+		if events[i].ID == event.ID {
+			reclaimed = &events[i]
+		}
+	}
+
+	require.NotNil(t, reclaimed, "expired processing row must be reclaimed")
+	assert.Equal(t, outbox.StatusProcessing, reclaimed.Status)
+	assert.Equal(t, 2, reclaimed.Attempts)
+	require.NotNil(t, reclaimed.LockedUntil)
+	assert.True(t, reclaimed.LockedUntil.After(time.Now().UTC()))
+}
+
+func TestOutboxRepository_FetchAndMarkProcessing_LeavesActiveLock(t *testing.T) {
+	db := testutil.DB(t)
+	repo := setupOutboxRepo(t)
+
+	var event outbox.OutboxEvent
+	require.NoError(t, db.DB.First(&event).Error)
+
+	require.NoError(t, db.DB.Model(&event).Updates(map[string]interface{}{
+		"status":       outbox.StatusProcessing,
+		"attempts":     1,
+		"locked_until": time.Now().UTC().Add(time.Minute),
+	}).Error)
+
+	events, err := repo.FetchAndMarkProcessing(context.Background(), 10)
+	require.NoError(t, err)
+
+	for _, e := range events {
+		assert.NotEqual(t, event.ID, e.ID, "row with a live lease must not be reclaimed")
+	}
+
+	var after outbox.OutboxEvent
+	require.NoError(t, db.DB.First(&after, "id = ?", event.ID).Error)
+	assert.Equal(t, outbox.StatusProcessing, after.Status)
+	assert.Equal(t, 1, after.Attempts)
+}

@@ -26,6 +26,7 @@ func (r *outboxRepo) Create(ctx context.Context, e *outbox.OutboxEvent) error {
 	return r.db.WithContext(ctx).Create(e).Error
 }
 
+// FetchAndMarkProcessing also reclaims 'processing' rows whose lease expired (a worker died mid-publish).
 func (r *outboxRepo) FetchAndMarkProcessing(ctx context.Context, limit int) ([]outbox.OutboxEvent, error) {
 	var events []outbox.OutboxEvent
 
@@ -40,9 +41,15 @@ func (r *outboxRepo) FetchAndMarkProcessing(ctx context.Context, limit int) ([]o
 			FROM (
 				SELECT id
 				FROM %s
-				WHERE status = 'pending'
-				AND (locked_until IS NULL OR locked_until < NOW())
-				AND (next_attempt_at IS NULL OR next_attempt_at <= NOW())
+				WHERE (
+					status = 'pending'
+					AND (locked_until IS NULL OR locked_until < NOW())
+					AND (next_attempt_at IS NULL OR next_attempt_at <= NOW())
+				) OR (
+					status = 'processing'
+					AND locked_until IS NOT NULL
+					AND locked_until < NOW()
+				)
 				ORDER BY next_attempt_at NULLS FIRST, created_at
 				LIMIT ?
 				FOR UPDATE SKIP LOCKED
