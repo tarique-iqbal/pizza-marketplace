@@ -9,10 +9,8 @@ import (
 
 func SetupCustomerRoutes(router *gin.Engine, h *handlers.CustomerHandler, m *middleware.Middleware) {
 	customers := router.Group("/customers/me")
+	customers.Use(m.Auth)
 
-	protected := customers.Group("")
-	protected.Use(m.Auth)
-
-	protected.GET("", h.GetProfile)
-	protected.PATCH("", h.UpdatePhone)
+	customers.GET("", h.GetProfile)
+	customers.PATCH("/phone", h.UpdatePhone)
 }
