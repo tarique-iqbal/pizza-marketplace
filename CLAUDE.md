@@ -13,9 +13,9 @@ Pizza Marketplace: an online pizza ordering platform built as a Go microservices
 | `identity-service` | Auth, JWT, user/owner/customer registration | implemented (API + worker) |
 | `restaurant-service` | Restaurant & menu CRUD, geocoding | implemented (API + worker) |
 | `notification-service` | Consumes domain events, sends notifications via channel adapters (email today) | implemented (worker only) |
-| `search-service` | Search API + Elasticsearch indexing, own geocoder | implemented (API + worker) — scoped-down first slice, see `docs/services/search-service.md` |
-| `order-service` | Cart + order placement, own geocoder | implemented (API + worker) — cart and checkout both live, calling payment-service over gRPC, see `docs/services/order-service.md` |
-| `payment-service` | Payment processing via Mollie, on behalf of any other service | implemented (gRPC API + worker) — order-service is its first caller, see `docs/services/payment-service.md` |
+| `search-service` | Search API + Elasticsearch indexing, own geocoder | implemented (API + worker) — scoped-down first slice, see `docs/services/search.md` |
+| `order-service` | Cart + order placement, own geocoder | implemented (API + worker) — cart and checkout both live, calling payment-service over gRPC, see `docs/services/order.md` |
+| `payment-service` | Payment processing via Mollie, on behalf of any other service | implemented (gRPC API + worker) — order-service is its first caller, see `docs/services/payment.md` |
 
 This repo holds backend services only — the React frontend (`web-user`) lives in a separate repo.
 
@@ -23,7 +23,7 @@ This repo holds backend services only — the React frontend (`web-user`) lives 
 `restaurant.topping_prices_updated` today — `restaurant.reactivated`/`restaurant.deactivated` still have no
 publisher in restaurant-service (Part A's `Reactivate`/`Deactivate` remain unimplemented), so don't assume
 those are wired up. Check
-`docs/services/search-service.md` before assuming search-service coverage beyond that.
+`docs/services/search.md` before assuming search-service coverage beyond that.
 
 Each Go service (`identity-service`, `restaurant-service`, `notification-service`, `search-service`) follows the same internal layout:
 

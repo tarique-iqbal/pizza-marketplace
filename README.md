@@ -128,23 +128,23 @@ Each service is configured via its own `.env` file. Copy the `.env.example` in e
 
 All routes are served through Traefik on port `80`. See each service's API reference for details:
 
-- [Identity service](docs/api/identity-service.md) — `/auth`, `/users`
-- [Restaurant service](docs/api/restaurant-service.md) — `/restaurants`
-- [Search service](docs/api/search-service.md) — `/search`
-- [Order service](docs/api/order-service.md) — `/cart`, `/orders`
-- [Payment service](docs/api/payment-service.md) — gRPC `PaymentService` + `/webhooks/mollie`
+- [Identity service](docs/api/identity.md) — `/auth`, `/users`
+- [Restaurant service](docs/api/restaurant.md) — `/restaurants`
+- [Search service](docs/api/search.md) — `/search`
+- [Order service](docs/api/order.md) — `/cart`, `/orders`
+- [Payment service](docs/api/payment.md) — gRPC `PaymentService` + `/webhooks/mollie`
 
 
 ## Service documentation
 
 Architecture, domain model, and design decisions for each implemented service:
 
-- [Identity service](docs/services/identity-service.md)
-- [Restaurant service](docs/services/restaurant-service.md)
-- [Notification service](docs/services/notification-service.md)
-- [Search service](docs/services/search-service.md)
-- [Order service](docs/services/order-service.md)
-- [Payment service](docs/services/payment-service.md)
+- [Identity service](docs/services/identity.md)
+- [Restaurant service](docs/services/restaurant.md)
+- [Notification service](docs/services/notification.md)
+- [Search service](docs/services/search.md)
+- [Order service](docs/services/order.md)
+- [Payment service](docs/services/payment.md)
 
 
 ## Event flow

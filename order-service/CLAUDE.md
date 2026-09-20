@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Scope: this file covers `order-service` only. See the root `CLAUDE.md` for monorepo-wide architecture and how this service fits into the event flow, and `docs/services/order-service.md`/`docs/api/order-service.md` for the full technical writeup this file summarizes.
+Scope: this file covers `order-service` only. See the root `CLAUDE.md` for monorepo-wide architecture and how this service fits into the event flow, and `docs/services/order.md`/`docs/api/order.md` for the full technical writeup this file summarizes.
 
 ## What this service owns
 

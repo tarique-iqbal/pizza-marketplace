@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Scope: this file covers `search-service` only. See the root `CLAUDE.md` for monorepo-wide architecture, event flow across services, and how this service fits into the rest of the platform. See `docs/services/search-service.md` for the full technical writeup this file summarizes.
+Scope: this file covers `search-service` only. See the root `CLAUDE.md` for monorepo-wide architecture, event flow across services, and how this service fits into the rest of the platform. See `docs/services/search.md` for the full technical writeup this file summarizes.
 
 ## What this service owns
 

@@ -173,7 +173,7 @@ flowchart LR
   restaurant-scoped, not tied to any one `Pizza` row, so it's its own event rather than reusing
   `PizzaUpdated`/`RestaurantUpdated`. All four of `restaurant.launched`/`restaurant.updated`/
   `restaurant.pizza_updated`/`restaurant.topping_prices_updated` are consumed by `search-service`'s worker,
-  which indexes/updates the restaurant in Elasticsearch; see `docs/services/search-service.md`.
+  which indexes/updates the restaurant in Elasticsearch; see `docs/services/search.md`.
 - **Event timestamps**: every domain event carries a single `OccurredAt time.Time` — when the domain method
   raised it, nothing more. `RestaurantLaunchedPayload`/`RestaurantUpdatedPayload`/`PizzaUpdatedPayload`/
   `ToppingPricesUpdatedPayload` additionally carry their own `UpdatedAt`, sourced from the real GORM-managed
@@ -182,7 +182,7 @@ flowchart LR
   `OccurredAt`, since that only reflects when the in-memory domain method ran, which can differ from when the
   row actually committed. `search-service`'s redelivery-ordering guards compare against these `UpdatedAt`
   values specifically, each scoped to what it's guarding (restaurant-level, per-pizza, or the topping-price list
-  as a whole) — see `docs/services/search-service.md`'s "Events" section for why a single shared guard field
+  as a whole) — see `docs/services/search.md`'s "Events" section for why a single shared guard field
   doesn't work once pizza/topping-price edits stop touching the `restaurants` row at all.
 - **Not implemented**: `restaurant.reactivated`/`restaurant.deactivated`/`restaurant.rejected` don't exist —
   they'd correspond to the `rejected`/`inactive`/`disabled` status transitions noted as having no code path yet

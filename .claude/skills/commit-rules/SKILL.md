@@ -99,8 +99,8 @@ commit — they've historically been kept in sync together, never just one:
 
 | Service | Docs |
 |---|---|
-| restaurant-service | `restaurant-service/CLAUDE.md` (routes list + relevant "Architecture specifics" bullet) + `docs/api/restaurant-service.md` (route table row + prose paragraph on required/optional fields and non-obvious validation) |
-| search-service | `search-service/CLAUDE.md` (routes/behavior description) + `docs/api/search-service.md` (route table row + prose paragraph) |
+| restaurant-service | `restaurant-service/CLAUDE.md` (routes list + relevant "Architecture specifics" bullet) + `docs/api/restaurant.md` (route table row + prose paragraph on required/optional fields and non-obvious validation) |
+| search-service | `search-service/CLAUDE.md` (routes/behavior description) + `docs/api/search.md` (route table row + prose paragraph) |
 
 ## 4. Pre-commit verification, per service
 
