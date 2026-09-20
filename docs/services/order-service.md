@@ -15,6 +15,25 @@ confirmed — closing the full checkout→payment→confirmation loop. `Cancel` 
 payment-service's `GetPaymentStatus` synchronously to guard against cancelling an order whose payment
 already succeeded.
 
+## Service context
+
+```mermaid
+flowchart LR
+    RS["restaurant-service"] -- "restaurant.launched, updated,\npizza_updated,\ntopping_prices_updated" --> W
+    ID["identity-service"] -- "user.registered" --> W
+    CSI["customer-service"] -- "customer.phone_updated" --> W
+    PSE["payment-service"] -- "payment.succeeded,\npayment.failed" --> W
+
+    subgraph OS["order-service"]
+        API["cmd/api\n/cart, /orders"]
+        W["cmd/worker\nconsumer + outbox relay"]
+    end
+
+    API -- "gRPC CreatePayment,\nCancelPayment,\nGetPaymentStatus" --> PSG["payment-service"]
+    W -- "order.confirmed" --> NS["notification-service"]
+    W -- "order.address_saved" --> CSO["customer-service"]
+```
+
 ## Layered architecture
 
 ```
@@ -91,7 +110,7 @@ type Order struct {
     Status          OrderStatus
     Fulfillment     Fulfillment  // "delivery" | "pickup"
     ContactEmail    string       // resolved server-side from the customers read-model, never client-submitted
-    ContactPhone    *string      // client-submitted, optional — genuinely order-specific (courier contact)
+    ContactPhone    *string      // copied from the customer mirror at checkout; required for delivery, optional for pickup
     DeliveryAddress *Address     // JSONB snapshot, nil for pickup
     DeliveryLat, DeliveryLon *float64
     Items           []OrderItem
@@ -250,7 +269,8 @@ own precedent for any command with real transactional behavior.
 1. Load the customer's `Cart` — `ErrCartEmpty` (422) if missing or empty.
 2. Look up the restaurant; reject if it doesn't offer the requested `Fulfillment` (`pickup=false` for pickup,
    or `delivery_type='none'` for delivery) — `ErrFulfillmentNotSupported` (409).
-3. Resolve `ContactEmail` from the `customers` read-model by the JWT-derived customer id — never client-submitted.
+3. Resolve `ContactEmail` and `ContactPhone` from the `customers` read-model by the JWT-derived customer id — never
+   client-submitted. A delivery order needs a phone: `422` if the customer has none saved (pickup does not).
 4. Re-resolve every cart line from the read-model, snapshotting into an `OrderItem` — a pizza that's gone, a
    deactivated size, or an extra that's no longer priced all produce `ErrCartItemUnavailable` (409).
 5. Reject if subtotal < the restaurant's `minimum_order` — `ErrBelowMinimumOrder` (422).
@@ -280,6 +300,18 @@ treat `order.ErrInvalidStatusTransition` as an idempotent no-op, since Mollie re
 ~26h and RabbitMQ redelivery must never double-confirm/double-cancel an order.
 
 ## Order tracking, lifecycle, and Cancel
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending: Checkout
+    pending --> confirmed: payment.succeeded
+    pending --> cancelled: payment.failed or Cancel
+    confirmed --> ready: MarkReady (optional)
+    confirmed --> completed: Complete
+    ready --> completed: Complete
+    completed --> [*]
+    cancelled --> [*]
+```
 
 `GetOrder`/`ListMyOrders`/`ListRestaurantOrders`/`MarkReady`/`Complete`/`Cancel`
 (`internal/application/order/{queries,commands}/`) are this codebase's first **customer-or-owner** and
@@ -326,22 +358,6 @@ possible — `payment.proto` gained `rpc GetPaymentStatus(GetPaymentStatusReques
 (GetPaymentStatusResponse)`, backed by a new `queries.GetPaymentStatus` (payment-service's own first
 `queries/` package, split out from `commands/` per that service's established read/write package split)
 wrapping a plain `PaymentRepository.FindByID`.
-
-## HTTP API
-
-| Method | Path | Auth | Status |
-|---|---|---|---|
-| `GET` | `/cart` | authenticated user | live |
-| `POST` | `/cart/items` | authenticated user | live |
-| `PATCH` | `/cart/items/:itemId` | authenticated user | live |
-| `DELETE` | `/cart/items/:itemId` | authenticated user | live |
-| `POST` | `/orders` | authenticated user | live |
-| `GET` | `/orders` | authenticated user (customer) | live |
-| `GET` | `/orders/:id` | customer or owning restaurant's owner | live |
-| `POST` | `/orders/:id/cancel` | customer or owning restaurant's owner | live |
-| `GET` | `/orders/restaurants/:id` | owner | live |
-| `POST` | `/orders/:id/ready` | owner | live |
-| `POST` | `/orders/:id/complete` | owner | live |
 
 ## Migrations
 
