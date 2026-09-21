@@ -20,8 +20,8 @@ internal/domain/index             → IndexedRestaurant, IndexedPizza, IndexedPi
                                      plain data, no business logic of its own
 internal/application/index        → UpsertSnapshot, UpdateRestaurantFields, SyncPizza, SyncToppingPrices
                                      (one handler per consumed event), EventDispatcher impl
-internal/application/query        → SearchRestaurants (the /search use case — resolves address, then searches),
-                                     GetRestaurant (the /search/restaurant/:id use case — a direct ES doc lookup)
+internal/application/query        → SearchRestaurants (the /search query — resolves address, then searches),
+                                     GetRestaurant (the /search/restaurant/:id query — a direct ES doc lookup)
 internal/infrastructure/elasticsearch → client wrapper, index_setup.go (EnsureIndex, both indices),
                                      search_repository.go, geocode_repository.go (CachingGeocoder)
 internal/infrastructure/geocoder  → OpenCageGeocoder — search-service's own copy, independent of
@@ -369,8 +369,8 @@ Mixed, not uniform: `tests/application/index/` and `tests/application/query/` mo
 shared `tests/testutil.MockSearchRepository` (matches notification-service's plain-unit-test approach, no
 infrastructure needed) — one test file per handler (`upsert_snapshot_test.go`, `update_restaurant_fields_test.go`,
 `sync_pizza_test.go`, `sync_topping_prices_test.go`, `get_restaurant_test.go`). `tests/interfaces/http/handlers/`
-builds the real `SearchRestaurants`/`GetRestaurant` use cases over that same mock and drives the handlers through
-`httptest`, the same pattern restaurant-service's handler tests use (real use case, faked boundary dependency),
+builds the real `SearchRestaurants`/`GetRestaurant` queries over that same mock and drives the handlers through
+`httptest`, the same pattern restaurant-service's handler tests use (real command or query, faked boundary dependency),
 just without a real DB behind it.
 
 `tests/infrastructure/elasticsearch/search_repository_test.go`, though, is a **real**-Elasticsearch integration
