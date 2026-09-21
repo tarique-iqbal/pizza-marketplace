@@ -16,6 +16,7 @@ type WorkerConfig struct {
 	Concurrency  int
 	MaxRetries   int
 	StopTimeout  time.Duration
+	EventTimeout time.Duration
 }
 
 type Worker struct {
@@ -36,6 +37,7 @@ func DefaultConfig() WorkerConfig {
 		Concurrency:  5,
 		MaxRetries:   3,
 		StopTimeout:  30 * time.Second,
+		EventTimeout: 30 * time.Second,
 	}
 }
 
@@ -162,7 +164,7 @@ func (w *Worker) processBatch(ctx context.Context) {
 }
 
 func (w *Worker) releaseUnprocessed(ctx context.Context, events []outbox.OutboxEvent) {
-	releaseCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	releaseCtx, cancel := bookkeepingContext(ctx)
 	defer cancel()
 
 	for _, ev := range events {
@@ -176,7 +178,7 @@ func (w *Worker) releaseUnprocessed(ctx context.Context, events []outbox.OutboxE
 }
 
 func (w *Worker) handleEvent(ctx context.Context, ev outbox.OutboxEvent) {
-	eventCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	eventCtx, cancel := context.WithTimeout(ctx, w.config.EventTimeout)
 	defer cancel()
 
 	logger := w.logger.With(
@@ -187,6 +189,10 @@ func (w *Worker) handleEvent(ctx context.Context, ev outbox.OutboxEvent) {
 	)
 
 	err := w.relayer.Process(eventCtx, ev)
+
+	writeCtx, cancelWrite := bookkeepingContext(ctx)
+	defer cancelWrite()
+
 	if err != nil {
 		logger.Error("event processing failed", "error", err)
 
@@ -195,7 +201,7 @@ func (w *Worker) handleEvent(ctx context.Context, ev outbox.OutboxEvent) {
 			logger.Warn("max retries reached, marking as failed")
 
 			failErr := fmt.Errorf("max retries (%d) reached: %w", w.config.MaxRetries, err)
-			if markErr := w.repo.MarkFailed(eventCtx, ev.ID, failErr.Error()); markErr != nil {
+			if markErr := w.repo.MarkFailed(writeCtx, ev.ID, failErr.Error()); markErr != nil {
 				logger.Error("CRITICAL: failed to mark event as failed", "error", markErr)
 			}
 			return
@@ -205,19 +211,25 @@ func (w *Worker) handleEvent(ctx context.Context, ev outbox.OutboxEvent) {
 		logger.Info("releasing event for retry", "backoff", backoff)
 
 		if releaseErr := w.repo.ReleaseForRetry(
-			eventCtx, ev.ID, err.Error(), backoff,
+			writeCtx, ev.ID, err.Error(), backoff,
 		); releaseErr != nil {
 			logger.Error("CRITICAL: failed to release event for retry", "error", releaseErr)
 		}
 		return
 	}
 
-	if err := w.repo.MarkProcessed(eventCtx, ev.ID); err != nil {
+	if err := w.repo.MarkProcessed(writeCtx, ev.ID); err != nil {
 		logger.Error("failed to mark event as processed", "error", err)
 		return
 	}
 
 	logger.Debug("event processed successfully")
+}
+
+// Records an event's outcome even after its 30s deadline has passed or the
+// worker is shutting down; otherwise the row would stay 'processing'.
+func bookkeepingContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 }
 
 func computeBackoff(attempts int) time.Duration {
