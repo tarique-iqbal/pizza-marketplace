@@ -36,13 +36,13 @@ func NewUpdateOpeningHours(
 	}
 }
 
-func (uc *UpdateOpeningHours) Execute(
+func (cmd *UpdateOpeningHours) Execute(
 	ctx context.Context,
 	restaurantID uuid.UUID,
 	ownerID uuid.UUID,
 	input resapp.UpdateOpeningHoursRequest,
 ) (resapp.RestaurantResponse, error) {
-	res, err := uc.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
+	res, err := cmd.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
 	if err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to verify ownership: %w", err)
 	}
@@ -58,18 +58,18 @@ func (uc *UpdateOpeningHours) Execute(
 
 	res.WithOpeningHours(toDomainOpeningHours(input))
 
-	err = uc.db.Transaction(func(tx *gorm.DB) error {
-		if err := uc.restaurantRepo.WithTx(tx).Update(ctx, res); err != nil {
+	err = cmd.db.Transaction(func(tx *gorm.DB) error {
+		if err := cmd.restaurantRepo.WithTx(tx).Update(ctx, res); err != nil {
 			return fmt.Errorf("failed to update restaurant: %w", err)
 		}
 
-		return resapp.DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), res, uc.enrichUpdated(res))
+		return resapp.DispatchEventsTx(ctx, cmd.outboxRepo.WithTx(tx), res, cmd.enrichUpdated(res))
 	})
 	if err != nil {
 		return resapp.RestaurantResponse{}, err
 	}
 
-	pd, err := uc.payoutDetailsRepo.FindActiveByRestaurant(ctx, res.ID)
+	pd, err := cmd.payoutDetailsRepo.FindActiveByRestaurant(ctx, res.ID)
 	if err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to fetch payout details: %w", err)
 	}
@@ -77,7 +77,7 @@ func (uc *UpdateOpeningHours) Execute(
 	return resapp.ToRestaurantResponse(res, pd), nil
 }
 
-func (uc *UpdateOpeningHours) enrichUpdated(res *restaurant.Restaurant) resapp.Enricher {
+func (cmd *UpdateOpeningHours) enrichUpdated(res *restaurant.Restaurant) resapp.Enricher {
 	return func(e restaurant.DomainEvent) (event.Event, bool) {
 		updated, ok := e.(restaurant.RestaurantUpdated)
 		if !ok {

@@ -49,12 +49,12 @@ func NewLaunchRestaurant(
 	}
 }
 
-func (uc *LaunchRestaurant) Execute(
+func (cmd *LaunchRestaurant) Execute(
 	ctx context.Context,
 	restaurantID uuid.UUID,
 	ownerID uuid.UUID,
 ) (resapp.RestaurantResponse, error) {
-	res, err := uc.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
+	res, err := cmd.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
 	if err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to verify ownership: %w", err)
 	}
@@ -65,7 +65,7 @@ func (uc *LaunchRestaurant) Execute(
 		)
 	}
 
-	pizzas, err := uc.pizzaCatalog.Execute(ctx, res.ID)
+	pizzas, err := cmd.pizzaCatalog.Execute(ctx, res.ID)
 	if err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to load pizza catalog: %w", err)
 	}
@@ -75,7 +75,7 @@ func (uc *LaunchRestaurant) Execute(
 		return resapp.RestaurantResponse{}, fmt.Errorf("%w: %w", restaurant.ErrNotEnoughPizzas, apperr.ErrConflict)
 	}
 
-	toppingPrices, err := uc.buildToppingPriceResponses(ctx, res.ID)
+	toppingPrices, err := cmd.buildToppingPriceResponses(ctx, res.ID)
 	if err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to load topping prices: %w", err)
 	}
@@ -84,20 +84,20 @@ func (uc *LaunchRestaurant) Execute(
 		return resapp.RestaurantResponse{}, fmt.Errorf("%w: %w", err, apperr.ErrConflict)
 	}
 
-	err = uc.db.Transaction(func(tx *gorm.DB) error {
-		if err := uc.restaurantRepo.WithTx(tx).Update(ctx, res); err != nil {
+	err = cmd.db.Transaction(func(tx *gorm.DB) error {
+		if err := cmd.restaurantRepo.WithTx(tx).Update(ctx, res); err != nil {
 			return fmt.Errorf("failed to update restaurant: %w", err)
 		}
 
-		return resapp.DispatchEventsTx(
-			ctx, uc.outboxRepo.WithTx(tx), res, uc.enrichLaunched(res, readiness.ReadyPizzas, toppingPrices),
-		)
+		enricher := cmd.enrichLaunched(res, readiness.ReadyPizzas, toppingPrices)
+
+		return resapp.DispatchEventsTx(ctx, cmd.outboxRepo.WithTx(tx), res, enricher)
 	})
 	if err != nil {
 		return resapp.RestaurantResponse{}, err
 	}
 
-	pd, err := uc.payoutDetailsRepo.FindActiveByRestaurant(ctx, res.ID)
+	pd, err := cmd.payoutDetailsRepo.FindActiveByRestaurant(ctx, res.ID)
 	if err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to fetch payout details: %w", err)
 	}
@@ -105,7 +105,7 @@ func (uc *LaunchRestaurant) Execute(
 	return resapp.ToRestaurantResponse(res, pd), nil
 }
 
-func (uc *LaunchRestaurant) enrichLaunched(
+func (cmd *LaunchRestaurant) enrichLaunched(
 	res *restaurant.Restaurant,
 	pizzas []pizzaapp.PizzaResponse,
 	toppingPrices []toppingapp.ToppingPriceResponse,
@@ -120,11 +120,11 @@ func (uc *LaunchRestaurant) enrichLaunched(
 	}
 }
 
-func (uc *LaunchRestaurant) buildToppingPriceResponses(
+func (cmd *LaunchRestaurant) buildToppingPriceResponses(
 	ctx context.Context,
 	restaurantID uuid.UUID,
 ) ([]toppingapp.ToppingPriceResponse, error) {
-	toppings, err := uc.toppingRepo.List(ctx)
+	toppings, err := cmd.toppingRepo.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list toppings: %w", err)
 	}
@@ -134,7 +134,7 @@ func (uc *LaunchRestaurant) buildToppingPriceResponses(
 		toppingByID[t.ID] = t
 	}
 
-	prices, err := uc.toppingPriceRepo.ListByRestaurant(ctx, restaurantID)
+	prices, err := cmd.toppingPriceRepo.ListByRestaurant(ctx, restaurantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list topping prices: %w", err)
 	}

@@ -27,12 +27,12 @@ func NewGetLaunchReadiness(
 	}
 }
 
-func (uc *GetLaunchReadiness) Execute(
+func (qry *GetLaunchReadiness) Execute(
 	ctx context.Context,
 	restaurantID uuid.UUID,
 	ownerID uuid.UUID,
 ) (resapp.LaunchReadinessResponse, error) {
-	res, err := uc.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
+	res, err := qry.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
 	if err != nil {
 		return resapp.LaunchReadinessResponse{}, fmt.Errorf("failed to verify ownership: %w", err)
 	}
@@ -53,7 +53,7 @@ func (uc *GetLaunchReadiness) Execute(
 		)
 	}
 
-	pizzas, err := uc.pizzaCatalog.Execute(ctx, res.ID)
+	pizzas, err := qry.pizzaCatalog.Execute(ctx, res.ID)
 	if err != nil {
 		return resapp.LaunchReadinessResponse{}, fmt.Errorf("failed to load pizza catalog: %w", err)
 	}

@@ -47,13 +47,13 @@ func NewSetToppingPrices(
 	}
 }
 
-func (uc *SetToppingPrices) Execute(
+func (cmd *SetToppingPrices) Execute(
 	ctx context.Context,
 	restaurantID uuid.UUID,
 	ownerID uuid.UUID,
 	input toppingapp.SetToppingPricesRequest,
 ) ([]toppingapp.ToppingPriceResponse, error) {
-	res, err := uc.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
+	res, err := cmd.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify ownership: %w", err)
 	}
@@ -64,7 +64,7 @@ func (uc *SetToppingPrices) Execute(
 		)
 	}
 
-	toppings, err := uc.toppingRepo.List(ctx)
+	toppings, err := cmd.toppingRepo.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pizza toppings: %w", err)
 	}
@@ -116,12 +116,12 @@ func (uc *SetToppingPrices) Execute(
 
 	var responses []toppingapp.ToppingPriceResponse
 
-	err = uc.db.Transaction(func(tx *gorm.DB) error {
-		if err := uc.toppingPriceRepo.WithTx(tx).UpsertPrices(ctx, restaurantID, prices); err != nil {
+	err = cmd.db.Transaction(func(tx *gorm.DB) error {
+		if err := cmd.toppingPriceRepo.WithTx(tx).UpsertPrices(ctx, restaurantID, prices); err != nil {
 			return fmt.Errorf("failed to set topping prices: %w", err)
 		}
 
-		updated, err := uc.toppingPriceRepo.WithTx(tx).ListByRestaurant(ctx, restaurantID)
+		updated, err := cmd.toppingPriceRepo.WithTx(tx).ListByRestaurant(ctx, restaurantID)
 		if err != nil {
 			return fmt.Errorf("failed to list topping prices: %w", err)
 		}
@@ -136,9 +136,9 @@ func (uc *SetToppingPrices) Execute(
 
 		res.NotifyToppingPricesUpdated()
 
-		return resapp.DispatchEventsTx(
-			ctx, uc.outboxRepo.WithTx(tx), res, uc.enrichToppingPricesUpdated(responses, *prices[0].UpdatedAt),
-		)
+		enricher := cmd.enrichToppingPricesUpdated(responses, *prices[0].UpdatedAt)
+
+		return resapp.DispatchEventsTx(ctx, cmd.outboxRepo.WithTx(tx), res, enricher)
 	})
 	if err != nil {
 		return nil, err
@@ -147,7 +147,7 @@ func (uc *SetToppingPrices) Execute(
 	return responses, nil
 }
 
-func (uc *SetToppingPrices) enrichToppingPricesUpdated(
+func (cmd *SetToppingPrices) enrichToppingPricesUpdated(
 	toppingPrices []toppingapp.ToppingPriceResponse,
 	updatedAt time.Time,
 ) resapp.Enricher {

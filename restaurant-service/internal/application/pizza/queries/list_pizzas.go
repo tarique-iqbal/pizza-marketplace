@@ -26,12 +26,12 @@ func NewListPizzas(
 	}
 }
 
-func (uc *ListPizzas) Execute(
+func (qry *ListPizzas) Execute(
 	ctx context.Context,
 	restaurantID uuid.UUID,
 	ownerID uuid.UUID,
 ) ([]pizzaapp.PizzaResponse, error) {
-	res, err := uc.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
+	res, err := qry.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify ownership: %w", err)
 	}
@@ -42,5 +42,5 @@ func (uc *ListPizzas) Execute(
 		)
 	}
 
-	return uc.pizzaCatalog.Execute(ctx, restaurantID)
+	return qry.pizzaCatalog.Execute(ctx, restaurantID)
 }

@@ -40,13 +40,13 @@ func NewUpdateAddress(
 	}
 }
 
-func (uc *UpdateAddress) Execute(
+func (cmd *UpdateAddress) Execute(
 	ctx context.Context,
 	restaurantID uuid.UUID,
 	ownerID uuid.UUID,
 	input resapp.UpdateAddressRequest,
 ) (resapp.RestaurantResponse, error) {
-	res, err := uc.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
+	res, err := cmd.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
 	if err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to verify ownership: %w", err)
 	}
@@ -70,13 +70,13 @@ func (uc *UpdateAddress) Execute(
 	if res.Address == addr {
 		lat, lon, timezone = *res.Lat, *res.Lon, *res.Timezone
 	} else {
-		lat, lon, timezone, err = uc.geocoder.GeocodeAddress(ctx, addr)
+		lat, lon, timezone, err = cmd.geocoder.GeocodeAddress(ctx, addr)
 		if err != nil {
 			return resapp.RestaurantResponse{}, fmt.Errorf("failed to geocode address: %w", err)
 		}
 	}
 
-	slug, err := uc.generateUniqueSlug(ctx, res.ID, res.Name, input.City, input.Street)
+	slug, err := cmd.generateUniqueSlug(ctx, res.ID, res.Name, input.City, input.Street)
 	if err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to generate slug: %w", err)
 	}
@@ -88,18 +88,18 @@ func (uc *UpdateAddress) Execute(
 		WithAddress(addr).
 		WithCoordinates(lat, lon, timezone)
 
-	err = uc.db.Transaction(func(tx *gorm.DB) error {
-		if err := uc.restaurantRepo.WithTx(tx).Update(ctx, res); err != nil {
+	err = cmd.db.Transaction(func(tx *gorm.DB) error {
+		if err := cmd.restaurantRepo.WithTx(tx).Update(ctx, res); err != nil {
 			return fmt.Errorf("failed to update restaurant: %w", err)
 		}
 
-		return resapp.DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), res, uc.enrichUpdated(res))
+		return resapp.DispatchEventsTx(ctx, cmd.outboxRepo.WithTx(tx), res, cmd.enrichUpdated(res))
 	})
 	if err != nil {
 		return resapp.RestaurantResponse{}, err
 	}
 
-	pd, err := uc.payoutDetailsRepo.FindActiveByRestaurant(ctx, res.ID)
+	pd, err := cmd.payoutDetailsRepo.FindActiveByRestaurant(ctx, res.ID)
 	if err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to fetch payout details: %w", err)
 	}
@@ -107,14 +107,14 @@ func (uc *UpdateAddress) Execute(
 	return resapp.ToRestaurantResponse(res, pd), nil
 }
 
-func (uc *UpdateAddress) generateUniqueSlug(
+func (cmd *UpdateAddress) generateUniqueSlug(
 	ctx context.Context,
 	restaurantID uuid.UUID,
 	name, city, street string,
 ) (string, error) {
 	base := goslug.Make(fmt.Sprintf("%s-%s-%s", name, city, street))
 
-	res, err := uc.restaurantRepo.FindBySlug(ctx, base)
+	res, err := cmd.restaurantRepo.FindBySlug(ctx, base)
 	if err != nil {
 		return "", fmt.Errorf("failed to find restaurant by slug: %w", err)
 	}
@@ -126,7 +126,7 @@ func (uc *UpdateAddress) generateUniqueSlug(
 	for i := 2; i <= 9; i++ {
 		extended := fmt.Sprintf("%s-%d", base, i)
 
-		res, err := uc.restaurantRepo.FindBySlug(ctx, extended)
+		res, err := cmd.restaurantRepo.FindBySlug(ctx, extended)
 		if err != nil {
 			return "", fmt.Errorf("failed to find restaurant by slug: %w", err)
 		}
@@ -139,7 +139,7 @@ func (uc *UpdateAddress) generateUniqueSlug(
 	return "", fmt.Errorf("failed to generate unique slug")
 }
 
-func (uc *UpdateAddress) enrichUpdated(res *restaurant.Restaurant) resapp.Enricher {
+func (cmd *UpdateAddress) enrichUpdated(res *restaurant.Restaurant) resapp.Enricher {
 	return func(e restaurant.DomainEvent) (event.Event, bool) {
 		updated, ok := e.(restaurant.RestaurantUpdated)
 		if !ok {

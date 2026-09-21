@@ -35,11 +35,11 @@ func NewApproveRestaurant(
 	}
 }
 
-func (uc *ApproveRestaurant) Execute(
+func (cmd *ApproveRestaurant) Execute(
 	ctx context.Context,
 	restaurantID uuid.UUID,
 ) (resapp.RestaurantResponse, error) {
-	res, err := uc.restaurantRepo.FindByID(ctx, restaurantID)
+	res, err := cmd.restaurantRepo.FindByID(ctx, restaurantID)
 	if err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to find restaurant: %w", err)
 	}
@@ -51,22 +51,22 @@ func (uc *ApproveRestaurant) Execute(
 		return resapp.RestaurantResponse{}, fmt.Errorf("%w: %w", err, apperr.ErrConflict)
 	}
 
-	err = uc.db.Transaction(func(tx *gorm.DB) error {
-		if err := uc.restaurantRepo.WithTx(tx).Update(ctx, res); err != nil {
+	err = cmd.db.Transaction(func(tx *gorm.DB) error {
+		if err := cmd.restaurantRepo.WithTx(tx).Update(ctx, res); err != nil {
 			return fmt.Errorf("failed to update restaurant: %w", err)
 		}
 
-		if err := uc.payoutDetailsRepo.WithTx(tx).PromoteToActive(ctx, res.ID); err != nil {
+		if err := cmd.payoutDetailsRepo.WithTx(tx).PromoteToActive(ctx, res.ID); err != nil {
 			return fmt.Errorf("failed to promote payout details: %w", err)
 		}
 
-		return resapp.DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), res)
+		return resapp.DispatchEventsTx(ctx, cmd.outboxRepo.WithTx(tx), res)
 	})
 	if err != nil {
 		return resapp.RestaurantResponse{}, err
 	}
 
-	pd, err := uc.payoutDetailsRepo.FindActiveByRestaurant(ctx, res.ID)
+	pd, err := cmd.payoutDetailsRepo.FindActiveByRestaurant(ctx, res.ID)
 	if err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to fetch payout details: %w", err)
 	}

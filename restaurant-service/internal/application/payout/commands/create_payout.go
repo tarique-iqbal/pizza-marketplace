@@ -36,13 +36,13 @@ func NewCreatePayout(
 	}
 }
 
-func (uc *CreatePayout) Execute(
+func (cmd *CreatePayout) Execute(
 	ctx context.Context,
 	restaurantID uuid.UUID,
 	ownerID uuid.UUID,
 	input payoutapp.CreatePayoutRequest,
 ) (resapp.RestaurantResponse, error) {
-	res, err := uc.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
+	res, err := cmd.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
 	if err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to verify ownership: %w", err)
 	}
@@ -66,16 +66,16 @@ func (uc *CreatePayout) Execute(
 
 	res.CompleteChecklistItem(restaurant.ChecklistPayout)
 
-	err = uc.db.Transaction(func(tx *gorm.DB) error {
-		if err := uc.payoutDetailsRepo.WithTx(tx).Create(ctx, pd); err != nil {
+	err = cmd.db.Transaction(func(tx *gorm.DB) error {
+		if err := cmd.payoutDetailsRepo.WithTx(tx).Create(ctx, pd); err != nil {
 			return fmt.Errorf("failed to create payout details: %w", err)
 		}
 
-		if err := uc.restaurantRepo.WithTx(tx).Update(ctx, res); err != nil {
+		if err := cmd.restaurantRepo.WithTx(tx).Update(ctx, res); err != nil {
 			return fmt.Errorf("failed to update restaurant: %w", err)
 		}
 
-		return resapp.DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), res)
+		return resapp.DispatchEventsTx(ctx, cmd.outboxRepo.WithTx(tx), res)
 	})
 	if err != nil {
 		return resapp.RestaurantResponse{}, err

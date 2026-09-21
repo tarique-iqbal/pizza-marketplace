@@ -32,13 +32,13 @@ func NewCreatePizza(
 	}
 }
 
-func (uc *CreatePizza) Execute(
+func (cmd *CreatePizza) Execute(
 	ctx context.Context,
 	restaurantID uuid.UUID,
 	ownerID uuid.UUID,
 	input pizzaapp.CreatePizzaRequest,
 ) (pizzaapp.PizzaResponse, error) {
-	res, err := uc.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
+	res, err := cmd.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
 	if err != nil {
 		return pizzaapp.PizzaResponse{}, fmt.Errorf("failed to verify ownership: %w", err)
 	}
@@ -84,7 +84,7 @@ func (uc *CreatePizza) Execute(
 	var toppingByID map[uuid.UUID]topping.Topping
 
 	if len(input.ToppingIDs) > 0 {
-		toppings, err := uc.toppingRepo.List(ctx)
+		toppings, err := cmd.toppingRepo.List(ctx)
 		if err != nil {
 			return pizzaapp.PizzaResponse{}, fmt.Errorf("failed to list pizza toppings: %w", err)
 		}
@@ -108,7 +108,7 @@ func (uc *CreatePizza) Execute(
 		toppingIDs = input.ToppingIDs
 	}
 
-	if err := uc.pizzaRepo.Create(ctx, p); err != nil {
+	if err := cmd.pizzaRepo.Create(ctx, p); err != nil {
 		return pizzaapp.PizzaResponse{}, fmt.Errorf("failed to create pizza: %w", err)
 	}
 

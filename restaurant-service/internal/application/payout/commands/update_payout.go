@@ -28,13 +28,13 @@ func NewUpdatePayout(
 	}
 }
 
-func (uc *UpdatePayout) Execute(
+func (cmd *UpdatePayout) Execute(
 	ctx context.Context,
 	restaurantID uuid.UUID,
 	ownerID uuid.UUID,
 	input payoutapp.UpdatePayoutRequest,
 ) (resapp.RestaurantResponse, error) {
-	res, err := uc.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
+	res, err := cmd.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
 	if err != nil {
 		return resapp.RestaurantResponse{}, fmt.Errorf("failed to verify ownership: %w", err)
 	}
@@ -45,7 +45,7 @@ func (uc *UpdatePayout) Execute(
 		)
 	}
 
-	if err := uc.payoutDetailsRepo.UpdateUnverified(
+	if err := cmd.payoutDetailsRepo.UpdateUnverified(
 		ctx,
 		res.ID,
 		input.AccountHolder,

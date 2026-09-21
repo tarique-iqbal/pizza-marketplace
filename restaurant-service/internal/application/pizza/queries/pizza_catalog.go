@@ -36,16 +36,16 @@ func NewPizzaCatalog(
 	}
 }
 
-func (uc *PizzaCatalog) Execute(
+func (qry *PizzaCatalog) Execute(
 	ctx context.Context,
 	restaurantID uuid.UUID,
 ) ([]pizzaapp.PizzaResponse, error) {
-	pizzas, err := uc.pizzaRepo.ListByRestaurant(ctx, restaurantID)
+	pizzas, err := qry.pizzaRepo.ListByRestaurant(ctx, restaurantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pizzas: %w", err)
 	}
 
-	sizes, err := uc.pizzaSizeRepo.List(ctx)
+	sizes, err := qry.pizzaSizeRepo.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pizza sizes: %w", err)
 	}
@@ -55,7 +55,7 @@ func (uc *PizzaCatalog) Execute(
 		sizeByID[size.ID] = size
 	}
 
-	toppings, err := uc.toppingRepo.List(ctx)
+	toppings, err := qry.toppingRepo.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pizza toppings: %w", err)
 	}
@@ -65,7 +65,7 @@ func (uc *PizzaCatalog) Execute(
 		toppingByID[t.ID] = t
 	}
 
-	toppingPrices, err := uc.toppingPriceRepo.ListByRestaurant(ctx, restaurantID)
+	toppingPrices, err := qry.toppingPriceRepo.ListByRestaurant(ctx, restaurantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list topping prices: %w", err)
 	}
@@ -84,7 +84,7 @@ func (uc *PizzaCatalog) Execute(
 			continue
 		}
 
-		prices, err := uc.pizzaPriceRepo.ListByPizza(ctx, p.ID)
+		prices, err := qry.pizzaPriceRepo.ListByPizza(ctx, p.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list prices for pizza %s: %w", p.ID, err)
 		}

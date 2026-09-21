@@ -48,14 +48,14 @@ func NewUpdatePizza(
 	}
 }
 
-func (uc *UpdatePizza) Execute(
+func (cmd *UpdatePizza) Execute(
 	ctx context.Context,
 	restaurantID uuid.UUID,
 	pizzaID uuid.UUID,
 	ownerID uuid.UUID,
 	input pizzaapp.UpdatePizzaRequest,
 ) (pizzaapp.PizzaResponse, error) {
-	res, err := uc.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
+	res, err := cmd.restaurantRepo.FindByIDAndOwner(ctx, restaurantID, ownerID)
 	if err != nil {
 		return pizzaapp.PizzaResponse{}, fmt.Errorf("failed to verify ownership: %w", err)
 	}
@@ -66,7 +66,7 @@ func (uc *UpdatePizza) Execute(
 		)
 	}
 
-	p, err := uc.pizzaRepo.FindByIDAndRestaurant(ctx, pizzaID, restaurantID)
+	p, err := cmd.pizzaRepo.FindByIDAndRestaurant(ctx, pizzaID, restaurantID)
 	if err != nil {
 		return pizzaapp.PizzaResponse{}, fmt.Errorf("failed to find pizza: %w", err)
 	}
@@ -92,7 +92,7 @@ func (uc *UpdatePizza) Execute(
 		input.SortOrder,
 	)
 
-	toppings, err := uc.toppingRepo.List(ctx)
+	toppings, err := cmd.toppingRepo.List(ctx)
 	if err != nil {
 		return pizzaapp.PizzaResponse{}, fmt.Errorf("failed to list pizza toppings: %w", err)
 	}
@@ -120,12 +120,12 @@ func (uc *UpdatePizza) Execute(
 		return pizzaapp.PizzaResponse{}, fmt.Errorf("failed to parse pizza toppings: %w", err)
 	}
 
-	prices, err := uc.pizzaPriceRepo.ListByPizza(ctx, p.ID)
+	prices, err := cmd.pizzaPriceRepo.ListByPizza(ctx, p.ID)
 	if err != nil {
 		return pizzaapp.PizzaResponse{}, fmt.Errorf("failed to list pizza prices: %w", err)
 	}
 
-	sizes, err := uc.pizzaSizeRepo.List(ctx)
+	sizes, err := cmd.pizzaSizeRepo.List(ctx)
 	if err != nil {
 		return pizzaapp.PizzaResponse{}, fmt.Errorf("failed to list pizza sizes: %w", err)
 	}
@@ -139,15 +139,15 @@ func (uc *UpdatePizza) Execute(
 
 	var output pizzaapp.PizzaResponse
 
-	err = uc.db.Transaction(func(tx *gorm.DB) error {
-		if err := uc.pizzaRepo.WithTx(tx).Update(ctx, p); err != nil {
+	err = cmd.db.Transaction(func(tx *gorm.DB) error {
+		if err := cmd.pizzaRepo.WithTx(tx).Update(ctx, p); err != nil {
 			return fmt.Errorf("failed to update pizza: %w", err)
 		}
 
 		// p.UpdatedAt is only set once Update runs, so build the response after it.
 		output = pizzaapp.ToPizzaResponse(p, prices, sizeByID, toppingIDs, toppingByID, nil)
 
-		return resapp.DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), res, uc.enrichPizzaUpdated(output))
+		return resapp.DispatchEventsTx(ctx, cmd.outboxRepo.WithTx(tx), res, cmd.enrichPizzaUpdated(output))
 	})
 	if err != nil {
 		return pizzaapp.PizzaResponse{}, err
@@ -156,7 +156,7 @@ func (uc *UpdatePizza) Execute(
 	return output, nil
 }
 
-func (uc *UpdatePizza) enrichPizzaUpdated(output pizzaapp.PizzaResponse) resapp.Enricher {
+func (cmd *UpdatePizza) enrichPizzaUpdated(output pizzaapp.PizzaResponse) resapp.Enricher {
 	return func(e restaurant.DomainEvent) (event.Event, bool) {
 		updated, ok := e.(restaurant.PizzaUpdated)
 		if !ok {
