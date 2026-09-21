@@ -47,9 +47,9 @@ func TestHandleMollieWebhook_UnknownPayment_NoOp(t *testing.T) {
 	repo := persistence.NewPaymentRepository(db.DB)
 	outboxRepo := persistence.NewOutboxRepository(db.DB)
 	gw := &fakeGateway{}
-	uc := commands.NewHandleMollieWebhook(db.DB, repo, gw, outboxRepo)
+	cmd := commands.NewHandleMollieWebhook(db.DB, repo, gw, outboxRepo)
 
-	err := uc.Execute(context.Background(), "tr_unknown")
+	err := cmd.Execute(context.Background(), "tr_unknown")
 	require.NoError(t, err)
 
 	assert.Equal(t, int64(0), countOutboxEvents(t, db))
@@ -67,9 +67,9 @@ func TestHandleMollieWebhook_AlreadyTerminalPayment_NoOp(t *testing.T) {
 	require.NoError(t, repo.Update(context.Background(), p))
 
 	gw := &fakeGateway{statusResult: payment.PaymentStatusResult{Status: payment.StatusSucceeded}}
-	uc := commands.NewHandleMollieWebhook(db.DB, repo, gw, outboxRepo)
+	cmd := commands.NewHandleMollieWebhook(db.DB, repo, gw, outboxRepo)
 
-	err := uc.Execute(context.Background(), "tr_terminal")
+	err := cmd.Execute(context.Background(), "tr_terminal")
 	require.NoError(t, err)
 
 	assert.Equal(t, int64(0), countOutboxEvents(t, db))
@@ -85,9 +85,9 @@ func TestHandleMollieWebhook_NonTerminalStatus_NoOp(t *testing.T) {
 	p := newPendingPayment(t, repo, "tr_open")
 
 	gw := &fakeGateway{statusResult: payment.PaymentStatusResult{Status: payment.StatusPending}}
-	uc := commands.NewHandleMollieWebhook(db.DB, repo, gw, outboxRepo)
+	cmd := commands.NewHandleMollieWebhook(db.DB, repo, gw, outboxRepo)
 
-	err := uc.Execute(context.Background(), "tr_open")
+	err := cmd.Execute(context.Background(), "tr_open")
 	require.NoError(t, err)
 
 	assert.Equal(t, int64(0), countOutboxEvents(t, db))
@@ -107,9 +107,9 @@ func TestHandleMollieWebhook_Paid_MarksSucceededAndPublishes(t *testing.T) {
 	p := newPendingPayment(t, repo, "tr_paid")
 
 	gw := &fakeGateway{statusResult: payment.PaymentStatusResult{Status: payment.StatusSucceeded}}
-	uc := commands.NewHandleMollieWebhook(db.DB, repo, gw, outboxRepo)
+	cmd := commands.NewHandleMollieWebhook(db.DB, repo, gw, outboxRepo)
 
-	err := uc.Execute(context.Background(), "tr_paid")
+	err := cmd.Execute(context.Background(), "tr_paid")
 	require.NoError(t, err)
 
 	found, err := repo.FindByID(context.Background(), p.ID)
@@ -140,9 +140,9 @@ func TestHandleMollieWebhook_Failed_MarksFailedAndPublishes(t *testing.T) {
 	gw := &fakeGateway{
 		statusResult: payment.PaymentStatusResult{Status: payment.StatusFailed, Reason: "payment expired"},
 	}
-	uc := commands.NewHandleMollieWebhook(db.DB, repo, gw, outboxRepo)
+	cmd := commands.NewHandleMollieWebhook(db.DB, repo, gw, outboxRepo)
 
-	err := uc.Execute(context.Background(), "tr_expired")
+	err := cmd.Execute(context.Background(), "tr_expired")
 	require.NoError(t, err)
 
 	found, err := repo.FindByID(context.Background(), p.ID)

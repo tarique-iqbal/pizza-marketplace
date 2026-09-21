@@ -29,9 +29,9 @@ func TestGetPaymentStatus_ReturnsCurrentStatus(t *testing.T) {
 	require.NoError(t, p.MarkSucceeded())
 	require.NoError(t, repo.Update(context.Background(), p))
 
-	uc := queries.NewGetPaymentStatus(repo)
+	qry := queries.NewGetPaymentStatus(repo)
 
-	status, err := uc.Execute(context.Background(), p.ID)
+	status, err := qry.Execute(context.Background(), p.ID)
 
 	require.NoError(t, err)
 	assert.Equal(t, payment.StatusSucceeded, status)
@@ -42,9 +42,9 @@ func TestGetPaymentStatus_NotFound(t *testing.T) {
 	db.TruncateTables(t, testutil.TablePayment)
 
 	repo := persistence.NewPaymentRepository(db.DB)
-	uc := queries.NewGetPaymentStatus(repo)
+	qry := queries.NewGetPaymentStatus(repo)
 
-	_, err := uc.Execute(context.Background(), testutil.MustNewID())
+	_, err := qry.Execute(context.Background(), testutil.MustNewID())
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, apperr.ErrNotFound)

@@ -19,8 +19,8 @@ func NewCancelPayment(repo payment.PaymentRepository, gateway payment.PaymentGat
 	return &CancelPayment{repo: repo, gateway: gateway}
 }
 
-func (uc *CancelPayment) Execute(ctx context.Context, paymentID uuid.UUID) error {
-	p, err := uc.repo.FindByID(ctx, paymentID)
+func (cmd *CancelPayment) Execute(ctx context.Context, paymentID uuid.UUID) error {
+	p, err := cmd.repo.FindByID(ctx, paymentID)
 	if err != nil {
 		return fmt.Errorf("failed to look up payment: %w", err)
 	}
@@ -28,7 +28,7 @@ func (uc *CancelPayment) Execute(ctx context.Context, paymentID uuid.UUID) error
 		return nil
 	}
 
-	if err := uc.gateway.CancelPayment(ctx, *p.GatewayPaymentID); err != nil {
+	if err := cmd.gateway.CancelPayment(ctx, *p.GatewayPaymentID); err != nil {
 		logobs.FromContext(ctx).Warn(
 			"failed to cancel payment at gateway, ignoring (best-effort)",
 			"payment_id", paymentID,

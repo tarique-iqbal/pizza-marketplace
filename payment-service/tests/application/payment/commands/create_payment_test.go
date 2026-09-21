@@ -69,11 +69,11 @@ func TestCreatePayment_FreshRequest_CreatesAndAttachesGatewayReference(t *testin
 			CheckoutURL:      "https://mollie.test/checkout/tr_abc123",
 		},
 	}
-	uc := commands.NewCreatePayment(repo, gw, "https://payment-service.internal")
+	cmd := commands.NewCreatePayment(repo, gw, "https://payment-service.internal")
 
 	req := newCreatePaymentRequest()
 
-	resp, err := uc.Execute(context.Background(), req)
+	resp, err := cmd.Execute(context.Background(), req)
 	require.NoError(t, err)
 
 	assert.NotEmpty(t, resp.PaymentID)
@@ -105,14 +105,14 @@ func TestCreatePayment_SameSubjectTwice_IsIdempotent(t *testing.T) {
 			CheckoutURL: "https://mollie.test/checkout/tr_abc123",
 		},
 	}
-	uc := commands.NewCreatePayment(repo, gw, "https://payment-service.internal")
+	cmd := commands.NewCreatePayment(repo, gw, "https://payment-service.internal")
 
 	req := newCreatePaymentRequest()
 
-	first, err := uc.Execute(context.Background(), req)
+	first, err := cmd.Execute(context.Background(), req)
 	require.NoError(t, err)
 
-	second, err := uc.Execute(context.Background(), req)
+	second, err := cmd.Execute(context.Background(), req)
 	require.NoError(t, err)
 
 	assert.Equal(t, first.PaymentID, second.PaymentID)
@@ -148,9 +148,9 @@ func TestCreatePayment_ExistingRowWithoutGatewayReference_SelfHeals(t *testing.T
 			CheckoutURL:      "https://mollie.test/checkout/tr_healed",
 		},
 	}
-	uc := commands.NewCreatePayment(repo, gw, "https://payment-service.internal")
+	cmd := commands.NewCreatePayment(repo, gw, "https://payment-service.internal")
 
-	resp, err := uc.Execute(context.Background(), req)
+	resp, err := cmd.Execute(context.Background(), req)
 	require.NoError(t, err)
 
 	assert.Equal(t, existing.ID, resp.PaymentID)

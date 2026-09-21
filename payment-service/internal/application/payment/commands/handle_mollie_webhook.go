@@ -34,8 +34,8 @@ func NewHandleMollieWebhook(
 	}
 }
 
-func (uc *HandleMollieWebhook) Execute(ctx context.Context, gatewayPaymentID string) error {
-	p, err := uc.repo.FindByGatewayPaymentID(ctx, gatewayPaymentID)
+func (cmd *HandleMollieWebhook) Execute(ctx context.Context, gatewayPaymentID string) error {
+	p, err := cmd.repo.FindByGatewayPaymentID(ctx, gatewayPaymentID)
 	if err != nil {
 		return fmt.Errorf("failed to look up payment: %w", err)
 	}
@@ -46,7 +46,7 @@ func (uc *HandleMollieWebhook) Execute(ctx context.Context, gatewayPaymentID str
 		return nil
 	}
 
-	result, err := uc.gateway.GetStatus(ctx, gatewayPaymentID)
+	result, err := cmd.gateway.GetStatus(ctx, gatewayPaymentID)
 	if err != nil {
 		return fmt.Errorf("failed to check payment status: %w", err)
 	}
@@ -104,13 +104,13 @@ func (uc *HandleMollieWebhook) Execute(ctx context.Context, gatewayPaymentID str
 		return nil
 	}
 
-	return uc.db.Transaction(func(tx *gorm.DB) error {
-		if err := uc.repo.WithTx(tx).Update(ctx, p); err != nil {
+	return cmd.db.Transaction(func(tx *gorm.DB) error {
+		if err := cmd.repo.WithTx(tx).Update(ctx, p); err != nil {
 			return fmt.Errorf("failed to update payment: %w", err)
 		}
 
 		event := outbox.NewOutboxEvent(p.ID, eventName, payload)
-		if err := uc.outboxRepo.WithTx(tx).Create(ctx, &event); err != nil {
+		if err := cmd.outboxRepo.WithTx(tx).Create(ctx, &event); err != nil {
 			return fmt.Errorf("failed to create outbox event: %w", err)
 		}
 

@@ -29,17 +29,17 @@ func NewCreatePayment(
 	}
 }
 
-func (uc *CreatePayment) Execute(
+func (cmd *CreatePayment) Execute(
 	ctx context.Context,
 	req paymentapp.CreatePaymentRequest,
 ) (paymentapp.CreatePaymentResponse, error) {
-	existing, err := uc.repo.FindBySubject(ctx, req.SubjectType, req.SubjectID)
+	existing, err := cmd.repo.FindBySubject(ctx, req.SubjectType, req.SubjectID)
 	if err != nil {
 		return paymentapp.CreatePaymentResponse{}, fmt.Errorf("failed to look up existing payment: %w", err)
 	}
 
 	if existing != nil {
-		return uc.handleExisting(ctx, existing, req)
+		return cmd.handleExisting(ctx, existing, req)
 	}
 
 	p := payment.NewPayment(
@@ -54,23 +54,23 @@ func (uc *CreatePayment) Execute(
 		"mollie",
 	)
 
-	if err := uc.repo.Create(ctx, p); err != nil {
+	if err := cmd.repo.Create(ctx, p); err != nil {
 		return paymentapp.CreatePaymentResponse{}, fmt.Errorf("failed to create payment: %w", err)
 	}
 
-	return uc.callGatewayAndAttach(ctx, p, req)
+	return cmd.callGatewayAndAttach(ctx, p, req)
 }
 
-func (uc *CreatePayment) handleExisting(
+func (cmd *CreatePayment) handleExisting(
 	ctx context.Context,
 	existing *payment.Payment,
 	req paymentapp.CreatePaymentRequest,
 ) (paymentapp.CreatePaymentResponse, error) {
 	if existing.GatewayPaymentID == nil {
-		return uc.callGatewayAndAttach(ctx, existing, req)
+		return cmd.callGatewayAndAttach(ctx, existing, req)
 	}
 
-	result, err := uc.gateway.GetStatus(ctx, *existing.GatewayPaymentID)
+	result, err := cmd.gateway.GetStatus(ctx, *existing.GatewayPaymentID)
 	if err != nil {
 		return paymentapp.CreatePaymentResponse{}, fmt.Errorf("failed to check payment status: %w", err)
 	}
@@ -82,17 +82,17 @@ func (uc *CreatePayment) handleExisting(
 	}, nil
 }
 
-func (uc *CreatePayment) callGatewayAndAttach(
+func (cmd *CreatePayment) callGatewayAndAttach(
 	ctx context.Context,
 	p *payment.Payment,
 	req paymentapp.CreatePaymentRequest,
 ) (paymentapp.CreatePaymentResponse, error) {
-	result, err := uc.gateway.CreatePayment(ctx, payment.CreatePaymentRequest{
+	result, err := cmd.gateway.CreatePayment(ctx, payment.CreatePaymentRequest{
 		RestaurantID: req.RestaurantID,
 		Amount:       req.Amount,
 		Currency:     req.Currency,
 		RedirectURL:  req.RedirectURL,
-		WebhookURL:   uc.publicBaseURL + "/webhooks/mollie",
+		WebhookURL:   cmd.publicBaseURL + "/webhooks/mollie",
 	})
 	if err != nil {
 		return paymentapp.CreatePaymentResponse{}, fmt.Errorf("failed to create gateway payment: %w", err)
@@ -100,7 +100,7 @@ func (uc *CreatePayment) callGatewayAndAttach(
 
 	p.AttachGatewayReference(result.GatewayPaymentID)
 
-	if err := uc.repo.Update(ctx, p); err != nil {
+	if err := cmd.repo.Update(ctx, p); err != nil {
 		return paymentapp.CreatePaymentResponse{}, fmt.Errorf("failed to record gateway reference: %w", err)
 	}
 
