@@ -33,12 +33,12 @@ func NewUpdatePhone(
 	}
 }
 
-func (uc *UpdatePhone) Execute(
+func (cmd *UpdatePhone) Execute(
 	ctx context.Context,
 	customerID uuid.UUID,
 	input customerapp.UpdatePhoneRequest,
 ) (customerapp.GetProfileResponse, error) {
-	c, err := uc.customerRepo.FindByID(ctx, customerID)
+	c, err := cmd.customerRepo.FindByID(ctx, customerID)
 	if err != nil {
 		return customerapp.GetProfileResponse{}, fmt.Errorf("failed to find customer: %w", err)
 	}
@@ -60,13 +60,13 @@ func (uc *UpdatePhone) Execute(
 		return customerapp.GetProfileResponse{}, fmt.Errorf("failed to encode event payload: %w", err)
 	}
 
-	err = uc.db.Transaction(func(tx *gorm.DB) error {
-		if err := uc.customerRepo.WithTx(tx).Update(ctx, c); err != nil {
+	err = cmd.db.Transaction(func(tx *gorm.DB) error {
+		if err := cmd.customerRepo.WithTx(tx).Update(ctx, c); err != nil {
 			return fmt.Errorf("failed to update customer: %w", err)
 		}
 
 		event := outbox.NewOutboxEvent(c.ID, updated.EventName, payload)
-		if err := uc.outboxRepo.WithTx(tx).Create(ctx, &event); err != nil {
+		if err := cmd.outboxRepo.WithTx(tx).Create(ctx, &event); err != nil {
 			return fmt.Errorf("failed to create outbox event: %w", err)
 		}
 

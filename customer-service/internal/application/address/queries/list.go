@@ -18,11 +18,11 @@ func NewList(addressRepo customer.AddressRepository) *List {
 	return &List{addressRepo: addressRepo}
 }
 
-func (uc *List) Execute(
+func (qry *List) Execute(
 	ctx context.Context,
 	customerID uuid.UUID,
 ) ([]addressapp.AddressResponse, error) {
-	addresses, err := uc.addressRepo.ListByCustomer(ctx, customerID)
+	addresses, err := qry.addressRepo.ListByCustomer(ctx, customerID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list addresses: %w", err)
 	}

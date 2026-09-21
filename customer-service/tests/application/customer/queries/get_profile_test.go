@@ -25,9 +25,9 @@ func TestGetProfile_Execute_Found(t *testing.T) {
 			Phone:     &phone,
 		},
 	}
-	uc := appqueries.NewGetProfile(customerRepo)
+	qry := appqueries.NewGetProfile(customerRepo)
 
-	res, err := uc.Execute(context.Background(), id)
+	res, err := qry.Execute(context.Background(), id)
 
 	require.NoError(t, err)
 	assert.Equal(t, id, res.ID)
@@ -40,9 +40,9 @@ func TestGetProfile_Execute_Found(t *testing.T) {
 
 func TestGetProfile_Execute_NotFound(t *testing.T) {
 	customerRepo := &testutil.MockCustomerRepository{}
-	uc := appqueries.NewGetProfile(customerRepo)
+	qry := appqueries.NewGetProfile(customerRepo)
 
-	_, err := uc.Execute(context.Background(), testutil.MustNewID())
+	_, err := qry.Execute(context.Background(), testutil.MustNewID())
 
 	assert.ErrorIs(t, err, apperr.ErrNotFound)
 }

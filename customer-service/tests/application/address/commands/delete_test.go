@@ -13,18 +13,18 @@ import (
 
 func TestDelete_Execute_DeletesAddress(t *testing.T) {
 	addressRepo := &testutil.MockAddressRepository{}
-	uc := appcommands.NewDelete(addressRepo)
+	cmd := appcommands.NewDelete(addressRepo)
 
-	err := uc.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID())
+	err := cmd.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID())
 
 	assert.NoError(t, err)
 }
 
 func TestDelete_Execute_PropagatesNotFound(t *testing.T) {
 	addressRepo := &testutil.MockAddressRepository{DeleteErr: apperr.ErrNotFound}
-	uc := appcommands.NewDelete(addressRepo)
+	cmd := appcommands.NewDelete(addressRepo)
 
-	err := uc.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID())
+	err := cmd.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID())
 
 	assert.ErrorIs(t, err, apperr.ErrNotFound)
 }

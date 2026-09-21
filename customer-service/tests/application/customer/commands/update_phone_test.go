@@ -35,9 +35,9 @@ func TestUpdatePhone_Execute_SetsPhoneAndPublishes(t *testing.T) {
 
 	customerRepo := persistence.NewCustomerRepository(db.DB)
 	outboxRepo := persistence.NewOutboxRepository(db.DB)
-	uc := commands.NewUpdatePhone(db.DB, customerRepo, outboxRepo)
+	cmd := commands.NewUpdatePhone(db.DB, customerRepo, outboxRepo)
 
-	res, err := uc.Execute(context.Background(), target.ID, customerapp.UpdatePhoneRequest{
+	res, err := cmd.Execute(context.Background(), target.ID, customerapp.UpdatePhoneRequest{
 		Phone: "+49 30 1234567",
 	})
 	require.NoError(t, err)
@@ -68,9 +68,9 @@ func TestUpdatePhone_Execute_NotFound(t *testing.T) {
 
 	customerRepo := persistence.NewCustomerRepository(db.DB)
 	outboxRepo := persistence.NewOutboxRepository(db.DB)
-	uc := commands.NewUpdatePhone(db.DB, customerRepo, outboxRepo)
+	cmd := commands.NewUpdatePhone(db.DB, customerRepo, outboxRepo)
 
-	_, err := uc.Execute(context.Background(), uuid.New(), customerapp.UpdatePhoneRequest{
+	_, err := cmd.Execute(context.Background(), uuid.New(), customerapp.UpdatePhoneRequest{
 		Phone: "+49 30 1234567",
 	})
 

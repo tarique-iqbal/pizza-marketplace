@@ -25,19 +25,19 @@ func setupSetDefault(t *testing.T) (*appcommands.SetDefault, customer.Customer, 
 	fixtureAddresses := fixtures.LoadAddressFixtures(t, db.DB, owner.ID)
 
 	addressRepo := persistence.NewAddressRepository(db.DB)
-	uc := appcommands.NewSetDefault(db.DB, addressRepo)
+	cmd := appcommands.NewSetDefault(db.DB, addressRepo)
 
-	return uc, owner, fixtureAddresses
+	return cmd, owner, fixtureAddresses
 }
 
 func TestSetDefault_Execute_SwapsDefault(t *testing.T) {
 	db := testutil.DB(t)
-	uc, owner, fixtureAddresses := setupSetDefault(t)
+	cmd, owner, fixtureAddresses := setupSetDefault(t)
 
 	newDefault := fixtureAddresses[1]
 	require.False(t, newDefault.IsDefault)
 
-	res, err := uc.Execute(context.Background(), owner.ID, newDefault.ID)
+	res, err := cmd.Execute(context.Background(), owner.ID, newDefault.ID)
 	require.NoError(t, err)
 	assert.True(t, res.IsDefault)
 	assert.Equal(t, newDefault.ID, res.ID)
@@ -51,17 +51,17 @@ func TestSetDefault_Execute_SwapsDefault(t *testing.T) {
 }
 
 func TestSetDefault_Execute_NotOwned_ReturnsNotFound(t *testing.T) {
-	uc, _, fixtureAddresses := setupSetDefault(t)
+	cmd, _, fixtureAddresses := setupSetDefault(t)
 
-	_, err := uc.Execute(context.Background(), uuid.New(), fixtureAddresses[1].ID)
+	_, err := cmd.Execute(context.Background(), uuid.New(), fixtureAddresses[1].ID)
 
 	assert.ErrorIs(t, err, apperr.ErrNotFound)
 }
 
 func TestSetDefault_Execute_UnknownID_ReturnsNotFound(t *testing.T) {
-	uc, owner, _ := setupSetDefault(t)
+	cmd, owner, _ := setupSetDefault(t)
 
-	_, err := uc.Execute(context.Background(), owner.ID, uuid.New())
+	_, err := cmd.Execute(context.Background(), owner.ID, uuid.New())
 
 	assert.ErrorIs(t, err, apperr.ErrNotFound)
 }

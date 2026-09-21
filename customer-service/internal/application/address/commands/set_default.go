@@ -21,11 +21,11 @@ func NewSetDefault(db *gorm.DB, addressRepo customer.AddressRepository) *SetDefa
 	return &SetDefault{db: db, addressRepo: addressRepo}
 }
 
-func (uc *SetDefault) Execute(
+func (cmd *SetDefault) Execute(
 	ctx context.Context,
 	customerID, addressID uuid.UUID,
 ) (addressapp.AddressResponse, error) {
-	a, err := uc.addressRepo.FindByID(ctx, addressID, customerID)
+	a, err := cmd.addressRepo.FindByID(ctx, addressID, customerID)
 	if err != nil {
 		return addressapp.AddressResponse{}, fmt.Errorf("failed to find address: %w", err)
 	}
@@ -33,8 +33,8 @@ func (uc *SetDefault) Execute(
 		return addressapp.AddressResponse{}, apperr.ErrNotFound
 	}
 
-	err = uc.db.Transaction(func(tx *gorm.DB) error {
-		txRepo := uc.addressRepo.WithTx(tx)
+	err = cmd.db.Transaction(func(tx *gorm.DB) error {
+		txRepo := cmd.addressRepo.WithTx(tx)
 
 		if err := txRepo.UnsetDefault(ctx, customerID); err != nil {
 			return fmt.Errorf("failed to unset current default: %w", err)

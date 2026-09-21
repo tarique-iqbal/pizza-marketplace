@@ -17,8 +17,8 @@ func NewDelete(addressRepo customer.AddressRepository) *Delete {
 	return &Delete{addressRepo: addressRepo}
 }
 
-func (uc *Delete) Execute(ctx context.Context, customerID, addressID uuid.UUID) error {
-	if err := uc.addressRepo.Delete(ctx, addressID, customerID); err != nil {
+func (cmd *Delete) Execute(ctx context.Context, customerID, addressID uuid.UUID) error {
+	if err := cmd.addressRepo.Delete(ctx, addressID, customerID); err != nil {
 		return fmt.Errorf("failed to delete address: %w", err)
 	}
 

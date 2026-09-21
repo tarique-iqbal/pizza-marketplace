@@ -19,9 +19,9 @@ func TestList_Execute_ReturnsMappedAddresses(t *testing.T) {
 			{House: "20", Street: "Second St", City: "Berlin", PostalCode: "10117"},
 		},
 	}
-	uc := appqueries.NewList(addressRepo)
+	qry := appqueries.NewList(addressRepo)
 
-	res, err := uc.Execute(context.Background(), testutil.MustNewID())
+	res, err := qry.Execute(context.Background(), testutil.MustNewID())
 
 	require.NoError(t, err)
 	require.Len(t, res, 2)
@@ -33,9 +33,9 @@ func TestList_Execute_ReturnsMappedAddresses(t *testing.T) {
 
 func TestList_Execute_PropagatesError(t *testing.T) {
 	addressRepo := &testutil.MockAddressRepository{ListByCustomerErr: assert.AnError}
-	uc := appqueries.NewList(addressRepo)
+	qry := appqueries.NewList(addressRepo)
 
-	_, err := uc.Execute(context.Background(), testutil.MustNewID())
+	_, err := qry.Execute(context.Background(), testutil.MustNewID())
 
 	assert.ErrorIs(t, err, assert.AnError)
 }

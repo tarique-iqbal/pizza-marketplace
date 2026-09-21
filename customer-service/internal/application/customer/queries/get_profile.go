@@ -19,11 +19,11 @@ func NewGetProfile(customerRepo customer.CustomerRepository) *GetProfile {
 	return &GetProfile{customerRepo: customerRepo}
 }
 
-func (uc *GetProfile) Execute(
+func (qry *GetProfile) Execute(
 	ctx context.Context,
 	customerID uuid.UUID,
 ) (customerapp.GetProfileResponse, error) {
-	c, err := uc.customerRepo.FindByID(ctx, customerID)
+	c, err := qry.customerRepo.FindByID(ctx, customerID)
 	if err != nil {
 		return customerapp.GetProfileResponse{}, fmt.Errorf("failed to find customer: %w", err)
 	}
