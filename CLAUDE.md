@@ -32,7 +32,7 @@ Each Go service (`identity-service`, `restaurant-service`, `notification-service
 cmd/api/main.go             # HTTP entrypoint (identity/restaurant/search only)
 cmd/worker/main.go          # background worker entrypoint (outbox relay / event consumer)
 internal/domain/            # entities, repository interfaces, no framework deps
-internal/application/       # use cases, orchestration
+internal/application/       # commands, queries, orchestration
 internal/infrastructure/    # gorm/persistence, messaging (RabbitMQ), redis, auth, geocoder, migrations
 internal/interfaces/http/   # Gin handlers, middleware
 internal/container/         # manual DI wiring (APIContainer / WorkerContainer, built from a shared base)
@@ -76,7 +76,7 @@ Go runs test packages in parallel by default; `identity-service`'s and `restaura
 
 ## Architecture notes worth knowing before editing
 
-- **DI is manual, not a framework**: `internal/container/{shared,api,worker}.go` construct dependencies by hand and wire them into `APIContainer` / `WorkerContainer` structs. When adding a new use case or handler, wire it here rather than introducing a DI library.
+- **DI is manual, not a framework**: `internal/container/{shared,api,worker}.go` construct dependencies by hand and wire them into `APIContainer` / `WorkerContainer` structs. When adding a new command, query or handler, wire it here rather than introducing a DI library.
 - **GORM + Postgres** for persistence; repository interfaces live in `internal/domain/<aggregate>/`, implementations in `internal/infrastructure/persistence/`.
 - **Outbox pattern (identity-service and restaurant-service)**: `internal/domain/outbox/`, `internal/infrastructure/persistence/outbox.go`, `internal/application/outbox/{worker,relay}.go` — the same shape in both services (restaurant-service's is a verbatim port). Business writes and the outbox row are created in the same `gorm.Transaction`; a separate poller (`cmd/worker`) claims pending rows with `SELECT ... FOR UPDATE SKIP LOCKED`, publishes to RabbitMQ, and retries with exponential backoff (up to `MaxRetries`) before marking a row `failed`. Both services now outbox every event they raise, with no best-effort publish path left in either: identity-service (`restaurant.initiated`, `user.registered`, `email.verification_created`) and restaurant-service (`restaurant.ready_for_review`, `restaurant.approved`, `restaurant.launched`, `restaurant.updated`, `restaurant.pizza_updated`, `restaurant.topping_prices_updated`).
 - **Events**: `internal/shared/event.Event` is the interface producers implement (`GetEventName()`); routing key = event name. Consumers live in the relevant service's worker/messaging layer.
