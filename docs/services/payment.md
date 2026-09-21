@@ -25,7 +25,7 @@ internal/domain/outbox                → OutboxEvent/OutboxStatus/OutboxReposit
 internal/application/payment          → schema.go (CreatePaymentRequest/Response DTOs), events.go
                                         (PaymentSucceededPayload/PaymentFailedPayload), commands/
                                         {CreatePayment,CancelPayment,HandleMollieWebhook},
-                                        queries/GetPaymentStatus (read-only use case, kept out of
+                                        queries/GetPaymentStatus (read-only, kept out of
                                         commands/ per the read/write package split)
 internal/application/outbox           → Worker/Relay — verbatim port of the same outbox application layer
 internal/infrastructure/persistence   → payment.go, outbox.go — thin GORM wrappers, domain structs double as
@@ -217,7 +217,7 @@ briefly stale relative to this service's true state.
 ## gRPC contract
 
 `PaymentService` (`internal/interfaces/grpc/server.go`) listens on `:50051` (`cmd/api/main.go`), started in a
-goroutine next to the Gin HTTP server in the same process. Each RPC is a thin wrapper over one use case;
+goroutine next to the Gin HTTP server in the same process. Each RPC is a thin wrapper over one command or query;
 field-level detail is in `docs/api/payment.md`.
 
 | RPC | Backed by | Result | Errors |
