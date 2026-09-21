@@ -25,11 +25,11 @@ type SearchRestaurantsRequest struct {
 	Sort        string
 }
 
-func (uc *SearchRestaurants) Execute(
+func (qry *SearchRestaurants) Execute(
 	ctx context.Context,
 	req SearchRestaurantsRequest,
 ) ([]index.IndexedRestaurant, error) {
-	lat, lon, err := uc.geocoder.Geocode(ctx, req.Address)
+	lat, lon, err := qry.geocoder.Geocode(ctx, req.Address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve address: %w", err)
 	}
@@ -43,5 +43,5 @@ func (uc *SearchRestaurants) Execute(
 		Sort:        req.Sort,
 	}
 
-	return uc.repo.Search(ctx, q)
+	return qry.repo.Search(ctx, q)
 }

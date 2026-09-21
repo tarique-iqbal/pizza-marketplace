@@ -18,8 +18,8 @@ import (
 )
 
 func setupGetRestaurantHandler(repo *testutil.MockSearchRepository) *handlers.GetRestaurantHandler {
-	uc := query.NewGetRestaurant(repo)
-	return handlers.NewGetRestaurantHandler(uc)
+	qry := query.NewGetRestaurant(repo)
+	return handlers.NewGetRestaurantHandler(qry)
 }
 
 func performGetRestaurant(h *handlers.GetRestaurantHandler, target string) *httptest.ResponseRecorder {

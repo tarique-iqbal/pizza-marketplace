@@ -18,11 +18,13 @@ func TestSearchRestaurants_ResolvesAddressThenSearches(t *testing.T) {
 		SearchResult: []index.IndexedRestaurant{{Name: "Anatolische Kueche"}},
 	}
 	geocoder := &testutil.MockGeocoder{Lat: 53.5511, Lon: 9.9937}
-	uc := query.NewSearchRestaurants(repo, geocoder)
+	qry := query.NewSearchRestaurants(repo, geocoder)
 
 	addr := index.Address{House: "1", Street: "Main St", City: "Hamburg", PostalCode: "12345"}
 
-	results, err := uc.Execute(context.Background(), query.SearchRestaurantsRequest{Address: addr, Text: "pizza"})
+	req := query.SearchRestaurantsRequest{Address: addr, Text: "pizza"}
+
+	results, err := qry.Execute(context.Background(), req)
 	require.NoError(t, err)
 
 	assert.Equal(t, addr, geocoder.LastAddr)
@@ -37,9 +39,9 @@ func TestSearchRestaurants_ResolvesAddressThenSearches(t *testing.T) {
 func TestSearchRestaurants_PassesFiltersAndSortThrough(t *testing.T) {
 	repo := &testutil.MockSearchRepository{}
 	geocoder := &testutil.MockGeocoder{Lat: 53.5511, Lon: 9.9937}
-	uc := query.NewSearchRestaurants(repo, geocoder)
+	qry := query.NewSearchRestaurants(repo, geocoder)
 
-	_, err := uc.Execute(context.Background(), query.SearchRestaurantsRequest{
+	_, err := qry.Execute(context.Background(), query.SearchRestaurantsRequest{
 		Address:     index.Address{House: "1", Street: "Main St", City: "Hamburg", PostalCode: "12345"},
 		Text:        "pizza",
 		Fulfillment: "pickup",
@@ -58,9 +60,9 @@ func TestSearchRestaurants_PassesFiltersAndSortThrough(t *testing.T) {
 func TestSearchRestaurants_GeocodeError_PropagatesAndSkipsSearch(t *testing.T) {
 	repo := &testutil.MockSearchRepository{}
 	geocoder := &testutil.MockGeocoder{Err: errors.New("no geocoding results found")}
-	uc := query.NewSearchRestaurants(repo, geocoder)
+	qry := query.NewSearchRestaurants(repo, geocoder)
 
-	_, err := uc.Execute(context.Background(), query.SearchRestaurantsRequest{Text: "pizza"})
+	_, err := qry.Execute(context.Background(), query.SearchRestaurantsRequest{Text: "pizza"})
 
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "no geocoding results found")
@@ -70,9 +72,9 @@ func TestSearchRestaurants_GeocodeError_PropagatesAndSkipsSearch(t *testing.T) {
 func TestSearchRestaurants_PropagatesRepositoryError(t *testing.T) {
 	repo := &testutil.MockSearchRepository{SearchErr: errors.New("es unreachable")}
 	geocoder := &testutil.MockGeocoder{Lat: 53.5511, Lon: 9.9937}
-	uc := query.NewSearchRestaurants(repo, geocoder)
+	qry := query.NewSearchRestaurants(repo, geocoder)
 
-	_, err := uc.Execute(context.Background(), query.SearchRestaurantsRequest{Text: "pizza"})
+	_, err := qry.Execute(context.Background(), query.SearchRestaurantsRequest{Text: "pizza"})
 
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "es unreachable")

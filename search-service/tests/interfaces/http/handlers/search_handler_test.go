@@ -18,8 +18,8 @@ func setupSearchHandler(
 	repo *testutil.MockSearchRepository,
 	geocoder *testutil.MockGeocoder,
 ) *handlers.SearchHandler {
-	uc := query.NewSearchRestaurants(repo, geocoder)
-	return handlers.NewSearchHandler(uc)
+	qry := query.NewSearchRestaurants(repo, geocoder)
+	return handlers.NewSearchHandler(qry)
 }
 
 func performSearch(h *handlers.SearchHandler, target string) *httptest.ResponseRecorder {

@@ -16,6 +16,6 @@ func NewGetRestaurant(repo index.SearchRepository) *GetRestaurant {
 	return &GetRestaurant{repo: repo}
 }
 
-func (uc *GetRestaurant) Execute(ctx context.Context, id uuid.UUID) (index.IndexedRestaurant, error) {
-	return uc.repo.FindByID(ctx, id)
+func (qry *GetRestaurant) Execute(ctx context.Context, id uuid.UUID) (index.IndexedRestaurant, error) {
+	return qry.repo.FindByID(ctx, id)
 }

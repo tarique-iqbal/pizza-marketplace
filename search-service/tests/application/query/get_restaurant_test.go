@@ -21,9 +21,9 @@ func TestGetRestaurant_Found_ReturnsIndexedRestaurant(t *testing.T) {
 	repo := &testutil.MockSearchRepository{
 		FindByIDResult: index.IndexedRestaurant{ID: id, Name: "Anatolische Kueche"},
 	}
-	uc := query.NewGetRestaurant(repo)
+	qry := query.NewGetRestaurant(repo)
 
-	result, err := uc.Execute(context.Background(), id)
+	result, err := qry.Execute(context.Background(), id)
 	require.NoError(t, err)
 
 	assert.Equal(t, "Anatolische Kueche", result.Name)
@@ -34,9 +34,9 @@ func TestGetRestaurant_NotFound_ReturnsErrNotFound(t *testing.T) {
 	repo := &testutil.MockSearchRepository{
 		FindByIDErr: fmt.Errorf("restaurant %s: %w", id, apperr.ErrNotFound),
 	}
-	uc := query.NewGetRestaurant(repo)
+	qry := query.NewGetRestaurant(repo)
 
-	_, err := uc.Execute(context.Background(), id)
+	_, err := qry.Execute(context.Background(), id)
 
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, apperr.ErrNotFound))
@@ -47,9 +47,9 @@ func TestGetRestaurant_RepositoryError_PropagatesError(t *testing.T) {
 	repo := &testutil.MockSearchRepository{
 		FindByIDErr: errors.New("es unreachable"),
 	}
-	uc := query.NewGetRestaurant(repo)
+	qry := query.NewGetRestaurant(repo)
 
-	_, err := uc.Execute(context.Background(), id)
+	_, err := qry.Execute(context.Background(), id)
 
 	require.Error(t, err)
 	assert.False(t, errors.Is(err, apperr.ErrNotFound))
