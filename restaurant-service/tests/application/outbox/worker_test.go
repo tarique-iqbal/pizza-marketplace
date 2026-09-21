@@ -26,6 +26,7 @@ func testConfig() outboxapp.WorkerConfig {
 		Concurrency:  2,
 		MaxRetries:   2,
 		StopTimeout:  5 * time.Second,
+		EventTimeout: 30 * time.Second,
 	}
 }
 
@@ -131,7 +132,17 @@ func assertAllFailed(t *testing.T, events []outbox.OutboxEvent, maxRetries int) 
 func startWorker(t *testing.T, repo outbox.OutboxRepository, relayer *relayStub) context.CancelFunc {
 	t.Helper()
 
-	config := testConfig()
+	return startWorkerWithConfig(t, repo, relayer, testConfig())
+}
+
+func startWorkerWithConfig(
+	t *testing.T,
+	repo outbox.OutboxRepository,
+	relayer *relayStub,
+	config outboxapp.WorkerConfig,
+) context.CancelFunc {
+	t.Helper()
+
 	logger := testLogger()
 	worker := outboxapp.NewWorker(repo, relayer, config, logger)
 
@@ -378,4 +389,54 @@ func TestWorker_ContextCancellation(t *testing.T) {
 	}
 
 	close(blockProcessing) // unblock the goroutine for cleanup
+}
+
+func TestWorker_Start_ExpiredEventContext_StillRecordsFailure(t *testing.T) {
+	tdb := newTestDB(t)
+
+	relayer := &relayStub{
+		fn: func(ctx context.Context, e outbox.OutboxEvent) error {
+			<-ctx.Done()
+			return ctx.Err()
+		},
+	}
+
+	config := testConfig()
+	config.EventTimeout = 100 * time.Millisecond
+	cancel := startWorkerWithConfig(t, tdb.Repo, relayer, config)
+	defer cancel()
+
+	require.Eventually(t, func() bool {
+		events := listEvents(t, tdb.DB)
+		if len(events) == 0 {
+			return false
+		}
+		return assertAllFailed(t, events, config.MaxRetries)
+	}, 10*time.Second, 200*time.Millisecond,
+		"failures must be recorded even though the event context expired")
+}
+
+func TestWorker_Start_ExpiredEventContext_StillRecordsSuccess(t *testing.T) {
+	tdb := newTestDB(t)
+
+	relayer := &relayStub{
+		fn: func(ctx context.Context, e outbox.OutboxEvent) error {
+			<-ctx.Done()
+			return nil
+		},
+	}
+
+	config := testConfig()
+	config.EventTimeout = 100 * time.Millisecond
+	cancel := startWorkerWithConfig(t, tdb.Repo, relayer, config)
+	defer cancel()
+
+	require.Eventually(t, func() bool {
+		events := listEvents(t, tdb.DB)
+		if len(events) == 0 {
+			return false
+		}
+		return assertAllProcessed(t, events)
+	}, 10*time.Second, 200*time.Millisecond,
+		"success must be recorded even though the event context expired")
 }
