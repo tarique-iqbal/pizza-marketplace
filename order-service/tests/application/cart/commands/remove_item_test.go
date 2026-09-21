@@ -16,9 +16,9 @@ import (
 func TestRemoveItem_CartNotFound(t *testing.T) {
 	cartRepo := &testutil.MockCartRepository{}
 
-	uc := commands.NewRemoveItem(cartRepo)
+	cmd := commands.NewRemoveItem(cartRepo)
 
-	err := uc.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID())
+	err := cmd.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID())
 
 	assert.ErrorIs(t, err, apperr.ErrNotFound)
 }
@@ -30,9 +30,9 @@ func TestRemoveItem_RemovesScopedToCustomerCart(t *testing.T) {
 
 	cartRepo := &testutil.MockCartRepository{FindByCustomerResult: existingCart}
 
-	uc := commands.NewRemoveItem(cartRepo)
+	cmd := commands.NewRemoveItem(cartRepo)
 
-	err := uc.Execute(context.Background(), customerID, itemID)
+	err := cmd.Execute(context.Background(), customerID, itemID)
 
 	require.NoError(t, err)
 	require.Len(t, cartRepo.RemoveItemCalls, 1)
@@ -48,9 +48,9 @@ func TestRemoveItem_PropagatesNotFoundFromRepo(t *testing.T) {
 		RemoveItemErr:        apperr.ErrNotFound,
 	}
 
-	uc := commands.NewRemoveItem(cartRepo)
+	cmd := commands.NewRemoveItem(cartRepo)
 
-	err := uc.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID())
+	err := cmd.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID())
 
 	assert.ErrorIs(t, err, apperr.ErrNotFound)
 }

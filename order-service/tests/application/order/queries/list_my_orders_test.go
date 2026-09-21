@@ -30,9 +30,9 @@ func TestListMyOrders_FewerThanLimit_NoNextCursor(t *testing.T) {
 	customerID := testutil.MustNewID()
 	orders := []order.Order{newOrderAt(customerID, time.Now())}
 	repo := &testutil.MockOrderRepository{ListByCustomerResult: orders}
-	uc := queries.NewListMyOrders(repo)
+	qry := queries.NewListMyOrders(repo)
 
-	res, err := uc.Execute(context.Background(), customerID, "", 20)
+	res, err := qry.Execute(context.Background(), customerID, "", 20)
 
 	require.NoError(t, err)
 	require.Len(t, res.Orders, 1)
@@ -50,9 +50,9 @@ func TestListMyOrders_MoreThanLimit_TrimsAndSetsNextCursor(t *testing.T) {
 		newOrderAt(customerID, now.Add(-2*time.Minute)),
 	}
 	repo := &testutil.MockOrderRepository{ListByCustomerResult: orders}
-	uc := queries.NewListMyOrders(repo)
+	qry := queries.NewListMyOrders(repo)
 
-	res, err := uc.Execute(context.Background(), customerID, "", 2)
+	res, err := qry.Execute(context.Background(), customerID, "", 2)
 
 	require.NoError(t, err)
 	require.Len(t, res.Orders, 2, "trimmed to the requested limit, the extra row only signals hasMore")
@@ -65,9 +65,9 @@ func TestListMyOrders_MoreThanLimit_TrimsAndSetsNextCursor(t *testing.T) {
 
 func TestListMyOrders_InvalidCursor_ReturnsInvalid(t *testing.T) {
 	repo := &testutil.MockOrderRepository{}
-	uc := queries.NewListMyOrders(repo)
+	qry := queries.NewListMyOrders(repo)
 
-	_, err := uc.Execute(context.Background(), testutil.MustNewID(), "not-a-cursor!!!", 20)
+	_, err := qry.Execute(context.Background(), testutil.MustNewID(), "not-a-cursor!!!", 20)
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, apperr.ErrInvalid)
@@ -76,9 +76,9 @@ func TestListMyOrders_InvalidCursor_ReturnsInvalid(t *testing.T) {
 
 func TestListMyOrders_RepositoryError_Propagates(t *testing.T) {
 	repo := &testutil.MockOrderRepository{ListByCustomerErr: errors.New("db down")}
-	uc := queries.NewListMyOrders(repo)
+	qry := queries.NewListMyOrders(repo)
 
-	_, err := uc.Execute(context.Background(), testutil.MustNewID(), "", 20)
+	_, err := qry.Execute(context.Background(), testutil.MustNewID(), "", 20)
 
 	require.Error(t, err)
 }

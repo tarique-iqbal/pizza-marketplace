@@ -63,12 +63,12 @@ func NewCheckout(
 	}
 }
 
-func (uc *Checkout) Execute(
+func (cmd *Checkout) Execute(
 	ctx context.Context,
 	customerID uuid.UUID,
 	input orderapp.CheckoutRequest,
 ) (orderapp.CheckoutResponse, error) {
-	c, err := uc.cartRepo.FindByCustomer(ctx, customerID)
+	c, err := cmd.cartRepo.FindByCustomer(ctx, customerID)
 	if err != nil {
 		return orderapp.CheckoutResponse{}, fmt.Errorf("failed to look up cart: %w", err)
 	}
@@ -76,7 +76,7 @@ func (uc *Checkout) Execute(
 		return orderapp.CheckoutResponse{}, cart.ErrCartEmpty
 	}
 
-	restaurant, err := uc.restaurantRepo.FindByID(ctx, c.RestaurantID)
+	restaurant, err := cmd.restaurantRepo.FindByID(ctx, c.RestaurantID)
 	if err != nil {
 		return orderapp.CheckoutResponse{}, fmt.Errorf("failed to look up restaurant: %w", err)
 	}
@@ -95,7 +95,7 @@ func (uc *Checkout) Execute(
 		}
 	}
 
-	customer, err := uc.customerRepo.FindByID(ctx, customerID)
+	customer, err := cmd.customerRepo.FindByID(ctx, customerID)
 	if err != nil {
 		return orderapp.CheckoutResponse{}, fmt.Errorf("failed to look up customer: %w", err)
 	}
@@ -103,7 +103,7 @@ func (uc *Checkout) Execute(
 		return orderapp.CheckoutResponse{}, fmt.Errorf("phone required for delivery: %w", apperr.ErrInvalid)
 	}
 
-	toppingPrices, err := uc.toppingPriceRepo.ListByRestaurant(ctx, c.RestaurantID)
+	toppingPrices, err := cmd.toppingPriceRepo.ListByRestaurant(ctx, c.RestaurantID)
 	if err != nil {
 		return orderapp.CheckoutResponse{}, fmt.Errorf("failed to look up topping prices: %w", err)
 	}
@@ -117,7 +117,7 @@ func (uc *Checkout) Execute(
 	subtotal := decimal.Zero
 
 	for _, ci := range c.Items {
-		item, lineTotal, err := uc.resolveOrderItem(ctx, ci, toppingByID)
+		item, lineTotal, err := cmd.resolveOrderItem(ctx, ci, toppingByID)
 		if err != nil {
 			return orderapp.CheckoutResponse{}, err
 		}
@@ -142,7 +142,7 @@ func (uc *Checkout) Execute(
 			City:       input.DeliveryAddress.City,
 		}
 
-		lat, lon, err := uc.geocoder.Geocode(ctx, *deliveryAddress)
+		lat, lon, err := cmd.geocoder.Geocode(ctx, *deliveryAddress)
 		if err != nil {
 			return orderapp.CheckoutResponse{}, fmt.Errorf("%w: %s", order.ErrGeocodingUnavailable, err)
 		}
@@ -176,24 +176,24 @@ func (uc *Checkout) Execute(
 		restaurant.Currency, input.SaveAddress,
 	)
 
-	err = uc.db.Transaction(func(tx *gorm.DB) error {
-		if err := uc.orderRepo.WithTx(tx).Create(ctx, newOrder); err != nil {
+	err = cmd.db.Transaction(func(tx *gorm.DB) error {
+		if err := cmd.orderRepo.WithTx(tx).Create(ctx, newOrder); err != nil {
 			return fmt.Errorf("failed to create order: %w", err)
 		}
 
-		if err := uc.cartRepo.WithTx(tx).Clear(ctx, c.ID); err != nil {
+		if err := cmd.cartRepo.WithTx(tx).Clear(ctx, c.ID); err != nil {
 			return fmt.Errorf("failed to clear cart: %w", err)
 		}
 
-		return orderapp.DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), newOrder)
+		return orderapp.DispatchEventsTx(ctx, cmd.outboxRepo.WithTx(tx), newOrder)
 	})
 	if err != nil {
 		return orderapp.CheckoutResponse{}, err
 	}
 
-	redirectURL := uc.frontendBaseURL + "/orders/" + orderID.String()
+	redirectURL := cmd.frontendBaseURL + "/orders/" + orderID.String()
 
-	paymentResult, err := uc.paymentProvider.CreatePayment(ctx, order.CreatePaymentRequest{
+	paymentResult, err := cmd.paymentProvider.CreatePayment(ctx, order.CreatePaymentRequest{
 		OrderID:      orderID,
 		RestaurantID: c.RestaurantID,
 		CustomerID:   customerID,
@@ -206,7 +206,7 @@ func (uc *Checkout) Execute(
 	}
 
 	newOrder.PaymentID = &paymentResult.PaymentID
-	if err := uc.orderRepo.Update(ctx, newOrder); err != nil {
+	if err := cmd.orderRepo.Update(ctx, newOrder); err != nil {
 		return orderapp.CheckoutResponse{}, fmt.Errorf("failed to record payment id: %w", err)
 	}
 
@@ -216,12 +216,12 @@ func (uc *Checkout) Execute(
 	}, nil
 }
 
-func (uc *Checkout) resolveOrderItem(
+func (cmd *Checkout) resolveOrderItem(
 	ctx context.Context,
 	ci cart.CartItem,
 	toppingByID map[uuid.UUID]readmodel.ToppingPrice,
 ) (order.OrderItem, decimal.Decimal, error) {
-	pizza, err := uc.pizzaRepo.FindByID(ctx, ci.PizzaID)
+	pizza, err := cmd.pizzaRepo.FindByID(ctx, ci.PizzaID)
 	if err != nil && !errors.Is(err, apperr.ErrNotFound) {
 		return order.OrderItem{}, decimal.Zero, fmt.Errorf("failed to look up pizza: %w", err)
 	}
@@ -229,7 +229,7 @@ func (uc *Checkout) resolveOrderItem(
 		return order.OrderItem{}, decimal.Zero, cart.ErrCartItemUnavailable
 	}
 
-	prices, err := uc.pizzaPriceRepo.ListByPizza(ctx, ci.PizzaID)
+	prices, err := cmd.pizzaPriceRepo.ListByPizza(ctx, ci.PizzaID)
 	if err != nil {
 		return order.OrderItem{}, decimal.Zero, fmt.Errorf("failed to look up pizza prices: %w", err)
 	}

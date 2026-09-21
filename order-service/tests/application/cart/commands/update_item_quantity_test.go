@@ -17,9 +17,9 @@ import (
 func TestUpdateItemQuantity_CartNotFound(t *testing.T) {
 	cartRepo := &testutil.MockCartRepository{}
 
-	uc := commands.NewUpdateItemQuantity(cartRepo)
+	cmd := commands.NewUpdateItemQuantity(cartRepo)
 
-	_, err := uc.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID(),
+	_, err := cmd.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID(),
 		cartapp.UpdateItemQuantityRequest{Quantity: 3})
 
 	assert.ErrorIs(t, err, apperr.ErrNotFound)
@@ -32,9 +32,11 @@ func TestUpdateItemQuantity_UpdatesScopedToCustomerCart(t *testing.T) {
 
 	cartRepo := &testutil.MockCartRepository{FindByCustomerResult: existingCart}
 
-	uc := commands.NewUpdateItemQuantity(cartRepo)
+	cmd := commands.NewUpdateItemQuantity(cartRepo)
 
-	res, err := uc.Execute(context.Background(), customerID, itemID, cartapp.UpdateItemQuantityRequest{Quantity: 5})
+	input := cartapp.UpdateItemQuantityRequest{Quantity: 5}
+
+	res, err := cmd.Execute(context.Background(), customerID, itemID, input)
 
 	require.NoError(t, err)
 	assert.Equal(t, itemID, res.ItemID)
@@ -54,9 +56,9 @@ func TestUpdateItemQuantity_PropagatesNotFoundFromRepo(t *testing.T) {
 		UpdateItemQuantityErr: apperr.ErrNotFound,
 	}
 
-	uc := commands.NewUpdateItemQuantity(cartRepo)
+	cmd := commands.NewUpdateItemQuantity(cartRepo)
 
-	_, err := uc.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID(),
+	_, err := cmd.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID(),
 		cartapp.UpdateItemQuantityRequest{Quantity: 1})
 
 	assert.ErrorIs(t, err, apperr.ErrNotFound)

@@ -18,7 +18,7 @@ func NewListRestaurantOrders(orderRepo order.OrderRepository) *ListRestaurantOrd
 	return &ListRestaurantOrders{orderRepo: orderRepo}
 }
 
-func (uc *ListRestaurantOrders) Execute(
+func (qry *ListRestaurantOrders) Execute(
 	ctx context.Context,
 	restaurantID, ownerID uuid.UUID,
 	cursor string,
@@ -31,7 +31,7 @@ func (uc *ListRestaurantOrders) Execute(
 
 	limit = orderapp.ClampLimit(limit)
 
-	orders, err := uc.orderRepo.ListByRestaurant(ctx, restaurantID, ownerID, after, limit+1)
+	orders, err := qry.orderRepo.ListByRestaurant(ctx, restaurantID, ownerID, after, limit+1)
 	if err != nil {
 		return orderapp.ListOrdersResponse{}, fmt.Errorf("failed to list orders: %w", err)
 	}

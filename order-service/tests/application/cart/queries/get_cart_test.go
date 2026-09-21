@@ -22,9 +22,9 @@ func TestGetCart_NoCart_ReturnsEmptyView(t *testing.T) {
 	pizzaPriceRepo := &testutil.MockPizzaPriceRepository{}
 	toppingPriceRepo := &testutil.MockToppingPriceRepository{}
 
-	uc := queries.NewGetCart(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
+	qry := queries.NewGetCart(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
 
-	res, err := uc.Execute(context.Background(), testutil.MustNewID())
+	res, err := qry.Execute(context.Background(), testutil.MustNewID())
 
 	require.NoError(t, err)
 	assert.Empty(t, res.Items)
@@ -67,9 +67,9 @@ func TestGetCart_ResolvesAvailableItem(t *testing.T) {
 		},
 	}
 
-	uc := queries.NewGetCart(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
+	qry := queries.NewGetCart(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
 
-	res, err := uc.Execute(context.Background(), testutil.MustNewID())
+	res, err := qry.Execute(context.Background(), testutil.MustNewID())
 
 	require.NoError(t, err)
 	require.Len(t, res.Items, 1)
@@ -104,9 +104,9 @@ func TestGetCart_FlagsArchivedPizzaAsUnavailable(t *testing.T) {
 	pizzaPriceRepo := &testutil.MockPizzaPriceRepository{}
 	toppingPriceRepo := &testutil.MockToppingPriceRepository{}
 
-	uc := queries.NewGetCart(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
+	qry := queries.NewGetCart(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
 
-	res, err := uc.Execute(context.Background(), testutil.MustNewID())
+	res, err := qry.Execute(context.Background(), testutil.MustNewID())
 
 	require.NoError(t, err)
 	require.Len(t, res.Items, 1)
@@ -139,9 +139,9 @@ func TestGetCart_FlagsDeactivatedSizeAsUnavailable(t *testing.T) {
 	}
 	toppingPriceRepo := &testutil.MockToppingPriceRepository{}
 
-	uc := queries.NewGetCart(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
+	qry := queries.NewGetCart(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
 
-	res, err := uc.Execute(context.Background(), testutil.MustNewID())
+	res, err := qry.Execute(context.Background(), testutil.MustNewID())
 
 	require.NoError(t, err)
 	require.Len(t, res.Items, 1)

@@ -36,8 +36,8 @@ func NewGetCart(
 	}
 }
 
-func (uc *GetCart) Execute(ctx context.Context, customerID uuid.UUID) (cartapp.GetCartResponse, error) {
-	c, err := uc.cartRepo.FindByCustomer(ctx, customerID)
+func (qry *GetCart) Execute(ctx context.Context, customerID uuid.UUID) (cartapp.GetCartResponse, error) {
+	c, err := qry.cartRepo.FindByCustomer(ctx, customerID)
 	if err != nil {
 		return cartapp.GetCartResponse{}, fmt.Errorf("failed to look up cart: %w", err)
 	}
@@ -45,7 +45,7 @@ func (uc *GetCart) Execute(ctx context.Context, customerID uuid.UUID) (cartapp.G
 		return cartapp.GetCartResponse{Items: []cartapp.CartItemView{}}, nil
 	}
 
-	toppingPrices, err := uc.toppingPriceRepo.ListByRestaurant(ctx, c.RestaurantID)
+	toppingPrices, err := qry.toppingPriceRepo.ListByRestaurant(ctx, c.RestaurantID)
 	if err != nil {
 		return cartapp.GetCartResponse{}, fmt.Errorf("failed to look up topping prices: %w", err)
 	}
@@ -59,7 +59,7 @@ func (uc *GetCart) Execute(ctx context.Context, customerID uuid.UUID) (cartapp.G
 	views := make([]cartapp.CartItemView, 0, len(c.Items))
 
 	for _, item := range c.Items {
-		view, lineTotal, err := uc.resolveItemView(ctx, item, toppingByID)
+		view, lineTotal, err := qry.resolveItemView(ctx, item, toppingByID)
 		if err != nil {
 			return cartapp.GetCartResponse{}, err
 		}
@@ -76,7 +76,7 @@ func (uc *GetCart) Execute(ctx context.Context, customerID uuid.UUID) (cartapp.G
 	}, nil
 }
 
-func (uc *GetCart) resolveItemView(
+func (qry *GetCart) resolveItemView(
 	ctx context.Context,
 	item cart.CartItem,
 	toppingByID map[uuid.UUID]readmodel.ToppingPrice,
@@ -88,7 +88,7 @@ func (uc *GetCart) resolveItemView(
 		Quantity: item.Quantity,
 	}
 
-	pizza, err := uc.pizzaRepo.FindByID(ctx, item.PizzaID)
+	pizza, err := qry.pizzaRepo.FindByID(ctx, item.PizzaID)
 	if err != nil && !errors.Is(err, apperr.ErrNotFound) {
 		return cartapp.CartItemView{}, decimal.Zero, fmt.Errorf("failed to look up pizza: %w", err)
 	}
@@ -99,7 +99,7 @@ func (uc *GetCart) resolveItemView(
 	if available {
 		view.PizzaName = pizza.Name
 
-		prices, err := uc.pizzaPriceRepo.ListByPizza(ctx, item.PizzaID)
+		prices, err := qry.pizzaPriceRepo.ListByPizza(ctx, item.PizzaID)
 		if err != nil {
 			return cartapp.CartItemView{}, decimal.Zero, fmt.Errorf("failed to look up pizza prices: %w", err)
 		}

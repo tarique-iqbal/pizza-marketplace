@@ -22,9 +22,9 @@ func TestAddItem_PizzaNotFound(t *testing.T) {
 	pizzaPriceRepo := &testutil.MockPizzaPriceRepository{}
 	toppingPriceRepo := &testutil.MockToppingPriceRepository{}
 
-	uc := commands.NewAddItem(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
+	cmd := commands.NewAddItem(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
 
-	_, err := uc.Execute(context.Background(), testutil.MustNewID(), cartapp.AddItemRequest{
+	_, err := cmd.Execute(context.Background(), testutil.MustNewID(), cartapp.AddItemRequest{
 		PizzaID: testutil.MustNewID(), SizeID: testutil.MustNewID(), Quantity: 1,
 	})
 
@@ -45,9 +45,9 @@ func TestAddItem_SizeNotActive(t *testing.T) {
 	}
 	toppingPriceRepo := &testutil.MockToppingPriceRepository{}
 
-	uc := commands.NewAddItem(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
+	cmd := commands.NewAddItem(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
 
-	_, err := uc.Execute(context.Background(), testutil.MustNewID(), cartapp.AddItemRequest{
+	_, err := cmd.Execute(context.Background(), testutil.MustNewID(), cartapp.AddItemRequest{
 		PizzaID: pizzaID, SizeID: sizeID, Quantity: 1,
 	})
 
@@ -68,9 +68,9 @@ func TestAddItem_ToppingNotFound(t *testing.T) {
 	}
 	toppingPriceRepo := &testutil.MockToppingPriceRepository{}
 
-	uc := commands.NewAddItem(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
+	cmd := commands.NewAddItem(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
 
-	_, err := uc.Execute(context.Background(), testutil.MustNewID(), cartapp.AddItemRequest{
+	_, err := cmd.Execute(context.Background(), testutil.MustNewID(), cartapp.AddItemRequest{
 		PizzaID: pizzaID, SizeID: sizeID, Quantity: 1, ExtraToppingIDs: []uuid.UUID{testutil.MustNewID()},
 	})
 
@@ -92,9 +92,9 @@ func TestAddItem_CreatesCartOnFirstAdd(t *testing.T) {
 	}
 	toppingPriceRepo := &testutil.MockToppingPriceRepository{}
 
-	uc := commands.NewAddItem(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
+	cmd := commands.NewAddItem(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
 
-	res, err := uc.Execute(context.Background(), customerID, cartapp.AddItemRequest{
+	res, err := cmd.Execute(context.Background(), customerID, cartapp.AddItemRequest{
 		PizzaID: pizzaID, SizeID: sizeID, Quantity: 2,
 	})
 
@@ -130,9 +130,9 @@ func TestAddItem_RestaurantMismatch(t *testing.T) {
 	}
 	toppingPriceRepo := &testutil.MockToppingPriceRepository{}
 
-	uc := commands.NewAddItem(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
+	cmd := commands.NewAddItem(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
 
-	_, err := uc.Execute(context.Background(), testutil.MustNewID(), cartapp.AddItemRequest{
+	_, err := cmd.Execute(context.Background(), testutil.MustNewID(), cartapp.AddItemRequest{
 		PizzaID: pizzaID, SizeID: sizeID, Quantity: 1,
 	})
 
@@ -163,9 +163,9 @@ func TestAddItem_SortsExtraToppingIDs(t *testing.T) {
 		},
 	}
 
-	uc := commands.NewAddItem(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
+	cmd := commands.NewAddItem(cartRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
 
-	res, err := uc.Execute(context.Background(), testutil.MustNewID(), cartapp.AddItemRequest{
+	res, err := cmd.Execute(context.Background(), testutil.MustNewID(), cartapp.AddItemRequest{
 		PizzaID: pizzaID, SizeID: sizeID, Quantity: 1, ExtraToppingIDs: []uuid.UUID{toppingB, toppingA},
 	})
 

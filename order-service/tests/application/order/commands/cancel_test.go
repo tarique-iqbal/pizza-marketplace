@@ -50,9 +50,9 @@ func TestCancel_AsCustomer_Success(t *testing.T) {
 	}
 	repo := &testutil.MockOrderRepository{FindByIDAndCustomerResult: ord}
 	payment := &cancelPaymentFake{}
-	uc := commands.NewCancel(repo, payment)
+	cmd := commands.NewCancel(repo, payment)
 
-	res, err := uc.Execute(context.Background(), ord.ID, testutil.MustNewID(), "customer")
+	res, err := cmd.Execute(context.Background(), ord.ID, testutil.MustNewID(), "customer")
 
 	require.NoError(t, err)
 	assert.Equal(t, order.StatusCancelled, res.Status)
@@ -66,9 +66,9 @@ func TestCancel_AsOwner_Success(t *testing.T) {
 		Subtotal: decimal.NewFromInt(10), Total: decimal.NewFromInt(10), Currency: "EUR",
 	}
 	repo := &testutil.MockOrderRepository{FindByIDAndRestaurantOwnerResult: ord}
-	uc := commands.NewCancel(repo, &cancelPaymentFake{})
+	cmd := commands.NewCancel(repo, &cancelPaymentFake{})
 
-	res, err := uc.Execute(context.Background(), ord.ID, testutil.MustNewID(), "owner")
+	res, err := cmd.Execute(context.Background(), ord.ID, testutil.MustNewID(), "owner")
 
 	require.NoError(t, err)
 	assert.Equal(t, order.StatusCancelled, res.Status)
@@ -81,9 +81,9 @@ func TestCancel_NoPaymentIDYet_SkipsPaymentCancel(t *testing.T) {
 	}
 	repo := &testutil.MockOrderRepository{FindByIDAndCustomerResult: ord}
 	payment := &cancelPaymentFake{}
-	uc := commands.NewCancel(repo, payment)
+	cmd := commands.NewCancel(repo, payment)
 
-	_, err := uc.Execute(context.Background(), ord.ID, testutil.MustNewID(), "customer")
+	_, err := cmd.Execute(context.Background(), ord.ID, testutil.MustNewID(), "customer")
 
 	require.NoError(t, err)
 	assert.Empty(t, payment.cancelledPaymentIDs)
@@ -97,9 +97,9 @@ func TestCancel_PaymentCancelFails_OrderStillCancelled(t *testing.T) {
 	}
 	repo := &testutil.MockOrderRepository{FindByIDAndCustomerResult: ord}
 	payment := &cancelPaymentFake{cancelErr: errors.New("mollie unavailable")}
-	uc := commands.NewCancel(repo, payment)
+	cmd := commands.NewCancel(repo, payment)
 
-	res, err := uc.Execute(context.Background(), ord.ID, testutil.MustNewID(), "customer")
+	res, err := cmd.Execute(context.Background(), ord.ID, testutil.MustNewID(), "customer")
 
 	require.NoError(t, err, "a failed payment cancel must not fail the order cancel")
 	assert.Equal(t, order.StatusCancelled, res.Status)
@@ -113,9 +113,9 @@ func TestCancel_PaymentAlreadySucceeded_ReturnsConflict(t *testing.T) {
 	}
 	repo := &testutil.MockOrderRepository{FindByIDAndCustomerResult: ord}
 	payment := &cancelPaymentFake{statusResult: order.PaymentStatusSucceeded}
-	uc := commands.NewCancel(repo, payment)
+	cmd := commands.NewCancel(repo, payment)
 
-	_, err := uc.Execute(context.Background(), ord.ID, testutil.MustNewID(), "customer")
+	_, err := cmd.Execute(context.Background(), ord.ID, testutil.MustNewID(), "customer")
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, apperr.ErrConflict)
@@ -131,9 +131,9 @@ func TestCancel_PaymentAlreadyFailed_StillCancels(t *testing.T) {
 	}
 	repo := &testutil.MockOrderRepository{FindByIDAndCustomerResult: ord}
 	payment := &cancelPaymentFake{statusResult: order.PaymentStatusFailed}
-	uc := commands.NewCancel(repo, payment)
+	cmd := commands.NewCancel(repo, payment)
 
-	res, err := uc.Execute(context.Background(), ord.ID, testutil.MustNewID(), "customer")
+	res, err := cmd.Execute(context.Background(), ord.ID, testutil.MustNewID(), "customer")
 
 	require.NoError(t, err, "a failed payment never captured money, so cancel should still succeed")
 	assert.Equal(t, order.StatusCancelled, res.Status)
@@ -147,9 +147,9 @@ func TestCancel_PaymentStatusCheckFails_FailsClosed(t *testing.T) {
 	}
 	repo := &testutil.MockOrderRepository{FindByIDAndCustomerResult: ord}
 	payment := &cancelPaymentFake{statusResult: order.PaymentStatusPending, statusErr: order.ErrPaymentServiceUnavailable}
-	uc := commands.NewCancel(repo, payment)
+	cmd := commands.NewCancel(repo, payment)
 
-	_, err := uc.Execute(context.Background(), ord.ID, testutil.MustNewID(), "customer")
+	_, err := cmd.Execute(context.Background(), ord.ID, testutil.MustNewID(), "customer")
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, order.ErrPaymentServiceUnavailable)
@@ -158,9 +158,9 @@ func TestCancel_PaymentStatusCheckFails_FailsClosed(t *testing.T) {
 
 func TestCancel_NotFoundOrWrongCaller_ReturnsForbidden(t *testing.T) {
 	repo := &testutil.MockOrderRepository{FindByIDAndCustomerErr: apperr.ErrNotFound}
-	uc := commands.NewCancel(repo, &cancelPaymentFake{})
+	cmd := commands.NewCancel(repo, &cancelPaymentFake{})
 
-	_, err := uc.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID(), "customer")
+	_, err := cmd.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID(), "customer")
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, apperr.ErrForbidden)
@@ -172,9 +172,9 @@ func TestCancel_InvalidTransition_ReturnsConflict(t *testing.T) {
 		Subtotal: decimal.NewFromInt(10), Total: decimal.NewFromInt(10), Currency: "EUR",
 	}
 	repo := &testutil.MockOrderRepository{FindByIDAndCustomerResult: ord}
-	uc := commands.NewCancel(repo, &cancelPaymentFake{})
+	cmd := commands.NewCancel(repo, &cancelPaymentFake{})
 
-	_, err := uc.Execute(context.Background(), ord.ID, testutil.MustNewID(), "customer")
+	_, err := cmd.Execute(context.Background(), ord.ID, testutil.MustNewID(), "customer")
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, apperr.ErrConflict)

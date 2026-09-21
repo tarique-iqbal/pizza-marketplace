@@ -19,12 +19,12 @@ func NewUpdateItemQuantity(cartRepo cart.CartRepository) *UpdateItemQuantity {
 	return &UpdateItemQuantity{cartRepo: cartRepo}
 }
 
-func (uc *UpdateItemQuantity) Execute(
+func (cmd *UpdateItemQuantity) Execute(
 	ctx context.Context,
 	customerID, itemID uuid.UUID,
 	input cartapp.UpdateItemQuantityRequest,
 ) (cartapp.UpdateItemQuantityResponse, error) {
-	c, err := uc.cartRepo.FindByCustomer(ctx, customerID)
+	c, err := cmd.cartRepo.FindByCustomer(ctx, customerID)
 	if err != nil {
 		return cartapp.UpdateItemQuantityResponse{}, fmt.Errorf("failed to look up cart: %w", err)
 	}
@@ -32,7 +32,7 @@ func (uc *UpdateItemQuantity) Execute(
 		return cartapp.UpdateItemQuantityResponse{}, fmt.Errorf("cart not found: %w", apperr.ErrNotFound)
 	}
 
-	if err := uc.cartRepo.UpdateItemQuantity(ctx, c.ID, itemID, input.Quantity); err != nil {
+	if err := cmd.cartRepo.UpdateItemQuantity(ctx, c.ID, itemID, input.Quantity); err != nil {
 		return cartapp.UpdateItemQuantityResponse{}, fmt.Errorf("failed to update cart item quantity: %w", err)
 	}
 

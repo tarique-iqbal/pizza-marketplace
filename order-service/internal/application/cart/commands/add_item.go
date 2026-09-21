@@ -33,17 +33,17 @@ func NewAddItem(
 	}
 }
 
-func (uc *AddItem) Execute(
+func (cmd *AddItem) Execute(
 	ctx context.Context,
 	customerID uuid.UUID,
 	input cartapp.AddItemRequest,
 ) (cartapp.AddItemResponse, error) {
-	pizza, err := uc.pizzaRepo.FindByID(ctx, input.PizzaID)
+	pizza, err := cmd.pizzaRepo.FindByID(ctx, input.PizzaID)
 	if err != nil {
 		return cartapp.AddItemResponse{}, fmt.Errorf("pizza not found: %w", err)
 	}
 
-	prices, err := uc.pizzaPriceRepo.ListByPizza(ctx, input.PizzaID)
+	prices, err := cmd.pizzaPriceRepo.ListByPizza(ctx, input.PizzaID)
 	if err != nil {
 		return cartapp.AddItemResponse{}, fmt.Errorf("failed to look up pizza prices: %w", err)
 	}
@@ -60,7 +60,7 @@ func (uc *AddItem) Execute(
 	}
 
 	if len(input.ExtraToppingIDs) > 0 {
-		toppingPrices, err := uc.toppingPriceRepo.ListByRestaurant(ctx, pizza.RestaurantID)
+		toppingPrices, err := cmd.toppingPriceRepo.ListByRestaurant(ctx, pizza.RestaurantID)
 		if err != nil {
 			return cartapp.AddItemResponse{}, fmt.Errorf("failed to look up topping prices: %w", err)
 		}
@@ -77,7 +77,7 @@ func (uc *AddItem) Execute(
 		}
 	}
 
-	existingCart, err := uc.cartRepo.FindByCustomer(ctx, customerID)
+	existingCart, err := cmd.cartRepo.FindByCustomer(ctx, customerID)
 	if err != nil {
 		return cartapp.AddItemResponse{}, fmt.Errorf("failed to look up cart: %w", err)
 	}
@@ -89,7 +89,7 @@ func (uc *AddItem) Execute(
 		}
 
 		newCart := cart.NewCart(id, customerID, pizza.RestaurantID)
-		if err := uc.cartRepo.Create(ctx, newCart); err != nil {
+		if err := cmd.cartRepo.Create(ctx, newCart); err != nil {
 			return cartapp.AddItemResponse{}, fmt.Errorf("failed to create cart: %w", err)
 		}
 
@@ -105,7 +105,7 @@ func (uc *AddItem) Execute(
 
 	item := cart.NewCartItem(itemID, input.PizzaID, input.SizeID, input.Quantity, input.ExtraToppingIDs)
 
-	if err := uc.cartRepo.AddOrMergeItem(ctx, existingCart.ID, item); err != nil {
+	if err := cmd.cartRepo.AddOrMergeItem(ctx, existingCart.ID, item); err != nil {
 		return cartapp.AddItemResponse{}, fmt.Errorf("failed to add cart item: %w", err)
 	}
 

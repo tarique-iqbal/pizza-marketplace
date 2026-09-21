@@ -25,9 +25,9 @@ func TestGetOrder_AsCustomer_Success(t *testing.T) {
 		Currency:   "EUR",
 	}
 	repo := &testutil.MockOrderRepository{FindByIDAndCustomerResult: ord}
-	uc := queries.NewGetOrder(repo)
+	qry := queries.NewGetOrder(repo)
 
-	res, err := uc.Execute(context.Background(), ord.ID, ord.CustomerID, "customer")
+	res, err := qry.Execute(context.Background(), ord.ID, ord.CustomerID, "customer")
 
 	require.NoError(t, err)
 	assert.Equal(t, ord.ID, res.OrderID)
@@ -42,9 +42,9 @@ func TestGetOrder_AsOwner_Success(t *testing.T) {
 		Currency: "EUR",
 	}
 	repo := &testutil.MockOrderRepository{FindByIDAndRestaurantOwnerResult: ord}
-	uc := queries.NewGetOrder(repo)
+	qry := queries.NewGetOrder(repo)
 
-	res, err := uc.Execute(context.Background(), ord.ID, testutil.MustNewID(), "owner")
+	res, err := qry.Execute(context.Background(), ord.ID, testutil.MustNewID(), "owner")
 
 	require.NoError(t, err)
 	assert.Equal(t, ord.ID, res.OrderID)
@@ -52,9 +52,9 @@ func TestGetOrder_AsOwner_Success(t *testing.T) {
 
 func TestGetOrder_NotFoundOrWrongCaller_ReturnsForbidden(t *testing.T) {
 	repo := &testutil.MockOrderRepository{FindByIDAndCustomerErr: apperr.ErrNotFound}
-	uc := queries.NewGetOrder(repo)
+	qry := queries.NewGetOrder(repo)
 
-	_, err := uc.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID(), "customer")
+	_, err := qry.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID(), "customer")
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, apperr.ErrForbidden)
@@ -62,9 +62,9 @@ func TestGetOrder_NotFoundOrWrongCaller_ReturnsForbidden(t *testing.T) {
 
 func TestGetOrder_RepositoryError_Propagates(t *testing.T) {
 	repo := &testutil.MockOrderRepository{FindByIDAndCustomerErr: errors.New("db down")}
-	uc := queries.NewGetOrder(repo)
+	qry := queries.NewGetOrder(repo)
 
-	_, err := uc.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID(), "customer")
+	_, err := qry.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID(), "customer")
 
 	require.Error(t, err)
 	assert.NotErrorIs(t, err, apperr.ErrForbidden)

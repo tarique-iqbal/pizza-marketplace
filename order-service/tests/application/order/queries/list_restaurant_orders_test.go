@@ -19,9 +19,9 @@ import (
 func TestListRestaurantOrders_FewerThanLimit_NoNextCursor(t *testing.T) {
 	orders := []order.Order{newOrderAt(testutil.MustNewID(), time.Now())}
 	repo := &testutil.MockOrderRepository{ListByRestaurantResult: orders}
-	uc := queries.NewListRestaurantOrders(repo)
+	qry := queries.NewListRestaurantOrders(repo)
 
-	res, err := uc.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID(), "", 20)
+	res, err := qry.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID(), "", 20)
 
 	require.NoError(t, err)
 	require.Len(t, res.Orders, 1)
@@ -38,9 +38,9 @@ func TestListRestaurantOrders_MoreThanLimit_TrimsAndSetsNextCursor(t *testing.T)
 		newOrderAt(testutil.MustNewID(), now.Add(-2*time.Minute)),
 	}
 	repo := &testutil.MockOrderRepository{ListByRestaurantResult: orders}
-	uc := queries.NewListRestaurantOrders(repo)
+	qry := queries.NewListRestaurantOrders(repo)
 
-	res, err := uc.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID(), "", 2)
+	res, err := qry.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID(), "", 2)
 
 	require.NoError(t, err)
 	require.Len(t, res.Orders, 2)
@@ -55,9 +55,9 @@ func TestListRestaurantOrders_PassesRestaurantAndOwnerID(t *testing.T) {
 	restaurantID := testutil.MustNewID()
 	ownerID := testutil.MustNewID()
 	repo := &testutil.MockOrderRepository{}
-	uc := queries.NewListRestaurantOrders(repo)
+	qry := queries.NewListRestaurantOrders(repo)
 
-	_, err := uc.Execute(context.Background(), restaurantID, ownerID, "", 20)
+	_, err := qry.Execute(context.Background(), restaurantID, ownerID, "", 20)
 
 	require.NoError(t, err)
 	require.Len(t, repo.ListByRestaurantCalls, 1)
@@ -67,9 +67,11 @@ func TestListRestaurantOrders_PassesRestaurantAndOwnerID(t *testing.T) {
 
 func TestListRestaurantOrders_InvalidCursor_ReturnsInvalid(t *testing.T) {
 	repo := &testutil.MockOrderRepository{}
-	uc := queries.NewListRestaurantOrders(repo)
+	qry := queries.NewListRestaurantOrders(repo)
 
-	_, err := uc.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID(), "not-a-cursor!!!", 20)
+	badCursor := "not-a-cursor!!!"
+
+	_, err := qry.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID(), badCursor, 20)
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, apperr.ErrInvalid)
@@ -78,9 +80,9 @@ func TestListRestaurantOrders_InvalidCursor_ReturnsInvalid(t *testing.T) {
 
 func TestListRestaurantOrders_RepositoryError_Propagates(t *testing.T) {
 	repo := &testutil.MockOrderRepository{ListByRestaurantErr: errors.New("db down")}
-	uc := queries.NewListRestaurantOrders(repo)
+	qry := queries.NewListRestaurantOrders(repo)
 
-	_, err := uc.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID(), "", 20)
+	_, err := qry.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID(), "", 20)
 
 	require.Error(t, err)
 }

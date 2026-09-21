@@ -20,11 +20,11 @@ func NewComplete(orderRepo order.OrderRepository) *Complete {
 	return &Complete{orderRepo: orderRepo}
 }
 
-func (uc *Complete) Execute(
+func (cmd *Complete) Execute(
 	ctx context.Context,
 	orderID, ownerID uuid.UUID,
 ) (orderapp.OrderResponse, error) {
-	ord, err := uc.orderRepo.FindByIDAndRestaurantOwner(ctx, orderID, ownerID)
+	ord, err := cmd.orderRepo.FindByIDAndRestaurantOwner(ctx, orderID, ownerID)
 	if err != nil {
 		if errors.Is(err, apperr.ErrNotFound) {
 			return orderapp.OrderResponse{}, apperr.ErrForbidden
@@ -37,7 +37,7 @@ func (uc *Complete) Execute(
 		return orderapp.OrderResponse{}, fmt.Errorf("%w: %w", err, apperr.ErrConflict)
 	}
 
-	if err := uc.orderRepo.Update(ctx, ord); err != nil {
+	if err := cmd.orderRepo.Update(ctx, ord); err != nil {
 		return orderapp.OrderResponse{}, fmt.Errorf("failed to update order: %w", err)
 	}
 

@@ -20,9 +20,9 @@ func TestMarkReady_Success(t *testing.T) {
 		Subtotal: decimal.NewFromInt(10), Total: decimal.NewFromInt(10), Currency: "EUR",
 	}
 	repo := &testutil.MockOrderRepository{FindByIDAndRestaurantOwnerResult: ord}
-	uc := commands.NewMarkReady(repo)
+	cmd := commands.NewMarkReady(repo)
 
-	res, err := uc.Execute(context.Background(), ord.ID, testutil.MustNewID())
+	res, err := cmd.Execute(context.Background(), ord.ID, testutil.MustNewID())
 
 	require.NoError(t, err)
 	assert.Equal(t, order.StatusReady, res.Status)
@@ -32,9 +32,9 @@ func TestMarkReady_Success(t *testing.T) {
 
 func TestMarkReady_NotOwner_ReturnsForbidden(t *testing.T) {
 	repo := &testutil.MockOrderRepository{FindByIDAndRestaurantOwnerErr: apperr.ErrNotFound}
-	uc := commands.NewMarkReady(repo)
+	cmd := commands.NewMarkReady(repo)
 
-	_, err := uc.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID())
+	_, err := cmd.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID())
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, apperr.ErrForbidden)
@@ -46,9 +46,9 @@ func TestMarkReady_InvalidTransition_ReturnsConflict(t *testing.T) {
 		Subtotal: decimal.NewFromInt(10), Total: decimal.NewFromInt(10), Currency: "EUR",
 	}
 	repo := &testutil.MockOrderRepository{FindByIDAndRestaurantOwnerResult: ord}
-	uc := commands.NewMarkReady(repo)
+	cmd := commands.NewMarkReady(repo)
 
-	_, err := uc.Execute(context.Background(), ord.ID, testutil.MustNewID())
+	_, err := cmd.Execute(context.Background(), ord.ID, testutil.MustNewID())
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, apperr.ErrConflict)

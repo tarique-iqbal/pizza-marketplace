@@ -20,7 +20,7 @@ func NewGetOrder(orderRepo order.OrderRepository) *GetOrder {
 	return &GetOrder{orderRepo: orderRepo}
 }
 
-func (uc *GetOrder) Execute(
+func (qry *GetOrder) Execute(
 	ctx context.Context,
 	orderID uuid.UUID,
 	userID uuid.UUID,
@@ -32,9 +32,9 @@ func (uc *GetOrder) Execute(
 	)
 
 	if role == "owner" {
-		ord, err = uc.orderRepo.FindByIDAndRestaurantOwner(ctx, orderID, userID)
+		ord, err = qry.orderRepo.FindByIDAndRestaurantOwner(ctx, orderID, userID)
 	} else {
-		ord, err = uc.orderRepo.FindByIDAndCustomer(ctx, orderID, userID)
+		ord, err = qry.orderRepo.FindByIDAndCustomer(ctx, orderID, userID)
 	}
 	if err != nil {
 		if errors.Is(err, apperr.ErrNotFound) {

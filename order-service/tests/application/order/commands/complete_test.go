@@ -20,9 +20,9 @@ func TestComplete_Success(t *testing.T) {
 		Subtotal: decimal.NewFromInt(10), Total: decimal.NewFromInt(10), Currency: "EUR",
 	}
 	repo := &testutil.MockOrderRepository{FindByIDAndRestaurantOwnerResult: ord}
-	uc := commands.NewComplete(repo)
+	cmd := commands.NewComplete(repo)
 
-	res, err := uc.Execute(context.Background(), ord.ID, testutil.MustNewID())
+	res, err := cmd.Execute(context.Background(), ord.ID, testutil.MustNewID())
 
 	require.NoError(t, err)
 	assert.Equal(t, order.StatusCompleted, res.Status)
@@ -32,9 +32,9 @@ func TestComplete_Success(t *testing.T) {
 
 func TestComplete_NotOwner_ReturnsForbidden(t *testing.T) {
 	repo := &testutil.MockOrderRepository{FindByIDAndRestaurantOwnerErr: apperr.ErrNotFound}
-	uc := commands.NewComplete(repo)
+	cmd := commands.NewComplete(repo)
 
-	_, err := uc.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID())
+	_, err := cmd.Execute(context.Background(), testutil.MustNewID(), testutil.MustNewID())
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, apperr.ErrForbidden)
@@ -46,9 +46,9 @@ func TestComplete_FromConfirmed_Success(t *testing.T) {
 		Subtotal: decimal.NewFromInt(10), Total: decimal.NewFromInt(10), Currency: "EUR",
 	}
 	repo := &testutil.MockOrderRepository{FindByIDAndRestaurantOwnerResult: ord}
-	uc := commands.NewComplete(repo)
+	cmd := commands.NewComplete(repo)
 
-	res, err := uc.Execute(context.Background(), ord.ID, testutil.MustNewID())
+	res, err := cmd.Execute(context.Background(), ord.ID, testutil.MustNewID())
 
 	require.NoError(t, err)
 	assert.Equal(t, order.StatusCompleted, res.Status)
@@ -60,9 +60,9 @@ func TestComplete_InvalidTransition_ReturnsConflict(t *testing.T) {
 		Subtotal: decimal.NewFromInt(10), Total: decimal.NewFromInt(10), Currency: "EUR",
 	}
 	repo := &testutil.MockOrderRepository{FindByIDAndRestaurantOwnerResult: ord}
-	uc := commands.NewComplete(repo)
+	cmd := commands.NewComplete(repo)
 
-	_, err := uc.Execute(context.Background(), ord.ID, testutil.MustNewID())
+	_, err := cmd.Execute(context.Background(), ord.ID, testutil.MustNewID())
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, apperr.ErrConflict)

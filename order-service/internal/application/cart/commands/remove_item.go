@@ -18,8 +18,8 @@ func NewRemoveItem(cartRepo cart.CartRepository) *RemoveItem {
 	return &RemoveItem{cartRepo: cartRepo}
 }
 
-func (uc *RemoveItem) Execute(ctx context.Context, customerID, itemID uuid.UUID) error {
-	c, err := uc.cartRepo.FindByCustomer(ctx, customerID)
+func (cmd *RemoveItem) Execute(ctx context.Context, customerID, itemID uuid.UUID) error {
+	c, err := cmd.cartRepo.FindByCustomer(ctx, customerID)
 	if err != nil {
 		return fmt.Errorf("failed to look up cart: %w", err)
 	}
@@ -27,7 +27,7 @@ func (uc *RemoveItem) Execute(ctx context.Context, customerID, itemID uuid.UUID)
 		return fmt.Errorf("cart not found: %w", apperr.ErrNotFound)
 	}
 
-	if err := uc.cartRepo.RemoveItem(ctx, c.ID, itemID); err != nil {
+	if err := cmd.cartRepo.RemoveItem(ctx, c.ID, itemID); err != nil {
 		return fmt.Errorf("failed to remove cart item: %w", err)
 	}
 
