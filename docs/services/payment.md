@@ -128,14 +128,14 @@ type PaymentGateway interface {
 
 ```go
 // internal/application/payment/commands/create_payment.go
-func (uc *CreatePayment) Execute(ctx, req) (Response, error) {
-    existing, _ := uc.repo.FindBySubject(ctx, req.SubjectType, req.SubjectID)
+func (cmd *CreatePayment) Execute(ctx, req) (Response, error) {
+    existing, _ := cmd.repo.FindBySubject(ctx, req.SubjectType, req.SubjectID)
     if existing != nil {
-        return uc.handleExisting(ctx, existing, req)  // branches 2/3 below
+        return cmd.handleExisting(ctx, existing, req)  // branches 2/3 below
     }
     p := payment.NewPayment(uuid.Must(uuid.NewV7()), ..., decimal.Zero, "mollie")  // branch 1
-    uc.repo.Create(ctx, p)
-    return uc.callGatewayAndAttach(ctx, p, req)
+    cmd.repo.Create(ctx, p)
+    return cmd.callGatewayAndAttach(ctx, p, req)
 }
 ```
 
@@ -156,20 +156,20 @@ is an expected outcome here (the payment already reached a final state), not a b
 
 ```go
 // internal/application/payment/commands/handle_mollie_webhook.go
-func (uc *HandleMollieWebhook) Execute(ctx, gatewayPaymentID string) error {
-    p, _ := uc.repo.FindByGatewayPaymentID(ctx, gatewayPaymentID)
+func (cmd *HandleMollieWebhook) Execute(ctx, gatewayPaymentID string) error {
+    p, _ := cmd.repo.FindByGatewayPaymentID(ctx, gatewayPaymentID)
     if p == nil || p.Status != payment.StatusPending {
         return nil  // unknown payment, or already processed — both are no-ops, not errors
     }
-    result, err := uc.gateway.GetStatus(ctx, gatewayPaymentID)  // the trust mechanism
+    result, err := cmd.gateway.GetStatus(ctx, gatewayPaymentID)  // the trust mechanism
     ...
     switch result.Status {
     case payment.StatusSucceeded: p.MarkSucceeded()
     case payment.StatusFailed:    p.MarkFailed(result.Reason)
     default: return nil  // still open/pending/authorized — nothing to do yet
     }
-    return uc.db.Transaction(func(tx *gorm.DB) error {
-        uc.repo.WithTx(tx).Update(ctx, p)
+    return cmd.db.Transaction(func(tx *gorm.DB) error {
+        cmd.repo.WithTx(tx).Update(ctx, p)
         outboxRepo.WithTx(tx).Create(ctx, outbox.NewOutboxEvent(p.ID, eventName, payload))
         return nil
     })
