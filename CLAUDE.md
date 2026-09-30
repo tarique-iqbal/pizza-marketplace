@@ -92,7 +92,18 @@ Go runs test packages in parallel by default; `identity-service`'s and `restaura
   root, so every `compose/<service>.yaml` uses `../<service>` and `context: ..`. Adding a service means a new
   `compose/<service>.yaml` plus a new `include:` line in `compose.yaml`, and a new filter entry in
   `.github/workflows/ci.yml`'s `detect-changes` job (that service's own file, plus `compose/base.yaml` if it
-  changes shared infra).
+  changes shared infra). `compose.test.yaml` follows the identical pattern: `compose/base-test.yaml` (just
+  `rabbitmq-test`, always active, since every test service needs it) plus one `compose/<service>-test.yaml`
+  per tested service (`identity`, `restaurant`, `search`, `order`, `payment`, `customer`; no
+  `notification-test`). Every service inside a `-test.yaml` file, including its own Postgres/Redis/
+  Elasticsearch, carries `profiles: ["<service>-test", "test"]`, both its own per-service profile and the
+  shared `"test"` profile every documented invocation (`make test-up`, CI, the `commit-rules` skill) already
+  passes via `--profile test`. This closes a real gap the split surfaced: the original file left the
+  databases untagged while tagging their sibling migration/app containers, so a bare `docker compose -f
+  compose.test.yaml up -d` (no `--profile test`) used to start every test database with nothing to use them;
+  now it starts only the always-active `rabbitmq-test`. `--profile <service>-test` alone (e.g.
+  `--profile customer-test`) starts just that service's own test stack, for iterating on one service without
+  the other five.
 - **Compose profiles**: every service in every `compose/<service>.yaml` carries its own profile name plus the
   shared `"all"` profile, e.g. `profiles: ["identity", "all"]` (`compose/base.yaml`'s Traefik/RabbitMQ carry
   none, so they're always active regardless of profile). Root `.env`'s `COMPOSE_PROFILES=all` activates the
