@@ -1,0 +1,65 @@
+services:
+  pg-identity-test:
+    image: postgres:17-alpine
+    container_name: pizza-pg-identity-test
+    environment:
+      POSTGRES_USER: user_test
+      POSTGRES_PASSWORD: pass_test
+      POSTGRES_DB: identity_db_test
+    volumes:
+      - pg_identity_data_test:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_test -d identity_db_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    profiles: ["identity-test", "test"]
+
+  migrate-identity-test:
+    image: migrate/migrate
+    depends_on:
+      pg-identity-test:
+        condition: service_healthy
+    volumes:
+      - ../identity-service/internal/infrastructure/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://user_test:pass_test@pg-identity-test:5432/identity_db_test?sslmode=disable",
+        "up"
+      ]
+    profiles: ["identity-test", "test"]
+
+  redis-test:
+    image: redis:7-alpine
+    container_name: pizza-redis-test
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data_test:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+    profiles: ["identity-test", "test"]
+
+  identity-test:
+    build:
+      context: ..
+      dockerfile: identity-service/Dockerfile
+      target: dev
+    container_name: pizza-identity-test
+    env_file: ../identity-service/.env.test
+    volumes:
+      - ../identity-service:/app
+    depends_on:
+      pg-identity-test:      { condition: service_healthy }
+      redis-test:            { condition: service_healthy }
+      rabbitmq-test:         { condition: service_healthy }
+      migrate-identity-test: { condition: service_completed_successfully }
+    profiles: ["identity-test", "test"]
+
+volumes:
+  pg_identity_data_test:
+  redis_data_test:

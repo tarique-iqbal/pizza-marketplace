@@ -1,0 +1,13 @@
+services:
+  rabbitmq-test:
+    image: rabbitmq:3-management-alpine
+    container_name: pizza-rabbitmq-test
+    environment:
+      RABBITMQ_DEFAULT_USER: user_test
+      RABBITMQ_DEFAULT_PASS: pass_test
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s

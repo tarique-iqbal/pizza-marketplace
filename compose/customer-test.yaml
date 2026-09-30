@@ -1,0 +1,51 @@
+services:
+  pg-customer-test:
+    image: postgres:17-alpine
+    container_name: pizza-pg-customer-test
+    environment:
+      POSTGRES_USER: user_test
+      POSTGRES_PASSWORD: pass_test
+      POSTGRES_DB: customer_db_test
+    volumes:
+      - pg_customer_data_test:/var/lib/postgresql/data
+    ports:
+      - "5437:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_test -d customer_db_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    profiles: ["customer-test", "test"]
+
+  migrate-customer-test:
+    image: migrate/migrate
+    depends_on:
+      pg-customer-test:
+        condition: service_healthy
+    volumes:
+      - ../customer-service/internal/infrastructure/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://user_test:pass_test@pg-customer-test:5432/customer_db_test?sslmode=disable",
+        "up"
+      ]
+    profiles: ["customer-test", "test"]
+
+  customer-test:
+    build:
+      context: ..
+      dockerfile: customer-service/Dockerfile
+      target: dev
+    container_name: pizza-customer-test
+    env_file: ../customer-service/.env.test
+    volumes:
+      - ../customer-service:/app
+    depends_on:
+      pg-customer-test:      { condition: service_healthy }
+      rabbitmq-test:         { condition: service_healthy }
+      migrate-customer-test: { condition: service_completed_successfully }
+    profiles: ["customer-test", "test"]
+
+volumes:
+  pg_customer_data_test:

@@ -1,0 +1,51 @@
+services:
+  pg-order-test:
+    image: postgres:17-alpine
+    container_name: pizza-pg-order-test
+    environment:
+      POSTGRES_USER: user_test
+      POSTGRES_PASSWORD: pass_test
+      POSTGRES_DB: order_db_test
+    volumes:
+      - pg_order_data_test:/var/lib/postgresql/data
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_test -d order_db_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    profiles: ["order-test", "test"]
+
+  migrate-order-test:
+    image: migrate/migrate
+    depends_on:
+      pg-order-test:
+        condition: service_healthy
+    volumes:
+      - ../order-service/internal/infrastructure/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://user_test:pass_test@pg-order-test:5432/order_db_test?sslmode=disable",
+        "up"
+      ]
+    profiles: ["order-test", "test"]
+
+  order-test:
+    build:
+      context: ..
+      dockerfile: order-service/Dockerfile
+      target: dev
+    container_name: pizza-order-test
+    env_file: ../order-service/.env.test
+    volumes:
+      - ../order-service:/app
+    depends_on:
+      pg-order-test:      { condition: service_healthy }
+      rabbitmq-test:      { condition: service_healthy }
+      migrate-order-test: { condition: service_completed_successfully }
+    profiles: ["order-test", "test"]
+
+volumes:
+  pg_order_data_test:
