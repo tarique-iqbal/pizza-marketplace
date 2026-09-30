@@ -57,29 +57,43 @@ jobs:
             identity:
               - 'identity-service/**'
               - 'compose.yaml'
+              - 'compose/base.yaml'
+              - 'compose/identity.yaml'
               - 'compose.test.yaml'
             restaurant:
               - 'restaurant-service/**'
               - 'compose.yaml'
+              - 'compose/base.yaml'
+              - 'compose/restaurant.yaml'
               - 'compose.test.yaml'
             notification:
               - 'notification-service/**'
               - 'compose.yaml'
+              - 'compose/base.yaml'
+              - 'compose/notification.yaml'
             search:
               - 'search-service/**'
               - 'compose.yaml'
+              - 'compose/base.yaml'
+              - 'compose/search.yaml'
               - 'compose.test.yaml'
             order:
               - 'order-service/**'
               - 'compose.yaml'
+              - 'compose/base.yaml'
+              - 'compose/order.yaml'
               - 'compose.test.yaml'
             payment:
               - 'payment-service/**'
               - 'compose.yaml'
+              - 'compose/base.yaml'
+              - 'compose/payment.yaml'
               - 'compose.test.yaml'
             customer:
               - 'customer-service/**'
               - 'compose.yaml'
+              - 'compose/base.yaml'
+              - 'compose/customer.yaml'
               - 'compose.test.yaml'
 
   identity-ci:
