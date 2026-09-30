@@ -1,0 +1,93 @@
+services:
+  # Database (restaurant)
+  postgres-restaurant:
+    image: postgres:17-alpine
+    container_name: pizza-pg-restaurant
+    environment:
+      POSTGRES_USER: user_dev
+      POSTGRES_PASSWORD: pass_dev
+      POSTGRES_DB: restaurant_db
+    volumes:
+      - pg_restaurant:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_dev -d restaurant_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+    profiles: ["restaurant", "all"]
+
+  # Migrations (restaurant)
+  migrate-restaurant:
+    image: migrate/migrate
+    depends_on:
+      postgres-restaurant:
+        condition: service_healthy
+    volumes:
+      - ../restaurant-service/internal/infrastructure/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://user_dev:pass_dev@postgres-restaurant:5432/restaurant_db?sslmode=disable",
+        "up"
+      ]
+    networks:
+      - internal
+    profiles: ["restaurant", "all"]
+
+  # Restaurant Service
+  restaurant-service:
+    container_name: pizza-restaurant-service
+    build:
+      context: ..
+      dockerfile: restaurant-service/Dockerfile
+      target: dev
+    volumes:
+      - ../restaurant-service:/app
+    depends_on:
+      postgres-restaurant:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      migrate-restaurant:
+        condition: service_completed_successfully
+    env_file: ../restaurant-service/.env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.user.rule=PathPrefix(`/restaurants`)"
+      - "traefik.http.routers.user.entrypoints=web"
+      - "traefik.http.routers.user.middlewares=jwt@docker"
+      - "traefik.http.services.user.loadbalancer.server.port=8080"
+      - "traefik.docker.network=backend"
+    networks:
+      - backend
+      - internal
+    profiles: ["restaurant", "all"]
+
+  # Restaurant Service (worker)
+  restaurant-worker:
+    container_name: pizza-restaurant-worker
+    build:
+      context: ..
+      dockerfile: restaurant-service/Dockerfile
+      target: dev
+    command: ["air", "-c", ".air.worker.toml"]
+    volumes:
+      - ../restaurant-service:/app
+    depends_on:
+      postgres-restaurant:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      migrate-restaurant:
+        condition: service_completed_successfully
+    env_file: ../restaurant-service/.env
+    networks:
+      - internal
+    profiles: ["restaurant", "all"]
+
+volumes:
+  pg_restaurant:

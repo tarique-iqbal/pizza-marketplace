@@ -1,0 +1,41 @@
+services:
+  # API gateway
+  traefik:
+    image: traefik:v3.6
+    container_name: pizza-traefik
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - backend
+
+  # Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: pizza-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: user_dev
+      RABBITMQ_DEFAULT_PASS: pass_dev
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - internal
+
+networks:
+  backend:
+    driver: bridge
+  internal:
+    driver: bridge

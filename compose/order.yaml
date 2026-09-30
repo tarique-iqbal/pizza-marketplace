@@ -1,0 +1,95 @@
+services:
+  # Database (order)
+  postgres-order:
+    image: postgres:17-alpine
+    container_name: pizza-pg-order
+    environment:
+      POSTGRES_USER: user_dev
+      POSTGRES_PASSWORD: pass_dev
+      POSTGRES_DB: order_db
+    volumes:
+      - pg_order:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_dev -d order_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+    profiles: ["order", "all"]
+
+  # Migrations (order)
+  migrate-order:
+    image: migrate/migrate
+    depends_on:
+      postgres-order:
+        condition: service_healthy
+    volumes:
+      - ../order-service/internal/infrastructure/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://user_dev:pass_dev@postgres-order:5432/order_db?sslmode=disable",
+        "up"
+      ]
+    networks:
+      - internal
+    profiles: ["order", "all"]
+
+  # Order Service (API)
+  order-service:
+    container_name: pizza-order-service
+    build:
+      context: ..
+      dockerfile: order-service/Dockerfile
+      target: dev
+    volumes:
+      - ../order-service:/app
+    depends_on:
+      postgres-order:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      migrate-order:
+        condition: service_completed_successfully
+      payment-service:
+        condition: service_started
+    env_file: ../order-service/.env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.order.rule=PathPrefix(`/orders`) || PathPrefix(`/cart`)"
+      - "traefik.http.routers.order.entrypoints=web"
+      - "traefik.http.routers.order.middlewares=jwt@docker"
+      - "traefik.http.services.order.loadbalancer.server.port=8080"
+      - "traefik.docker.network=backend"
+    networks:
+      - backend
+      - internal
+    profiles: ["order", "all"]
+
+  # Order Service (worker)
+  order-worker:
+    container_name: pizza-order-worker
+    build:
+      context: ..
+      dockerfile: order-service/Dockerfile
+      target: dev
+    command: ["air", "-c", ".air.worker.toml"]
+    volumes:
+      - ../order-service:/app
+    depends_on:
+      postgres-order:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      migrate-order:
+        condition: service_completed_successfully
+    env_file: ../order-service/.env
+    networks:
+      - internal
+    profiles: ["order", "all"]
+
+volumes:
+  pg_order:

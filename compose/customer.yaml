@@ -1,0 +1,93 @@
+services:
+  # Database (customer)
+  postgres-customer:
+    image: postgres:17-alpine
+    container_name: pizza-pg-customer
+    environment:
+      POSTGRES_USER: user_dev
+      POSTGRES_PASSWORD: pass_dev
+      POSTGRES_DB: customer_db
+    volumes:
+      - pg_customer:/var/lib/postgresql/data
+    ports:
+      - "5436:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_dev -d customer_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+    profiles: ["customer", "all"]
+
+  # Migrations (customer)
+  migrate-customer:
+    image: migrate/migrate
+    depends_on:
+      postgres-customer:
+        condition: service_healthy
+    volumes:
+      - ../customer-service/internal/infrastructure/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://user_dev:pass_dev@postgres-customer:5432/customer_db?sslmode=disable",
+        "up"
+      ]
+    networks:
+      - internal
+    profiles: ["customer", "all"]
+
+  # Customer Service (API)
+  customer-service:
+    container_name: pizza-customer-service
+    build:
+      context: ..
+      dockerfile: customer-service/Dockerfile
+      target: dev
+    volumes:
+      - ../customer-service:/app
+    depends_on:
+      postgres-customer:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      migrate-customer:
+        condition: service_completed_successfully
+    env_file: ../customer-service/.env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.customer.rule=PathPrefix(`/customers`)"
+      - "traefik.http.routers.customer.entrypoints=web"
+      - "traefik.http.routers.customer.middlewares=jwt@docker"
+      - "traefik.http.services.customer.loadbalancer.server.port=8080"
+      - "traefik.docker.network=backend"
+    networks:
+      - backend
+      - internal
+    profiles: ["customer", "all"]
+
+  # Customer Service (worker)
+  customer-worker:
+    container_name: pizza-customer-worker
+    build:
+      context: ..
+      dockerfile: customer-service/Dockerfile
+      target: dev
+    command: ["air", "-c", ".air.worker.toml"]
+    volumes:
+      - ../customer-service:/app
+    depends_on:
+      postgres-customer:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      migrate-customer:
+        condition: service_completed_successfully
+    env_file: ../customer-service/.env
+    networks:
+      - internal
+    profiles: ["customer", "all"]
+
+volumes:
+  pg_customer:

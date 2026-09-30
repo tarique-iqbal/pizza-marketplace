@@ -1,0 +1,70 @@
+services:
+  # Search Engine
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.9.0
+    container_name: pizza-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - internal
+    profiles: ["search", "all"]
+
+  # Search Service (API)
+  search-service:
+    container_name: pizza-search-service
+    build:
+      context: ..
+      dockerfile: search-service/Dockerfile
+      target: dev
+    volumes:
+      - ../search-service:/app
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    env_file: ../search-service/.env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.search.rule=PathPrefix(`/search`)"
+      - "traefik.http.routers.search.entrypoints=web"
+      - "traefik.http.services.search.loadbalancer.server.port=8080"
+      - "traefik.docker.network=backend"
+    networks:
+      - backend
+      - internal
+    profiles: ["search", "all"]
+
+  # Search Service (worker)
+  search-worker:
+    container_name: pizza-search-worker
+    build:
+      context: ..
+      dockerfile: search-service/Dockerfile
+      target: dev
+    command: ["air", "-c", ".air.worker.toml"]
+    volumes:
+      - ../search-service:/app
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    env_file: ../search-service/.env
+    networks:
+      - internal
+    profiles: ["search", "all"]
+
+volumes:
+  elasticsearch_data:

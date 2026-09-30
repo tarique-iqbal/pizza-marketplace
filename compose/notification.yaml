@@ -1,0 +1,17 @@
+services:
+  # Notification Service
+  notification-service:
+    container_name: pizza-notification-service
+    build:
+      context: ..
+      dockerfile: notification-service/Dockerfile
+      target: dev
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ../notification-service:/app
+    env_file: ../notification-service/.env
+    networks:
+      - internal
+    profiles: ["notification", "all"]

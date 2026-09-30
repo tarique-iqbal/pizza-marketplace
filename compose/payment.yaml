@@ -1,0 +1,92 @@
+services:
+  # Database (payment)
+  postgres-payment:
+    image: postgres:17-alpine
+    container_name: pizza-pg-payment
+    environment:
+      POSTGRES_USER: user_dev
+      POSTGRES_PASSWORD: pass_dev
+      POSTGRES_DB: payment_db
+    volumes:
+      - pg_payment:/var/lib/postgresql/data
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_dev -d payment_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+    profiles: ["payment", "order", "all"]
+
+  # Migrations (payment)
+  migrate-payment:
+    image: migrate/migrate
+    depends_on:
+      postgres-payment:
+        condition: service_healthy
+    volumes:
+      - ../payment-service/internal/infrastructure/migrations:/migrations
+    command:
+      [
+        "-path=/migrations",
+        "-database=postgres://user_dev:pass_dev@postgres-payment:5432/payment_db?sslmode=disable",
+        "up"
+      ]
+    networks:
+      - internal
+    profiles: ["payment", "order", "all"]
+
+  # Payment Service (API)
+  payment-service:
+    container_name: pizza-payment-service
+    build:
+      context: ..
+      dockerfile: payment-service/Dockerfile
+      target: dev
+    volumes:
+      - ../payment-service:/app
+    depends_on:
+      postgres-payment:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      migrate-payment:
+        condition: service_completed_successfully
+    env_file: ../payment-service/.env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.payment.rule=PathPrefix(`/webhooks/mollie`)"
+      - "traefik.http.routers.payment.entrypoints=web"
+      - "traefik.http.services.payment.loadbalancer.server.port=8080"
+      - "traefik.docker.network=backend"
+    networks:
+      - backend
+      - internal
+    profiles: ["payment", "order", "all"]
+
+  # Payment Service (worker)
+  payment-worker:
+    container_name: pizza-payment-worker
+    build:
+      context: ..
+      dockerfile: payment-service/Dockerfile
+      target: dev
+    command: ["air", "-c", ".air.worker.toml"]
+    volumes:
+      - ../payment-service:/app
+    depends_on:
+      postgres-payment:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      migrate-payment:
+        condition: service_completed_successfully
+    env_file: ../payment-service/.env
+    networks:
+      - internal
+    profiles: ["payment", "order", "all"]
+
+volumes:
+  pg_payment:
