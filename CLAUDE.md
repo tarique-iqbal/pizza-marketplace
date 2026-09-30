@@ -50,6 +50,7 @@ A root `Makefile` wraps the common `go`/`docker compose` commands below (`make u
 
 **Local dev environment** (from repo root):
 ```bash
+cp .env.example                      .env
 cp identity-service/.env.example     identity-service/.env
 cp restaurant-service/.env.example   restaurant-service/.env
 cp notification-service/.env.example notification-service/.env
@@ -82,4 +83,24 @@ Go runs test packages in parallel by default; `identity-service`'s and `restaura
 - **Events**: `internal/shared/event.Event` is the interface producers implement (`GetEventName()`); routing key = event name. Consumers live in the relevant service's worker/messaging layer.
 - **Auth**: JWT-based; `identity-service` exposes `GET /auth/verify` as a Traefik forward-auth endpoint (see `traefik.http.middlewares.jwt.forwardauth.*` labels in `compose.yaml`) — other services don't validate JWTs themselves, they trust `X-User-ID`/`X-User-Role` headers Traefik injects after forward-auth succeeds.
 - **Routing**: all traffic enters through Traefik on `:80`, path-routed by service (`/auth`, `/users` → identity; `/restaurants` → restaurant; `/search` → search-service, no auth; `/customers` → customer-service, JWT-protected).
+- **Compose layout**: the root `compose.yaml` is just a `name:` and an `include:` list; the actual service
+  definitions live in `compose/base.yaml` (Traefik, RabbitMQ, the shared networks: anything more than one
+  service depends on, always started regardless of profile) and one `compose/<service>.yaml` per service (its
+  own Postgres, migration runner, API, worker, and any infra only that service uses, e.g. Redis lives in
+  `compose/identity.yaml`, Elasticsearch in `compose/search.yaml`). Relative paths inside an included file
+  (`env_file`, bind-mount `volumes`, build `context`) resolve against that file's own directory, not the repo
+  root, so every `compose/<service>.yaml` uses `../<service>` and `context: ..`. Adding a service means a new
+  `compose/<service>.yaml` plus a new `include:` line in `compose.yaml`, and a new filter entry in
+  `.github/workflows/ci.yml`'s `detect-changes` job (that service's own file, plus `compose/base.yaml` if it
+  changes shared infra).
+- **Compose profiles**: every service in every `compose/<service>.yaml` carries its own profile name plus the
+  shared `"all"` profile, e.g. `profiles: ["identity", "all"]` (`compose/base.yaml`'s Traefik/RabbitMQ carry
+  none, so they're always active regardless of profile). Root `.env`'s `COMPOSE_PROFILES=all` activates the
+  shared profile, so a bare `docker compose up` still starts everything by default (the same as
+  `docker compose --profile all up`). Pass `--profile <service>` (repeatable, e.g.
+  `--profile identity --profile order`) to start only some groups for one command; passing `--profile` at all
+  replaces `COMPOSE_PROFILES` from the environment entirely, it does not add to it, so `--profile identity`
+  alone does not also get `all`. `order-service` hard-`depends_on: payment-service`, so `payment`'s services
+  also carry `profiles: ["payment", "order", "all"]`; Compose errors on an unresolvable `depends_on`
+  reference if a dependency's profile isn't active, it does not pull it in automatically.
 - **Line length**: `.go` files wrap at 110 chars — no linter enforces this yet, it's a manual convention; check before committing. Exempt: generated code (`*.pb.go`) and lines that are mostly one unbreakable literal (a long JSON/SQL string, URL, or regex) rather than genuinely wrappable code.
