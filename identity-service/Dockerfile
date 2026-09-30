@@ -16,15 +16,24 @@ CMD ["air", "-c", ".air.toml"]
 # Stage 3: Builder (Production Compilation)
 FROM base AS builder
 COPY identity-service/ .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /identity-service ./cmd/api/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o /identity-api ./cmd/api/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o /identity-worker ./cmd/worker/main.go
 
-# Stage 4: Final (Production Image)
-FROM alpine:3.21
+# Stage 4a: Final API image
+FROM alpine:3.21 AS api
 WORKDIR /app
-
 RUN apk add --no-cache postgresql-client
 COPY --from=base /go/bin/migrate /usr/local/bin/migrate
-COPY --from=builder /identity-service .
-
+COPY --from=builder /app/internal/infrastructure/migrations ./migrations
+COPY --from=builder /identity-api .
 EXPOSE 8080
-CMD ["./identity-service"]
+CMD ["./identity-api"]
+
+# Stage 4b: Final worker image
+FROM alpine:3.21 AS worker
+WORKDIR /app
+RUN apk add --no-cache postgresql-client
+COPY --from=base /go/bin/migrate /usr/local/bin/migrate
+COPY --from=builder /app/internal/infrastructure/migrations ./migrations
+COPY --from=builder /identity-worker .
+CMD ["./identity-worker"]

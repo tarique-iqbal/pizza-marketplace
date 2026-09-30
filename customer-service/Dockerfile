@@ -24,6 +24,7 @@ FROM alpine:3.21 AS api
 WORKDIR /app
 RUN apk add --no-cache ca-certificates postgresql-client
 COPY --from=base /go/bin/migrate /usr/local/bin/migrate
+COPY --from=builder /app/internal/infrastructure/migrations ./migrations
 COPY --from=builder /customer-api .
 EXPOSE 8080
 CMD ["./customer-api"]
@@ -33,5 +34,6 @@ FROM alpine:3.21 AS worker
 WORKDIR /app
 RUN apk add --no-cache ca-certificates postgresql-client
 COPY --from=base /go/bin/migrate /usr/local/bin/migrate
+COPY --from=builder /app/internal/infrastructure/migrations ./migrations
 COPY --from=builder /customer-worker .
 CMD ["./customer-worker"]

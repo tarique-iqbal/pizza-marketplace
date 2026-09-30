@@ -16,15 +16,24 @@ CMD ["air", "-c", ".air.toml"]
 # Stage 3: Builder (Production Compilation)
 FROM base AS builder
 COPY restaurant-service/ .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /restaurant-service ./cmd/api/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o /restaurant-api ./cmd/api/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o /restaurant-worker ./cmd/worker/main.go
 
-# Stage 4: Final (Production Image)
-FROM alpine:3.21
+# Stage 4a: Final API image
+FROM alpine:3.21 AS api
 WORKDIR /app
-
 RUN apk add --no-cache ca-certificates postgresql-client
 COPY --from=base /go/bin/migrate /usr/local/bin/migrate
-COPY --from=builder /restaurant-service .
-
+COPY --from=builder /app/internal/infrastructure/migrations ./migrations
+COPY --from=builder /restaurant-api .
 EXPOSE 8080
-CMD ["./restaurant-service"]
+CMD ["./restaurant-api"]
+
+# Stage 4b: Final worker image
+FROM alpine:3.21 AS worker
+WORKDIR /app
+RUN apk add --no-cache ca-certificates postgresql-client
+COPY --from=base /go/bin/migrate /usr/local/bin/migrate
+COPY --from=builder /app/internal/infrastructure/migrations ./migrations
+COPY --from=builder /restaurant-worker .
+CMD ["./restaurant-worker"]
