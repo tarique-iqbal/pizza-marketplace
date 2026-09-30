@@ -60,12 +60,16 @@ jobs:
               - 'compose/base.yaml'
               - 'compose/identity.yaml'
               - 'compose.test.yaml'
+              - 'compose/base-test.yaml'
+              - 'compose/identity-test.yaml'
             restaurant:
               - 'restaurant-service/**'
               - 'compose.yaml'
               - 'compose/base.yaml'
               - 'compose/restaurant.yaml'
               - 'compose.test.yaml'
+              - 'compose/base-test.yaml'
+              - 'compose/restaurant-test.yaml'
             notification:
               - 'notification-service/**'
               - 'compose.yaml'
@@ -77,24 +81,32 @@ jobs:
               - 'compose/base.yaml'
               - 'compose/search.yaml'
               - 'compose.test.yaml'
+              - 'compose/base-test.yaml'
+              - 'compose/search-test.yaml'
             order:
               - 'order-service/**'
               - 'compose.yaml'
               - 'compose/base.yaml'
               - 'compose/order.yaml'
               - 'compose.test.yaml'
+              - 'compose/base-test.yaml'
+              - 'compose/order-test.yaml'
             payment:
               - 'payment-service/**'
               - 'compose.yaml'
               - 'compose/base.yaml'
               - 'compose/payment.yaml'
               - 'compose.test.yaml'
+              - 'compose/base-test.yaml'
+              - 'compose/payment-test.yaml'
             customer:
               - 'customer-service/**'
               - 'compose.yaml'
               - 'compose/base.yaml'
               - 'compose/customer.yaml'
               - 'compose.test.yaml'
+              - 'compose/base-test.yaml'
+              - 'compose/customer-test.yaml'
 
   identity-ci:
     needs: detect-changes
