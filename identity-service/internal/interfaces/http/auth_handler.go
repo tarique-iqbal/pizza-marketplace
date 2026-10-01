@@ -6,22 +6,23 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"identity-service/internal/application/auth"
+	"identity-service/internal/application/auth/commands"
 	"identity-service/internal/interfaces/http/response"
 	"identity-service/internal/interfaces/http/validation"
 )
 
 type AuthHandler struct {
-	login        *auth.Login
-	emailOTP     *auth.RequestEmailOTP
-	refreshToken *auth.RefreshToken
-	logout       *auth.Logout
+	login        *commands.Login
+	emailOTP     *commands.RequestEmailOTP
+	refreshToken *commands.RefreshToken
+	logout       *commands.Logout
 }
 
 func NewAuthHandler(
-	login *auth.Login,
-	emailOTP *auth.RequestEmailOTP,
-	refreshToken *auth.RefreshToken,
-	logout *auth.Logout,
+	login *commands.Login,
+	emailOTP *commands.RequestEmailOTP,
+	refreshToken *commands.RefreshToken,
+	logout *commands.Logout,
 ) *AuthHandler {
 	return &AuthHandler{
 		login:        login,

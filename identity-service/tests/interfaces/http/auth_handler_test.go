@@ -5,14 +5,6 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	authapp "identity-service/internal/application/auth"
-	"identity-service/internal/domain/auth"
-	"identity-service/internal/domain/user"
-	"identity-service/internal/infrastructure/persistence"
-	"identity-service/internal/infrastructure/security"
-	httpui "identity-service/internal/interfaces/http"
-	"identity-service/tests/infrastructure/db/fixtures"
-	"identity-service/tests/testutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -21,6 +13,16 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	authapp "identity-service/internal/application/auth"
+	"identity-service/internal/application/auth/commands"
+	"identity-service/internal/domain/auth"
+	"identity-service/internal/domain/user"
+	"identity-service/internal/infrastructure/persistence"
+	"identity-service/internal/infrastructure/security"
+	httpui "identity-service/internal/interfaces/http"
+	"identity-service/tests/infrastructure/db/fixtures"
+	"identity-service/tests/testutil"
 )
 
 func setupAuthHandler(t *testing.T) (
@@ -47,10 +49,12 @@ func setupAuthHandler(t *testing.T) (
 	otp := security.NewOTPGenerator()
 	rateLimiter := persistence.NewOTPRateLimiter(rdb.Client, time.Minute)
 
-	login := authapp.NewLogin(userRepo, hasher, jwt, refreshTokenRepo, refreshTokenManager)
-	refreshToken := authapp.NewRefreshToken(jwt, refreshTokenRepo, refreshTokenManager)
-	logout := authapp.NewLogout(refreshTokenRepo, refreshTokenManager)
-	emailOTP := authapp.NewRequestEmailOTP(db.DB, emailVerificationRepo, userRepo, otp, outboxRepo, rateLimiter)
+	login := commands.NewLogin(userRepo, hasher, jwt, refreshTokenRepo, refreshTokenManager)
+	refreshToken := commands.NewRefreshToken(jwt, refreshTokenRepo, refreshTokenManager)
+	logout := commands.NewLogout(refreshTokenRepo, refreshTokenManager)
+	emailOTP := commands.NewRequestEmailOTP(
+		db.DB, emailVerificationRepo, userRepo, otp, outboxRepo, rateLimiter,
+	)
 
 	handler := httpui.NewAuthHandler(login, emailOTP, refreshToken, logout)
 

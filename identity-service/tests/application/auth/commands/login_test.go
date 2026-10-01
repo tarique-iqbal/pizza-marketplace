@@ -1,23 +1,25 @@
-package auth_test
+package commands_test
 
 import (
 	"context"
-	"identity-service/internal/application/auth"
-	"identity-service/internal/domain/user"
-	"identity-service/internal/infrastructure/persistence"
-	"identity-service/internal/infrastructure/security"
-	"identity-service/tests/infrastructure/db/fixtures"
-	"identity-service/tests/testutil"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"identity-service/internal/application/auth"
+	"identity-service/internal/application/auth/commands"
+	"identity-service/internal/domain/user"
+	"identity-service/internal/infrastructure/persistence"
+	"identity-service/internal/infrastructure/security"
+	"identity-service/tests/infrastructure/db/fixtures"
+	"identity-service/tests/testutil"
 )
 
-var login *auth.Login
+var login *commands.Login
 
-func setupLogin(t *testing.T) *auth.Login {
+func setupLogin(t *testing.T) *commands.Login {
 	db := testutil.DB(t)
 	db.TruncateTables(t, testutil.TableUser)
 
@@ -32,7 +34,7 @@ func setupLogin(t *testing.T) *auth.Login {
 	refreshTokenRepo := persistence.NewRefreshTokenRepository(rdb.Client)
 	refreshTokenManager := security.NewRefreshTokenManager()
 
-	return auth.NewLogin(repo, hasher, jwt, refreshTokenRepo, refreshTokenManager)
+	return commands.NewLogin(repo, hasher, jwt, refreshTokenRepo, refreshTokenManager)
 }
 
 func TestLogin_Success(t *testing.T) {

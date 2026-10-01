@@ -1,8 +1,9 @@
-package auth
+package commands
 
 import (
 	"context"
 
+	authapp "identity-service/internal/application/auth"
 	"identity-service/internal/domain/auth"
 )
 
@@ -23,7 +24,7 @@ func NewLogout(
 
 func (uc *Logout) Execute(
 	ctx context.Context,
-	req LogoutRequest,
+	req authapp.LogoutRequest,
 ) error {
 	hashed := uc.manager.Hash(req.RefreshToken)
 

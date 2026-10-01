@@ -4,7 +4,7 @@ import (
 	"os"
 	"time"
 
-	authapp "identity-service/internal/application/auth"
+	authcmd "identity-service/internal/application/auth/commands"
 	"identity-service/internal/application/health"
 	"identity-service/internal/application/user"
 	authinfra "identity-service/internal/infrastructure/auth"
@@ -63,12 +63,12 @@ func NewAPIContainer() (*APIContainer, error) {
 	userHandler := http.NewUserHandler(registerCustomer, registerOwner, findByID)
 
 	// auth
-	login := authapp.NewLogin(userRepo, hasher, jwtManager, refreshTokenRepo, refreshTokenManager)
-	emailOTP := authapp.NewRequestEmailOTP(
+	login := authcmd.NewLogin(userRepo, hasher, jwtManager, refreshTokenRepo, refreshTokenManager)
+	emailOTP := authcmd.NewRequestEmailOTP(
 		base.Postgres.DB, emailVerificationRepo, userRepo, otp, base.OutboxRepo, otpRateLimiter,
 	)
-	refreshToken := authapp.NewRefreshToken(jwtManager, refreshTokenRepo, refreshTokenManager)
-	logout := authapp.NewLogout(refreshTokenRepo, refreshTokenManager)
+	refreshToken := authcmd.NewRefreshToken(jwtManager, refreshTokenRepo, refreshTokenManager)
+	logout := authcmd.NewLogout(refreshTokenRepo, refreshTokenManager)
 	authHandler := http.NewAuthHandler(login, emailOTP, refreshToken, logout)
 
 	// health

@@ -1,10 +1,11 @@
-package auth
+package commands
 
 import (
 	"context"
 	"strings"
 	"time"
 
+	authapp "identity-service/internal/application/auth"
 	"identity-service/internal/domain/auth"
 	"identity-service/internal/domain/user"
 	logobs "identity-service/internal/infrastructure/observability/logger"
@@ -39,26 +40,26 @@ func NewLogin(
 
 func (uc *Login) Execute(
 	ctx context.Context,
-	input LoginRequest,
-) (TokenResponse, error) {
+	input authapp.LoginRequest,
+) (authapp.TokenResponse, error) {
 	usr, err := uc.userRepo.FindByEmail(ctx, strings.ToLower(input.Email))
 	if err != nil {
-		return TokenResponse{}, err
+		return authapp.TokenResponse{}, err
 	}
 
 	if usr == nil || !uc.passwordHasher.Compare(usr.Password, input.Password) {
 		// Deliberately collapsed response prevents user enumeration
-		return TokenResponse{}, apperr.ErrUnauthorized
+		return authapp.TokenResponse{}, apperr.ErrUnauthorized
 	}
 
 	accessToken, err := uc.jwtManager.Generate(usr.ID.String(), usr.Role)
 	if err != nil {
-		return TokenResponse{}, err
+		return authapp.TokenResponse{}, err
 	}
 
 	refreshToken, err := uc.refreshTokenManager.Generate()
 	if err != nil {
-		return TokenResponse{}, err
+		return authapp.TokenResponse{}, err
 	}
 
 	hashedToken := uc.refreshTokenManager.Hash(refreshToken)
@@ -72,7 +73,7 @@ func (uc *Login) Execute(
 
 	err = uc.refreshTokenRepo.Save(ctx, hashedToken, claims, ttlSeconds)
 	if err != nil {
-		return TokenResponse{}, err
+		return authapp.TokenResponse{}, err
 	}
 
 	loggedAt := time.Now().UTC()
@@ -82,7 +83,7 @@ func (uc *Login) Execute(
 		logobs.FromContext(ctx).Warn("failed to update user's last login", "error", err)
 	}
 
-	return TokenResponse{
+	return authapp.TokenResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}, nil

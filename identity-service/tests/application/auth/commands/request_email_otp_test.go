@@ -1,4 +1,4 @@
-package auth_test
+package commands_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	authapp "identity-service/internal/application/auth"
+	"identity-service/internal/application/auth/commands"
 	"identity-service/internal/domain/auth"
 	"identity-service/internal/domain/outbox"
 	"identity-service/internal/domain/user"
@@ -19,10 +20,10 @@ import (
 	"identity-service/tests/testutil"
 )
 
-var emailOTP *authapp.RequestEmailOTP
+var emailOTP *commands.RequestEmailOTP
 var repo auth.EmailVerificationRepository
 
-func requestEmailOTP(t *testing.T) *authapp.RequestEmailOTP {
+func requestEmailOTP(t *testing.T) *commands.RequestEmailOTP {
 	db := testutil.DB(t)
 	db.TruncateTables(t, testutil.TableUser, testutil.TableEmailVerification, testutil.TableOutboxEvent)
 
@@ -37,7 +38,7 @@ func requestEmailOTP(t *testing.T) *authapp.RequestEmailOTP {
 	otp := security.NewOTPGenerator()
 	rateLimiter := persistence.NewOTPRateLimiter(rdb.Client, time.Minute)
 
-	return authapp.NewRequestEmailOTP(db.DB, repo, userRepo, otp, outboxRepo, rateLimiter)
+	return commands.NewRequestEmailOTP(db.DB, repo, userRepo, otp, outboxRepo, rateLimiter)
 }
 
 func TestCreateEmailVerification_Success(t *testing.T) {

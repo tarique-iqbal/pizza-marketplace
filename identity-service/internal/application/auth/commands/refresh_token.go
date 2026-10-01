@@ -1,8 +1,9 @@
-package auth
+package commands
 
 import (
 	"context"
 
+	authapp "identity-service/internal/application/auth"
 	"identity-service/internal/domain/auth"
 )
 
@@ -26,23 +27,23 @@ func NewRefreshToken(
 
 func (uc *RefreshToken) Execute(
 	ctx context.Context,
-	req RefreshRequest,
-) (TokenResponse, error) {
+	req authapp.RefreshRequest,
+) (authapp.TokenResponse, error) {
 	hashed := uc.manager.Hash(req.RefreshToken)
 
 	claims, err := uc.repo.Find(ctx, hashed)
 	if err != nil {
-		return TokenResponse{}, err
+		return authapp.TokenResponse{}, err
 	}
 
 	accessToken, err := uc.jwtManager.Generate(claims.UserID, claims.Role)
 	if err != nil {
-		return TokenResponse{}, err
+		return authapp.TokenResponse{}, err
 	}
 
 	refreshToken, err := uc.manager.Generate()
 	if err != nil {
-		return TokenResponse{}, err
+		return authapp.TokenResponse{}, err
 	}
 
 	hashedToken := uc.manager.Hash(refreshToken)
@@ -51,12 +52,12 @@ func (uc *RefreshToken) Execute(
 
 	err = uc.repo.Save(ctx, hashedToken, claims, ttlSeconds)
 	if err != nil {
-		return TokenResponse{}, err
+		return authapp.TokenResponse{}, err
 	}
 
 	_ = uc.repo.Delete(ctx, hashed)
 
-	return TokenResponse{
+	return authapp.TokenResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}, nil

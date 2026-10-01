@@ -1,24 +1,26 @@
-package auth_test
+package commands_test
 
 import (
 	"context"
 	"errors"
-	authapp "identity-service/internal/application/auth"
-	"identity-service/internal/domain/auth"
-	"identity-service/internal/infrastructure/persistence"
-	"identity-service/internal/infrastructure/security"
-	"identity-service/tests/testutil"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	authapp "identity-service/internal/application/auth"
+	"identity-service/internal/application/auth/commands"
+	"identity-service/internal/domain/auth"
+	"identity-service/internal/infrastructure/persistence"
+	"identity-service/internal/infrastructure/security"
+	"identity-service/tests/testutil"
 )
 
-var refresher *authapp.RefreshToken
+var refresher *commands.RefreshToken
 
 func setupRefreshToken(t *testing.T) (
-	*authapp.RefreshToken,
+	*commands.RefreshToken,
 	auth.RefreshTokenManager,
 	auth.RefreshTokenRepository,
 ) {
@@ -29,7 +31,7 @@ func setupRefreshToken(t *testing.T) (
 	repo := persistence.NewRefreshTokenRepository(rdb.Client)
 	manager := security.NewRefreshTokenManager()
 
-	refresher = authapp.NewRefreshToken(jwt, repo, manager)
+	refresher = commands.NewRefreshToken(jwt, repo, manager)
 
 	return refresher, manager, repo
 }

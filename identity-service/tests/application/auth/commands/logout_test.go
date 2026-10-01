@@ -1,4 +1,4 @@
-package auth_test
+package commands_test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	authapp "identity-service/internal/application/auth"
+	"identity-service/internal/application/auth/commands"
 	"identity-service/internal/domain/auth"
 	"identity-service/internal/infrastructure/persistence"
 	"identity-service/internal/infrastructure/security"
@@ -14,7 +15,7 @@ import (
 )
 
 func setupLogout(t *testing.T) (
-	*authapp.Logout,
+	*commands.Logout,
 	auth.RefreshTokenManager,
 	auth.RefreshTokenRepository,
 ) {
@@ -24,7 +25,7 @@ func setupLogout(t *testing.T) (
 	repo := persistence.NewRefreshTokenRepository(rdb.Client)
 	manager := security.NewRefreshTokenManager()
 
-	logout := authapp.NewLogout(repo, manager)
+	logout := commands.NewLogout(repo, manager)
 
 	return logout, manager, repo
 }

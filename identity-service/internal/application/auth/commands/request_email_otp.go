@@ -1,15 +1,17 @@
-package auth
+package commands
 
 import (
 	"context"
-	"identity-service/internal/domain/auth"
-	"identity-service/internal/domain/outbox"
-	"identity-service/internal/domain/user"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	authapp "identity-service/internal/application/auth"
+	"identity-service/internal/domain/auth"
+	"identity-service/internal/domain/outbox"
+	"identity-service/internal/domain/user"
 )
 
 const accessTokenExpiry = 15
@@ -43,7 +45,7 @@ func NewRequestEmailOTP(
 
 func (uc *RequestEmailOTP) Execute(
 	ctx context.Context,
-	input EmailVerificationRequest,
+	input authapp.EmailVerificationRequest,
 ) error {
 	email := strings.ToLower(input.Email)
 
@@ -107,6 +109,6 @@ func (uc *RequestEmailOTP) Execute(
 		}
 
 		ev.MarkCreated()
-		return DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), ev)
+		return authapp.DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), ev)
 	})
 }
