@@ -1,4 +1,4 @@
-package user_test
+package commands_test
 
 import (
 	"testing"

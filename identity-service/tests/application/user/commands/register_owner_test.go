@@ -1,21 +1,23 @@
-package user_test
+package commands_test
 
 import (
 	"context"
 	"encoding/json"
-	"identity-service/internal/application/user"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	userapp "identity-service/internal/application/user"
+	"identity-service/internal/application/user/commands"
 	"identity-service/internal/infrastructure/auth"
 	"identity-service/internal/infrastructure/persistence"
 	"identity-service/internal/infrastructure/security"
 	"identity-service/tests/infrastructure/db/fixtures"
 	"identity-service/tests/testutil"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func setupRegisterOwner(t *testing.T) *user.RegisterOwner {
+func setupRegisterOwner(t *testing.T) *commands.RegisterOwner {
 	db := testutil.DB(t)
 	db.TruncateTables(t, testutil.TableEmailVerification, testutil.TableUser)
 
@@ -28,14 +30,14 @@ func setupRegisterOwner(t *testing.T) *user.RegisterOwner {
 	outboxRepo := persistence.NewOutboxRepository(db.DB)
 	hasher := security.NewPasswordHasher()
 
-	return user.NewRegisterOwner(db.DB, codeVerifier, hasher, userRepo, outboxRepo)
+	return commands.NewRegisterOwner(db.DB, codeVerifier, hasher, userRepo, outboxRepo)
 }
 
 func TestRegisterOwner_Success(t *testing.T) {
 	db := testutil.DB(t)
 	registerOwner := setupRegisterOwner(t)
 
-	input := user.RegisterOwnerRequest{
+	input := userapp.RegisterOwnerRequest{
 		FirstName:    "Sophie",
 		LastName:     "Müller",
 		Email:        "sophie.mueller@example.com",
@@ -69,7 +71,7 @@ func TestRegisterOwner_Success(t *testing.T) {
 func TestRegisterOwner_Failure_EmailVerification(t *testing.T) {
 	registerOwner := setupRegisterOwner(t)
 
-	input := user.RegisterOwnerRequest{
+	input := userapp.RegisterOwnerRequest{
 		FirstName:    "John",
 		LastName:     "Doe",
 		Email:        "invalid@example.com",
@@ -88,7 +90,7 @@ func TestRegisterOwner_Failure_EmailVerification(t *testing.T) {
 func TestRegisterOwner_Failure_DuplicateEmail(t *testing.T) {
 	registerOwner := setupRegisterOwner(t)
 
-	input := user.RegisterOwnerRequest{
+	input := userapp.RegisterOwnerRequest{
 		FirstName:    "Existing",
 		LastName:     "User",
 		Email:        "existing@example.com", // from fixture

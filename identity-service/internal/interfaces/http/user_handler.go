@@ -1,25 +1,28 @@
 package http
 
 import (
-	"identity-service/internal/application/user"
-	"identity-service/internal/interfaces/http/response"
-	"identity-service/internal/interfaces/http/validation"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
+	"identity-service/internal/application/user"
+	"identity-service/internal/application/user/commands"
+	"identity-service/internal/application/user/queries"
+	"identity-service/internal/interfaces/http/response"
+	"identity-service/internal/interfaces/http/validation"
 )
 
 type UserHandler struct {
-	regCustomer *user.RegisterCustomer
-	regOwner    *user.RegisterOwner
-	findByID    *user.FindByID
+	regCustomer *commands.RegisterCustomer
+	regOwner    *commands.RegisterOwner
+	findByID    *queries.FindByID
 }
 
 func NewUserHandler(
-	regCustomer *user.RegisterCustomer,
-	regOwner *user.RegisterOwner,
-	findByID *user.FindByID,
+	regCustomer *commands.RegisterCustomer,
+	regOwner *commands.RegisterOwner,
+	findByID *queries.FindByID,
 ) *UserHandler {
 	return &UserHandler{
 		regCustomer: regCustomer,

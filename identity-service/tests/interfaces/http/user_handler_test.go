@@ -3,14 +3,6 @@ package http_test
 import (
 	"bytes"
 	"encoding/json"
-	userapp "identity-service/internal/application/user"
-	"identity-service/internal/domain/user"
-	"identity-service/internal/infrastructure/auth"
-	"identity-service/internal/infrastructure/persistence"
-	"identity-service/internal/infrastructure/security"
-	httpui "identity-service/internal/interfaces/http"
-	"identity-service/tests/infrastructure/db/fixtures"
-	"identity-service/tests/testutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -19,6 +11,17 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	userapp "identity-service/internal/application/user"
+	"identity-service/internal/application/user/commands"
+	"identity-service/internal/application/user/queries"
+	"identity-service/internal/domain/user"
+	"identity-service/internal/infrastructure/auth"
+	"identity-service/internal/infrastructure/persistence"
+	"identity-service/internal/infrastructure/security"
+	httpui "identity-service/internal/interfaces/http"
+	"identity-service/tests/infrastructure/db/fixtures"
+	"identity-service/tests/testutil"
 )
 
 func setupUserHandler(t *testing.T) *httpui.UserHandler {
@@ -34,9 +37,9 @@ func setupUserHandler(t *testing.T) *httpui.UserHandler {
 	userRepo := persistence.NewUserRepository(db.DB)
 	outboxRepo := persistence.NewOutboxRepository(db.DB)
 
-	register := userapp.NewRegisterCustomer(db.DB, codeVerifier, userRepo, hasher, outboxRepo)
-	registerOwner := userapp.NewRegisterOwner(db.DB, codeVerifier, hasher, userRepo, outboxRepo)
-	findByID := userapp.NewFindByID(userRepo)
+	register := commands.NewRegisterCustomer(db.DB, codeVerifier, userRepo, hasher, outboxRepo)
+	registerOwner := commands.NewRegisterOwner(db.DB, codeVerifier, hasher, userRepo, outboxRepo)
+	findByID := queries.NewFindByID(userRepo)
 
 	return httpui.NewUserHandler(register, registerOwner, findByID)
 }

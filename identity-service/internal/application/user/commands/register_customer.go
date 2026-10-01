@@ -1,14 +1,16 @@
-package user
+package commands
 
 import (
 	"context"
-	"identity-service/internal/domain/auth"
-	"identity-service/internal/domain/outbox"
-	"identity-service/internal/domain/user"
 	"strings"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	userapp "identity-service/internal/application/user"
+	"identity-service/internal/domain/auth"
+	"identity-service/internal/domain/outbox"
+	"identity-service/internal/domain/user"
 )
 
 type RegisterCustomer struct {
@@ -35,16 +37,19 @@ func NewRegisterCustomer(
 	}
 }
 
-func (uc *RegisterCustomer) Execute(ctx context.Context, input RegisterCustomerRequest) (Response, error) {
+func (uc *RegisterCustomer) Execute(
+	ctx context.Context,
+	input userapp.RegisterCustomerRequest,
+) (userapp.Response, error) {
 	email := strings.ToLower(input.Email)
 
 	if err := uc.emailVerifier.Verify(ctx, email, input.Code); err != nil {
-		return Response{}, err
+		return userapp.Response{}, err
 	}
 
 	hashedPassword, err := uc.hasher.Hash(input.Password)
 	if err != nil {
-		return Response{}, err
+		return userapp.Response{}, err
 	}
 
 	newUser := user.User{
@@ -58,7 +63,7 @@ func (uc *RegisterCustomer) Execute(ctx context.Context, input RegisterCustomerR
 
 	userID, err := uuid.NewV7()
 	if err != nil {
-		return Response{}, err
+		return userapp.Response{}, err
 	}
 	newUser.ID = userID
 
@@ -69,11 +74,11 @@ func (uc *RegisterCustomer) Execute(ctx context.Context, input RegisterCustomerR
 			return err
 		}
 
-		return DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), &newUser)
+		return userapp.DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), &newUser)
 	})
 	if err != nil {
-		return Response{}, err
+		return userapp.Response{}, err
 	}
 
-	return MapToResponse(&newUser), nil
+	return userapp.MapToResponse(&newUser), nil
 }

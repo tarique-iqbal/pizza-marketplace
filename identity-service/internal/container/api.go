@@ -6,7 +6,8 @@ import (
 
 	authcmd "identity-service/internal/application/auth/commands"
 	"identity-service/internal/application/health"
-	"identity-service/internal/application/user"
+	usercmd "identity-service/internal/application/user/commands"
+	userqry "identity-service/internal/application/user/queries"
 	authinfra "identity-service/internal/infrastructure/auth"
 	"identity-service/internal/infrastructure/persistence"
 	"identity-service/internal/infrastructure/redis"
@@ -53,13 +54,13 @@ func NewAPIContainer() (*APIContainer, error) {
 	codeVerifier := authinfra.NewEmailVerifier(emailVerificationRepo)
 
 	// user
-	registerCustomer := user.NewRegisterCustomer(
+	registerCustomer := usercmd.NewRegisterCustomer(
 		base.Postgres.DB, codeVerifier, userRepo, hasher, base.OutboxRepo,
 	)
-	registerOwner := user.NewRegisterOwner(
+	registerOwner := usercmd.NewRegisterOwner(
 		base.Postgres.DB, codeVerifier, hasher, userRepo, base.OutboxRepo,
 	)
-	findByID := user.NewFindByID(userRepo)
+	findByID := userqry.NewFindByID(userRepo)
 	userHandler := http.NewUserHandler(registerCustomer, registerOwner, findByID)
 
 	// auth

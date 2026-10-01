@@ -1,21 +1,23 @@
-package user_test
+package commands_test
 
 import (
 	"context"
 	"encoding/json"
-	"identity-service/internal/application/user"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	userapp "identity-service/internal/application/user"
+	"identity-service/internal/application/user/commands"
 	"identity-service/internal/infrastructure/auth"
 	"identity-service/internal/infrastructure/persistence"
 	"identity-service/internal/infrastructure/security"
 	"identity-service/tests/infrastructure/db/fixtures"
 	"identity-service/tests/testutil"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func setupRegisterCustomer(t *testing.T) *user.RegisterCustomer {
+func setupRegisterCustomer(t *testing.T) *commands.RegisterCustomer {
 	db := testutil.DB(t)
 	db.TruncateTables(t, testutil.TableEmailVerification, testutil.TableUser)
 
@@ -28,14 +30,14 @@ func setupRegisterCustomer(t *testing.T) *user.RegisterCustomer {
 	outboxRepo := persistence.NewOutboxRepository(db.DB)
 	hasher := security.NewPasswordHasher()
 
-	return user.NewRegisterCustomer(db.DB, codeVerifier, userRepo, hasher, outboxRepo)
+	return commands.NewRegisterCustomer(db.DB, codeVerifier, userRepo, hasher, outboxRepo)
 }
 
 func TestRegisterCustomer_Success(t *testing.T) {
 	db := testutil.DB(t)
 	register := setupRegisterCustomer(t)
 
-	input := user.RegisterCustomerRequest{
+	input := userapp.RegisterCustomerRequest{
 		FirstName: "Adam",
 		LastName:  "D'Angelo",
 		Email:     "adam.dangelo@example.com",
@@ -67,7 +69,7 @@ func TestRegisterCustomer_Success(t *testing.T) {
 func TestRegisterCustomer_TrimsNameWhitespace(t *testing.T) {
 	register := setupRegisterCustomer(t)
 
-	input := user.RegisterCustomerRequest{
+	input := userapp.RegisterCustomerRequest{
 		FirstName: "  Adam  ",
 		LastName:  "  D'Angelo  ",
 		Email:     "adam.dangelo@example.com",
@@ -85,7 +87,7 @@ func TestRegisterCustomer_TrimsNameWhitespace(t *testing.T) {
 func TestRegisterCustomer_Failure_EmailVerification(t *testing.T) {
 	register := setupRegisterCustomer(t)
 
-	input := user.RegisterCustomerRequest{
+	input := userapp.RegisterCustomerRequest{
 		FirstName: "John",
 		LastName:  "Doe",
 		Email:     "invalid@example.com",
@@ -102,7 +104,7 @@ func TestRegisterCustomer_Failure_EmailVerification(t *testing.T) {
 func TestRegisterCustomer_Failure_DuplicateEmail(t *testing.T) {
 	register := setupRegisterCustomer(t)
 
-	input := user.RegisterCustomerRequest{
+	input := userapp.RegisterCustomerRequest{
 		FirstName: "Existing",
 		LastName:  "User",
 		Email:     "existing@example.com", // from fixture

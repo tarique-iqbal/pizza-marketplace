@@ -1,4 +1,4 @@
-package user_test
+package queries_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	userapp "identity-service/internal/application/user"
+	"identity-service/internal/application/user/queries"
 	"identity-service/internal/domain/user"
 	"identity-service/internal/infrastructure/persistence"
 	apperr "identity-service/internal/shared/errors"
@@ -17,7 +18,7 @@ import (
 	"identity-service/tests/testutil"
 )
 
-func setupFindByID(t *testing.T) *userapp.FindByID {
+func setupFindByID(t *testing.T) *queries.FindByID {
 	db := testutil.DB(t)
 	db.TruncateTables(t, testutil.TableUser)
 
@@ -25,7 +26,7 @@ func setupFindByID(t *testing.T) *userapp.FindByID {
 
 	userRepo := persistence.NewUserRepository(db.DB)
 
-	return userapp.NewFindByID(userRepo)
+	return queries.NewFindByID(userRepo)
 }
 
 func TestFindByID_Success(t *testing.T) {

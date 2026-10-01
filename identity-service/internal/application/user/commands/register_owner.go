@@ -1,14 +1,16 @@
-package user
+package commands
 
 import (
 	"context"
-	"identity-service/internal/domain/auth"
-	"identity-service/internal/domain/outbox"
-	"identity-service/internal/domain/user"
 	"strings"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	userapp "identity-service/internal/application/user"
+	"identity-service/internal/domain/auth"
+	"identity-service/internal/domain/outbox"
+	"identity-service/internal/domain/user"
 )
 
 type RegisterOwner struct {
@@ -35,26 +37,29 @@ func NewRegisterOwner(
 	}
 }
 
-func (uc *RegisterOwner) Execute(ctx context.Context, input RegisterOwnerRequest) (Response, error) {
+func (uc *RegisterOwner) Execute(
+	ctx context.Context,
+	input userapp.RegisterOwnerRequest,
+) (userapp.Response, error) {
 	email := strings.ToLower(input.Email)
 
 	if err := uc.emailVerifier.Verify(ctx, email, input.Code); err != nil {
-		return Response{}, err
+		return userapp.Response{}, err
 	}
 
 	hashedPassword, err := uc.hasher.Hash(input.Password)
 	if err != nil {
-		return Response{}, err
+		return userapp.Response{}, err
 	}
 
 	userID, err := uuid.NewV7()
 	if err != nil {
-		return Response{}, err
+		return userapp.Response{}, err
 	}
 
 	restaurantID, err := uuid.NewV7()
 	if err != nil {
-		return Response{}, err
+		return userapp.Response{}, err
 	}
 
 	newUser := user.User{
@@ -75,11 +80,11 @@ func (uc *RegisterOwner) Execute(ctx context.Context, input RegisterOwnerRequest
 			return err
 		}
 
-		return DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), &newUser)
+		return userapp.DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), &newUser)
 	})
 	if err != nil {
-		return Response{}, err
+		return userapp.Response{}, err
 	}
 
-	return MapToResponse(&newUser), nil
+	return userapp.MapToResponse(&newUser), nil
 }
