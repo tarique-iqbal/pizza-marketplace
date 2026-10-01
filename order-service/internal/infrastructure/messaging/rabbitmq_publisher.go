@@ -63,7 +63,7 @@ func (p *RabbitMQPublisher) connect() error {
 }
 
 func (p *RabbitMQPublisher) ensureConnected(ctx context.Context) error {
-	if p.conn != nil && !p.conn.IsClosed() {
+	if p.conn != nil && !p.conn.IsClosed() && p.channel != nil && !p.channel.IsClosed() {
 		return nil
 	}
 
