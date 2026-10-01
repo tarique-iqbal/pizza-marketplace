@@ -37,17 +37,17 @@ func NewRegisterOwner(
 	}
 }
 
-func (uc *RegisterOwner) Execute(
+func (cmd *RegisterOwner) Execute(
 	ctx context.Context,
 	input userapp.RegisterOwnerRequest,
 ) (userapp.Response, error) {
 	email := strings.ToLower(input.Email)
 
-	if err := uc.emailVerifier.Verify(ctx, email, input.Code); err != nil {
+	if err := cmd.emailVerifier.Verify(ctx, email, input.Code); err != nil {
 		return userapp.Response{}, err
 	}
 
-	hashedPassword, err := uc.hasher.Hash(input.Password)
+	hashedPassword, err := cmd.hasher.Hash(input.Password)
 	if err != nil {
 		return userapp.Response{}, err
 	}
@@ -75,12 +75,12 @@ func (uc *RegisterOwner) Execute(
 	newUser.MarkRegistered()
 	newUser.MarkRestaurantInitiated(restaurantID, input.BusinessName, input.VATNumber)
 
-	err = uc.db.Transaction(func(tx *gorm.DB) error {
-		if err := uc.repo.WithTx(tx).Create(ctx, &newUser); err != nil {
+	err = cmd.db.Transaction(func(tx *gorm.DB) error {
+		if err := cmd.repo.WithTx(tx).Create(ctx, &newUser); err != nil {
 			return err
 		}
 
-		return userapp.DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), &newUser)
+		return userapp.DispatchEventsTx(ctx, cmd.outboxRepo.WithTx(tx), &newUser)
 	})
 	if err != nil {
 		return userapp.Response{}, err

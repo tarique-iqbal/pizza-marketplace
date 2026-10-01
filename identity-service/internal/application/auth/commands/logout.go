@@ -22,13 +22,13 @@ func NewLogout(
 	}
 }
 
-func (uc *Logout) Execute(
+func (cmd *Logout) Execute(
 	ctx context.Context,
 	req authapp.LogoutRequest,
 ) error {
-	hashed := uc.manager.Hash(req.RefreshToken)
+	hashed := cmd.manager.Hash(req.RefreshToken)
 
-	if err := uc.repo.Delete(ctx, hashed); err != nil {
+	if err := cmd.repo.Delete(ctx, hashed); err != nil {
 		return err
 	}
 

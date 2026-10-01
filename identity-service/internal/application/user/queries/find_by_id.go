@@ -18,8 +18,8 @@ func NewFindByID(repo user.UserRepository) *FindByID {
 	return &FindByID{repo: repo}
 }
 
-func (uc *FindByID) Execute(ctx context.Context, userID uuid.UUID) (userapp.Response, error) {
-	usr, err := uc.repo.FindByID(ctx, userID)
+func (qry *FindByID) Execute(ctx context.Context, userID uuid.UUID) (userapp.Response, error) {
+	usr, err := qry.repo.FindByID(ctx, userID)
 	if err != nil {
 		return userapp.Response{}, err
 	}

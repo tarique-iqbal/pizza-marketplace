@@ -38,31 +38,31 @@ func NewLogin(
 	}
 }
 
-func (uc *Login) Execute(
+func (cmd *Login) Execute(
 	ctx context.Context,
 	input authapp.LoginRequest,
 ) (authapp.TokenResponse, error) {
-	usr, err := uc.userRepo.FindByEmail(ctx, strings.ToLower(input.Email))
+	usr, err := cmd.userRepo.FindByEmail(ctx, strings.ToLower(input.Email))
 	if err != nil {
 		return authapp.TokenResponse{}, err
 	}
 
-	if usr == nil || !uc.passwordHasher.Compare(usr.Password, input.Password) {
+	if usr == nil || !cmd.passwordHasher.Compare(usr.Password, input.Password) {
 		// Deliberately collapsed response prevents user enumeration
 		return authapp.TokenResponse{}, apperr.ErrUnauthorized
 	}
 
-	accessToken, err := uc.jwtManager.Generate(usr.ID.String(), usr.Role)
+	accessToken, err := cmd.jwtManager.Generate(usr.ID.String(), usr.Role)
 	if err != nil {
 		return authapp.TokenResponse{}, err
 	}
 
-	refreshToken, err := uc.refreshTokenManager.Generate()
+	refreshToken, err := cmd.refreshTokenManager.Generate()
 	if err != nil {
 		return authapp.TokenResponse{}, err
 	}
 
-	hashedToken := uc.refreshTokenManager.Hash(refreshToken)
+	hashedToken := cmd.refreshTokenManager.Hash(refreshToken)
 
 	claims := auth.UserClaims{
 		UserID: usr.ID.String(),
@@ -71,7 +71,7 @@ func (uc *Login) Execute(
 
 	ttlSeconds := int64(refreshTokenExpiry) * 24 * 3600
 
-	err = uc.refreshTokenRepo.Save(ctx, hashedToken, claims, ttlSeconds)
+	err = cmd.refreshTokenRepo.Save(ctx, hashedToken, claims, ttlSeconds)
 	if err != nil {
 		return authapp.TokenResponse{}, err
 	}
@@ -79,7 +79,7 @@ func (uc *Login) Execute(
 	loggedAt := time.Now().UTC()
 	usr.LoggedAt = &loggedAt
 
-	if err := uc.userRepo.Update(ctx, usr); err != nil {
+	if err := cmd.userRepo.Update(ctx, usr); err != nil {
 		logobs.FromContext(ctx).Warn("failed to update user's last login", "error", err)
 	}
 

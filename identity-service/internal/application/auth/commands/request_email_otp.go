@@ -43,13 +43,13 @@ func NewRequestEmailOTP(
 	}
 }
 
-func (uc *RequestEmailOTP) Execute(
+func (cmd *RequestEmailOTP) Execute(
 	ctx context.Context,
 	input authapp.EmailVerificationRequest,
 ) error {
 	email := strings.ToLower(input.Email)
 
-	exists, err := uc.userRepo.EmailExists(ctx, email)
+	exists, err := cmd.userRepo.EmailExists(ctx, email)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func (uc *RequestEmailOTP) Execute(
 		return user.ErrEmailAlreadyExists
 	}
 
-	allowed, err := uc.rateLimiter.Allow(ctx, email)
+	allowed, err := cmd.rateLimiter.Allow(ctx, email)
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func (uc *RequestEmailOTP) Execute(
 		return auth.ErrTooManyRequests
 	}
 
-	code, err := uc.otp.Generate(true)
+	code, err := cmd.otp.Generate(true)
 	if err != nil {
 		return err
 	}
@@ -84,15 +84,15 @@ func (uc *RequestEmailOTP) Execute(
 		ExpiresAt: time.Now().UTC().Add(expiry),
 	}
 
-	existing, err := uc.repo.FindByEmail(ctx, email)
+	existing, err := cmd.repo.FindByEmail(ctx, email)
 	if err != nil {
 		return err
 	}
 
-	return uc.db.Transaction(func(tx *gorm.DB) error {
+	return cmd.db.Transaction(func(tx *gorm.DB) error {
 		var ev *auth.EmailVerification
 		if existing == nil {
-			if err := uc.repo.WithTx(tx).Create(ctx, verification); err != nil {
+			if err := cmd.repo.WithTx(tx).Create(ctx, verification); err != nil {
 				return err
 			}
 			ev = verification
@@ -102,13 +102,13 @@ func (uc *RequestEmailOTP) Execute(
 			existing.AttemptCount = 0
 			existing.IsUsed = false
 
-			if err := uc.repo.WithTx(tx).Updates(ctx, existing); err != nil {
+			if err := cmd.repo.WithTx(tx).Updates(ctx, existing); err != nil {
 				return err
 			}
 			ev = existing
 		}
 
 		ev.MarkCreated()
-		return authapp.DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), ev)
+		return authapp.DispatchEventsTx(ctx, cmd.outboxRepo.WithTx(tx), ev)
 	})
 }

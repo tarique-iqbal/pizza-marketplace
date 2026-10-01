@@ -37,17 +37,17 @@ func NewRegisterCustomer(
 	}
 }
 
-func (uc *RegisterCustomer) Execute(
+func (cmd *RegisterCustomer) Execute(
 	ctx context.Context,
 	input userapp.RegisterCustomerRequest,
 ) (userapp.Response, error) {
 	email := strings.ToLower(input.Email)
 
-	if err := uc.emailVerifier.Verify(ctx, email, input.Code); err != nil {
+	if err := cmd.emailVerifier.Verify(ctx, email, input.Code); err != nil {
 		return userapp.Response{}, err
 	}
 
-	hashedPassword, err := uc.hasher.Hash(input.Password)
+	hashedPassword, err := cmd.hasher.Hash(input.Password)
 	if err != nil {
 		return userapp.Response{}, err
 	}
@@ -69,12 +69,12 @@ func (uc *RegisterCustomer) Execute(
 
 	newUser.MarkRegistered()
 
-	err = uc.db.Transaction(func(tx *gorm.DB) error {
-		if err := uc.repo.WithTx(tx).Create(ctx, &newUser); err != nil {
+	err = cmd.db.Transaction(func(tx *gorm.DB) error {
+		if err := cmd.repo.WithTx(tx).Create(ctx, &newUser); err != nil {
 			return err
 		}
 
-		return userapp.DispatchEventsTx(ctx, uc.outboxRepo.WithTx(tx), &newUser)
+		return userapp.DispatchEventsTx(ctx, cmd.outboxRepo.WithTx(tx), &newUser)
 	})
 	if err != nil {
 		return userapp.Response{}, err

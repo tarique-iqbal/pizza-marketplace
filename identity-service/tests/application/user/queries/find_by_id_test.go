@@ -32,7 +32,7 @@ func setupFindByID(t *testing.T) *queries.FindByID {
 func TestFindByID_Success(t *testing.T) {
 	ctx := context.Background()
 	db := testutil.DB(t)
-	uc := setupFindByID(t)
+	qry := setupFindByID(t)
 
 	u := &user.User{
 		FirstName: "Tony",
@@ -49,7 +49,7 @@ func TestFindByID_Success(t *testing.T) {
 	err := db.DB.WithContext(ctx).Create(u).Error
 	require.NoError(t, err)
 
-	res, err := uc.Execute(ctx, userID)
+	res, err := qry.Execute(ctx, userID)
 
 	require.NoError(t, err)
 	require.NotNil(t, res)
@@ -64,11 +64,11 @@ func TestFindByID_Success(t *testing.T) {
 
 func TestFindByID_NotFound(t *testing.T) {
 	ctx := context.Background()
-	uc := setupFindByID(t)
+	qry := setupFindByID(t)
 
 	userID := testutil.MustNewID()
 
-	res, err := uc.Execute(ctx, userID)
+	res, err := qry.Execute(ctx, userID)
 
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, apperr.ErrNotFound))

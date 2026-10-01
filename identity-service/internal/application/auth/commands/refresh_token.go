@@ -25,37 +25,37 @@ func NewRefreshToken(
 	}
 }
 
-func (uc *RefreshToken) Execute(
+func (cmd *RefreshToken) Execute(
 	ctx context.Context,
 	req authapp.RefreshRequest,
 ) (authapp.TokenResponse, error) {
-	hashed := uc.manager.Hash(req.RefreshToken)
+	hashed := cmd.manager.Hash(req.RefreshToken)
 
-	claims, err := uc.repo.Find(ctx, hashed)
+	claims, err := cmd.repo.Find(ctx, hashed)
 	if err != nil {
 		return authapp.TokenResponse{}, err
 	}
 
-	accessToken, err := uc.jwtManager.Generate(claims.UserID, claims.Role)
+	accessToken, err := cmd.jwtManager.Generate(claims.UserID, claims.Role)
 	if err != nil {
 		return authapp.TokenResponse{}, err
 	}
 
-	refreshToken, err := uc.manager.Generate()
+	refreshToken, err := cmd.manager.Generate()
 	if err != nil {
 		return authapp.TokenResponse{}, err
 	}
 
-	hashedToken := uc.manager.Hash(refreshToken)
+	hashedToken := cmd.manager.Hash(refreshToken)
 
 	ttlSeconds := int64(refreshTokenExpiry) * 24 * 3600
 
-	err = uc.repo.Save(ctx, hashedToken, claims, ttlSeconds)
+	err = cmd.repo.Save(ctx, hashedToken, claims, ttlSeconds)
 	if err != nil {
 		return authapp.TokenResponse{}, err
 	}
 
-	_ = uc.repo.Delete(ctx, hashed)
+	_ = cmd.repo.Delete(ctx, hashed)
 
 	return authapp.TokenResponse{
 		AccessToken:  accessToken,
