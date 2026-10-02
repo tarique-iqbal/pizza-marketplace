@@ -17,9 +17,10 @@ const exchangeName = "payment.events"
 type RabbitMQPublisher struct {
 	amqpURL string
 
-	mu      sync.Mutex
-	conn    *amqp.Connection
-	channel *amqp.Channel
+	mu       sync.Mutex
+	conn     *amqp.Connection
+	channel  *amqp.Channel
+	confirms chan amqp.Confirmation
 }
 
 func NewRabbitMQPublisher(amqpURL string) (*RabbitMQPublisher, error) {
@@ -43,6 +44,10 @@ func (p *RabbitMQPublisher) connect() error {
 		return fmt.Errorf("open channel: %w", err)
 	}
 
+	if err := ch.Confirm(false); err != nil {
+		return fmt.Errorf("enable publisher confirms: %w", err)
+	}
+
 	err = ch.ExchangeDeclare(
 		exchangeName, // Exchange name
 		"topic",      // Exchange type
@@ -58,6 +63,7 @@ func (p *RabbitMQPublisher) connect() error {
 
 	p.conn = conn
 	p.channel = ch
+	p.confirms = ch.NotifyPublish(make(chan amqp.Confirmation, 1))
 
 	return nil
 }
@@ -83,57 +89,62 @@ func (p *RabbitMQPublisher) Publish(
 	default:
 	}
 
-	p.mu.Lock()
-	if err := p.ensureConnected(ctx); err != nil {
-		p.mu.Unlock()
-		return fmt.Errorf("ensure rabbitmq connection: %w", err)
-	}
-	channel := p.channel
-	p.mu.Unlock()
-
-	errCh := make(chan error, 1)
+	resultCh := make(chan error, 1)
 
 	go func() {
-		err := channel.Publish(
-			exchangeName,
-			routingKey,
-			false,
-			false,
-			amqp.Publishing{
-				ContentType:  "application/json",
-				Body:         payload,
-				DeliveryMode: amqp.Persistent,
-				MessageId:    uuid.NewString(),
-				Timestamp:    time.Now().UTC(),
-				Type:         routingKey,
-				Headers: amqp.Table{
-					"x-event-name": routingKey,
-				},
-			},
-		)
+		p.mu.Lock()
+		defer p.mu.Unlock()
 
-		// prevent goroutine leak
-		select {
-		case errCh <- err:
-		default:
-		}
+		resultCh <- p.publishLocked(ctx, routingKey, payload)
 	}()
 
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-
-	case err := <-errCh:
-		if err != nil {
-			logobs.FromContext(ctx).Warn(
-				"failed to publish message",
-				"error", err,
-				"payload", string(payload),
-				"event", routingKey,
-			)
-		}
+	case err := <-resultCh:
 		return err
 	}
+}
+
+func (p *RabbitMQPublisher) publishLocked(ctx context.Context, routingKey string, payload []byte) error {
+	if err := p.ensureConnected(ctx); err != nil {
+		return fmt.Errorf("ensure rabbitmq connection: %w", err)
+	}
+
+	if err := p.channel.Publish(
+		exchangeName,
+		routingKey,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType:  "application/json",
+			Body:         payload,
+			DeliveryMode: amqp.Persistent,
+			MessageId:    uuid.NewString(),
+			Timestamp:    time.Now().UTC(),
+			Type:         routingKey,
+			Headers: amqp.Table{
+				"x-event-name": routingKey,
+			},
+		},
+	); err != nil {
+		logobs.FromContext(ctx).Warn(
+			"failed to publish message",
+			"error", err,
+			"payload", string(payload),
+			"event", routingKey,
+		)
+		return err
+	}
+
+	confirm, ok := <-p.confirms
+	if !ok {
+		return fmt.Errorf("publisher confirm channel closed before ack for event %s", routingKey)
+	}
+	if !confirm.Ack {
+		return fmt.Errorf("broker nacked publish for event %s", routingKey)
+	}
+	return nil
 }
 
 func (p *RabbitMQPublisher) Close() {
