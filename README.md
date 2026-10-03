@@ -1,6 +1,6 @@
 # Pizza Marketplace – Monorepo
 
-An online, multi-tenant pizza marketplace connecting customers and restaurants: customers search nearby restaurants, build a cart, and check out with real payment processing; restaurant owners manage their menu, pricing, and incoming orders. Built as independent **Go (Gin)** microservices, each owning its own **PostgreSQL** database; search runs on **Elasticsearch**. Services communicate asynchronously via **RabbitMQ** using the **transactional outbox pattern**, except order-service's call to payment-service, which is synchronous over **gRPC** (with a circuit breaker) for the one operation that genuinely needs an immediate response. **Traefik** fronts every service with **JWT-based authentication**.
+An online, multi-tenant pizza marketplace connecting customers and restaurants: customers search nearby restaurants, build a cart, and check out with real payment processing; restaurant owners manage their menu, pricing, and incoming orders. Built as independent **Go (Gin)** microservices, each owning its own **PostgreSQL** database; search runs on **Elasticsearch**. Services communicate asynchronously via **RabbitMQ** using the **transactional outbox pattern**, except order-service's communication with payment-service, which is synchronous over **gRPC** (with a circuit breaker) for the few operations that genuinely need an immediate response (checkout, cancellation, and a payment-status recheck). **Traefik** fronts every service with **JWT-based authentication**.
 
 Follows **Domain-Driven Design** and **Clean Architecture** principles, structured as an **Event-Driven Architecture** throughout. **Docker Compose** runs the full stack locally; **Kubernetes** orchestration is a planned next step for production deployment.
 
@@ -12,9 +12,10 @@ Follows **Domain-Driven Design** and **Clean Architecture** principles, structur
 - [Getting started](#getting-started)
 - [Environment variables](#environment-variables)
 - [API routes](#api-routes)
+- [Service documentation](#service-documentation)
 - [Event flow](#event-flow)
 - [Project structure](#project-structure)
-- [Roadmap](#roadmap)
+- [Roadmap Ahead](#roadmap-ahead)
 
 
 ## Architecture overview
@@ -126,7 +127,7 @@ docker compose down -v
 
 ## Environment variables
 
-Each service is configured via its own `.env` file. Copy the `.env.example` in each service directory and update the values. The root `.env` is separate: it only sets `COMPOSE_PROFILES`, which controls which service groups `docker compose up` starts. Leave it at the default (`all`) to start everything, or override per-run with `docker compose --profile <name> up` (see root `CLAUDE.md` for the full list of profile names).
+Each service is configured via its own `.env` file. Copy the `.env.example` in each service directory and update the values. The root `.env` is separate: it only sets `COMPOSE_PROFILES`, which controls which service groups `docker compose up` starts. Leave it at the default (`all`) to start everything, or override per-run with `docker compose --profile <name> up` — profile names match each service's own name (`identity`, `restaurant`, `notification`, `search`, `order`, `payment`, `customer`).
 
 
 ## API routes
@@ -218,17 +219,20 @@ pizza-marketplace/
 │   │   └── worker
 │   ├── internal
 │   │   ├── application
+│   │   ├── container
 │   │   ├── domain
 │   │   ├── infrastructure
-│   │   └── interfaces
+│   │   ├── interfaces
+│   │   └── shared
+│   ├── tests         # mirrors internal 1:1
 │   ├── Dockerfile
 │   └── .env.example
-├── restaurant-service/
+├── customer-service/
 ├── notification-service/
-├── search-service/
 ├── order-service/
 ├── payment-service/
-├── customer-service/
+├── restaurant-service/
+├── search-service/
 ├── compose/
 ├── compose.yaml
 ├── compose.test.yaml
@@ -236,10 +240,10 @@ pizza-marketplace/
 ```
 
 
-## Roadmap
+## Roadmap Ahead
 
-- [ ] Customer service — saved payment methods to reuse payment details at checkout
 - [ ] Payment service — Stripe as a second payment gateway
+- [ ] Customer service — saved payment methods to reuse payment details at checkout
 - [ ] Notification service — SMS/web-push adapters
 - [ ] Analytics service — metrics, reporting, and audit logs
 - [ ] Zero-trust networking — trusted proxies, mTLS, and workload identity
