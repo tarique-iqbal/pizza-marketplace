@@ -122,6 +122,11 @@ already priced into the pizza's own price, the same way mozzarella isn't a line 
 reference. `pizza_prices.pizza_id` is `NO ACTION` on delete for the same reason (price history is never
 implicitly cascaded away); `restaurants.id → pizzas.restaurant_id` is the one relationship that still cascades.
 
+`ToppingResponse.ExtraPrice` is `*decimal.Decimal` (`json:"extraPrice,omitempty"`), not a bare `decimal.Decimal`
+— `0` would falsely read as "free" when the real meaning of unset is "not priced as an add-on," so the pointer
+is only set when a `topping_prices` entry exists for that topping. `CreatePizza`/`UpdatePizza` always omit it (a
+default topping is already priced into the pizza itself); only `ListPizzas` populates it for real.
+
 ## Events
 
 ```mermaid
@@ -202,9 +207,26 @@ flowchart LR
 - **Error convention**: shared sentinels (`ErrForbidden`, `ErrNotFound`, `ErrConflict`, `ErrInvalid`) plus
   domain-specific ones (`ErrUnverifiedPayoutExists`, `ErrNoUnverifiedPayout`, `ErrDuplicateTopping`), dispatched to
   HTTP status by `response.HandleError` — persistence/domain code never embeds user-facing text.
+- **Custom validator tags** (`internal/interfaces/http/validation/validators.go`, registered via `init()`):
+  `iban` (ISO 13616 mod-97 checksum — `go-playground/validator` has no built-in for it), `bic` (the built-in
+  ISO 9362 one, not `bic_swift`, which doesn't exist), `hhmm` (`HH:MM`, `00`-`23`:`00`-`59`, used by
+  `DayRangeRequest.Open`/`Close`). `UpdateAddressRequest`'s four fields each get their own allow-list regex,
+  since a house number and a city need different allowed characters: `houseNumber`
+  (`^[\p{L}\p{N} ()/-]+$`, allows a unit suffix like `"29 (013)"`), `street` (`^[\p{L}\p{N} .'-]+$`), `city`
+  (`^[\p{L} '.-]+$`, letters only, no digits), `postalCode` (`^[A-Za-z0-9 -]+$`, ASCII-only). The
+  opening-hours `Open < Close` ordering check is a struct-level validation
+  (`engine.RegisterStructValidation(validateDayRange, ...)`) rather than a field tag, since go-playground's
+  `gtfield`/`ltfield` compare string length for `Kind` `String`, not lexical value. `decimal.Decimal` request
+  fields (`UpdateDeliveryRequest.DeliveryFee`/`MinimumOrder`) carry no numeric validator tag at all — those
+  tags panic on that type — so the DB's own `CHECK (... >= 0)` is the only guard on them.
+- **Slug generation**: `UpdateAddress.generateUniqueSlug` builds a slug from name+city+street, probing `-2`
+  through `-9` suffixes for collisions before giving up. Runs on every address update, not just creation — a
+  restaurant's slug can change when its address does.
 
 ## Testing
 
 Integration-style against real Postgres (`compose.test.yaml`). `tests/` mirrors `internal/`; fixtures cover
 restaurants at varying checklist-completion states. One exception: `tests/infrastructure/messaging/` is a pure
-unit test suite against `messaging.Run` with a fake message source — no DB or broker container needed for it.
+unit test suite against `messaging.Run` with a fake message source and a fake `amqp091.Delivery.Acknowledger`
+(so `msg.Ack`/`msg.Nack` can be observed without a real channel) — no DB or broker container needed for it. Same
+shape as notification-service's own copy of this test.
