@@ -26,10 +26,10 @@ publisher in restaurant-service (Part A's `Reactivate`/`Deactivate` remain unimp
 those are wired up. Check
 `docs/services/search.md` before assuming search-service coverage beyond that.
 
-Each Go service (`identity-service`, `restaurant-service`, `notification-service`, `search-service`) follows the same internal layout:
+Each Go service follows the same internal layout (search-service and notification-service have small deviations, noted below):
 
 ```
-cmd/api/main.go             # HTTP entrypoint (identity/restaurant/search only)
+cmd/api/main.go             # HTTP entrypoint (all except notification-service, worker only)
 cmd/worker/main.go          # background worker entrypoint (outbox relay / event consumer)
 internal/domain/            # entities, repository interfaces, no framework deps
 internal/application/       # commands, queries, orchestration
@@ -42,11 +42,11 @@ tests/                      # mirrors internal/ structure; integration-style, hi
 `search-service` has no database — its `internal/infrastructure/` is Elasticsearch + its own geocoder +
 messaging, no `gorm`/`persistence`/`redis`/`auth`/migrations.
 
-`restaurant-service` and `search-service` additionally have `cmd/worker/bootstrap/` for their worker's app/runner setup.
+`restaurant-service`, `search-service`, `order-service`, `payment-service`, and `customer-service` additionally have `cmd/worker/bootstrap/` for their worker's app/runner setup; `identity-service` and `notification-service` don't.
 
 ## Commands
 
-A root `Makefile` wraps the common `go`/`docker compose` commands below (`make up`, `make down`, `make down-v`, `make test-up`, `make test-down`, `make test-identity`/`test-restaurant`/`test-notification`/`test`, `make fmt`/`vet`/`lint`) — see it for the exact underlying commands, which also still work directly.
+A root `Makefile` wraps the common `go`/`docker compose` commands below (`make up`, `make down`, `make down-v`, `make test-up`, `make test-down`, one `make test-<service>` per service, `make test` to run them all, `make fmt`/`vet`/`lint`) — see it for the exact underlying commands, which also still work directly.
 
 **Local dev environment** (from repo root):
 ```bash
@@ -55,63 +55,38 @@ cp identity-service/.env.example     identity-service/.env
 cp restaurant-service/.env.example   restaurant-service/.env
 cp notification-service/.env.example notification-service/.env
 cp search-service/.env.example       search-service/.env
+cp order-service/.env.example        order-service/.env
+cp payment-service/.env.example      payment-service/.env
+cp customer-service/.env.example     customer-service/.env
 docker compose up --build
 ```
 - Gateway: `http://localhost:80`, Traefik dashboard: `http://localhost:8080`, RabbitMQ UI: `http://localhost:15672`
 - `docker compose down` to stop, `docker compose down -v` to also wipe volumes
-- Dev containers run `air` for live reload (`.air.toml` per service). Every service with a `cmd/worker` (`identity-service`, `restaurant-service`, `search-service`, `order-service`, `payment-service`, `customer-service`) gets its own `compose.yaml` container (`identity-worker`, `restaurant-worker`, `search-worker`, `order-worker`, `payment-worker`, `customer-worker`, each `air -c .air.worker.toml`) and starts by default — none need to be run manually. Without `identity-worker` no outbox event ever leaves identity-service, so registration never gets its OTP/welcome email and no restaurant record ever gets created for a new owner; without `search-worker` the search index stays permanently empty and `/search` returns nothing; without `restaurant-worker` no `restaurant.initiated` event is ever consumed (a new owner never gets their restaurant row) and none of restaurant-service's own outbox events ever leave it either; without `order-worker` order-service's local read-model never syncs from `restaurant.*`/`user.registered`/`customer.phone_updated` events, orders are never confirmed/cancelled in response to `payment.succeeded`/`payment.failed`, and its own outbox never drains; without `payment-worker`, `payment.succeeded`/`payment.failed` never leave payment-service at all — unlike the others, this worker has no inbound consumer, it only relays payment-service's own outbox; without `customer-worker` no customer profile row is ever created from `user.registered`, no saved address is ever created from `order.address_saved`, and `customer.phone_updated` never leaves customer-service.
+- Dev containers run `air` for live reload (`.air.toml` per service). Every service with a `cmd/worker` (`identity-service`, `restaurant-service`, `search-service`, `order-service`, `payment-service`, `customer-service`) gets its own `compose.yaml` container (`identity-worker`, `restaurant-worker`, `search-worker`, `order-worker`, `payment-worker`, `customer-worker`, each `air -c .air.worker.toml`) and starts by default — none need to be run manually. Without it:
+  - `identity-worker`: no outbox event leaves identity-service (no OTP/welcome email, no restaurant row for new owners).
+  - `restaurant-worker`: `restaurant.initiated` is never consumed (no restaurant row), and restaurant-service's own outbox events never leave either.
+  - `search-worker`: the search index stays permanently empty, `/search` returns nothing.
+  - `order-worker`: the local read-model never syncs, orders never confirm/cancel in response to payment events, its own outbox never drains.
+  - `payment-worker`: `payment.succeeded`/`payment.failed` never leave payment-service (this worker has no inbound consumer, it only relays its own outbox).
+  - `customer-worker`: no customer profile row or saved address is ever created, `customer.phone_updated` never leaves.
 
-**Tests**: `identity-service` and `restaurant-service` tests are integration-style against real Postgres/RabbitMQ/Redis (no DB mocking); `notification-service` tests are plain unit tests with mocked collaborators and need no infrastructure. `search-service` is a middle case — most tests mock `SearchRepository`/`Geocoder` like notification-service, but `tests/infrastructure/elasticsearch/` runs integration-style against a real Elasticsearch (no DB, since search-service has none), the same "needs a `-test` container" shape as identity/restaurant.
+**Tests**: `identity-service`, `restaurant-service`, `order-service`, `payment-service`, and `customer-service` tests are integration-style against real Postgres/RabbitMQ (identity also Redis; no DB mocking). `notification-service` tests are plain unit tests with mocked collaborators and need no infrastructure. `search-service` is a middle case — most tests mock `SearchRepository`/`Geocoder` like notification-service, but `tests/infrastructure/elasticsearch/` runs integration-style against a real Elasticsearch (no DB, since search-service has none).
 
-`compose.test.yaml` (profile `test`) spins up `pg-identity-test`, `pg-restaurant-test`, `redis-test`, `rabbitmq-test`, `elasticsearch-test`, one-shot `migrate-identity-test`/`migrate-restaurant-test` (golang-migrate, applies that service's migrations), and full app containers `identity-test`/`restaurant-test`/`search-test` (built from each service's Dockerfile `dev` target, code mounted live via volume). Each service's `.env.test` uses docker-network-only hostnames (e.g. `POSTGRES_HOST=pg-restaurant-test`, `ELASTICSEARCH_URL=http://elasticsearch-test:9200`) that aren't resolvable from the host shell, so `go test` for identity/restaurant/search must run *inside* its `-test` container:
+`compose.test.yaml` includes one `compose/<service>-test.yaml` per tested service (everything but notification-service), each spinning up that service's own Postgres/Redis/Elasticsearch test container(s), a one-shot `migrate-<service>-test` container, and the full app container itself (built from the service's Dockerfile `dev` target, code mounted live via volume). Each service's `.env.test` uses docker-network-only hostnames that aren't resolvable from the host shell, so `go test` must run *inside* its own `-test` container:
 ```bash
 docker compose -f compose.test.yaml --profile test up -d
-docker compose -f compose.test.yaml exec -T restaurant-test sh -c "cd /app && go test ./..."  # or identity-test, search-test
+docker compose -f compose.test.yaml exec -T restaurant-test sh -c "cd /app && go test ./..."  # or identity-test, order-test, payment-test, customer-test, search-test
 cd notification-service && go test ./...   # no container needed — plain unit tests, run from host
 ```
-Run a single test: append `-run TestName` to the `go test` invocation. Each of `identity-service`/`restaurant-service`/`search-service` needs its own `.env.test` (not committed) alongside `.env.example`; `notification-service` has neither a `compose.test.yaml` entry nor an `.env.test`.
+Run a single test: append `-run TestName` to the `go test` invocation. Every tested service needs its own `.env.test` (not committed) alongside `.env.example`; `notification-service` has neither a `compose.test.yaml` entry nor an `.env.test`. `--profile <service>-test` instead of `--profile test` starts just that one service's test stack.
 
-Go runs test packages in parallel by default; `identity-service`'s and `restaurant-service`'s test packages share one live Postgres test DB and truncate tables in setup, so parallel runs can race across packages (spurious "record not found" / duplicate-key errors). If you see that, rerun with `go test -p 1 ./...` to force sequential package execution before assuming a real regression.
+Go runs test packages in parallel by default; each integration-tested service's test packages share one live Postgres test DB and truncate tables in setup, so parallel runs can race across packages (spurious "record not found" / duplicate-key errors). If you see that, rerun with `go test -p 1 ./...` to force sequential package execution before assuming a real regression.
 
 **Migrations**: `golang-migrate` SQL files live in `internal/infrastructure/migrations/` per service; the `migrate` CLI is baked into each service's Docker image.
 
-## Architecture notes worth knowing before editing
+## Invariants and gotchas
 
-- **DI is manual, not a framework**: `internal/container/{shared,api,worker}.go` construct dependencies by hand and wire them into `APIContainer` / `WorkerContainer` structs. When adding a new command, query or handler, wire it here rather than introducing a DI library.
-- **GORM + Postgres** for persistence; repository interfaces live in `internal/domain/<aggregate>/`, implementations in `internal/infrastructure/persistence/`.
-- **Outbox pattern (identity-service and restaurant-service)**: `internal/domain/outbox/`, `internal/infrastructure/persistence/outbox.go`, `internal/application/outbox/{worker,relay}.go` — the same shape in both services (restaurant-service's is a verbatim port). Business writes and the outbox row are created in the same `gorm.Transaction`; a separate poller (`cmd/worker`) claims pending rows with `SELECT ... FOR UPDATE SKIP LOCKED`, publishes to RabbitMQ, and retries with exponential backoff (up to `MaxRetries`) before marking a row `failed`. Both services now outbox every event they raise, with no best-effort publish path left in either: identity-service (`restaurant.initiated`, `user.registered`, `email.verification_created`) and restaurant-service (`restaurant.ready_for_review`, `restaurant.approved`, `restaurant.launched`, `restaurant.updated`, `restaurant.pizza_updated`, `restaurant.topping_prices_updated`).
-- **Events**: `internal/shared/event.Event` is the interface producers implement (`GetEventName()`); routing key = event name. Consumers live in the relevant service's worker/messaging layer.
-- **Auth**: JWT-based; `identity-service` exposes `GET /auth/verify` as a Traefik forward-auth endpoint (see `traefik.http.middlewares.jwt.forwardauth.*` labels in `compose.yaml`) — other services don't validate JWTs themselves, they trust `X-User-ID`/`X-User-Role` headers Traefik injects after forward-auth succeeds.
-- **Routing**: all traffic enters through Traefik on `:80`, path-routed by service (`/auth`, `/users` → identity; `/restaurants` → restaurant; `/search` → search-service, no auth; `/customers` → customer-service, JWT-protected).
-- **Compose layout**: the root `compose.yaml` is just a `name:` and an `include:` list; the actual service
-  definitions live in `compose/base.yaml` (Traefik, RabbitMQ, the shared networks: anything more than one
-  service depends on, always started regardless of profile) and one `compose/<service>.yaml` per service (its
-  own Postgres, migration runner, API, worker, and any infra only that service uses, e.g. Redis lives in
-  `compose/identity.yaml`, Elasticsearch in `compose/search.yaml`). Relative paths inside an included file
-  (`env_file`, bind-mount `volumes`, build `context`) resolve against that file's own directory, not the repo
-  root, so every `compose/<service>.yaml` uses `../<service>` and `context: ..`. Adding a service means a new
-  `compose/<service>.yaml` plus a new `include:` line in `compose.yaml`, and a new filter entry in
-  `.github/workflows/ci.yml`'s `detect-changes` job (that service's own file, plus `compose/base.yaml` if it
-  changes shared infra). `compose.test.yaml` follows the identical pattern: `compose/base-test.yaml` (just
-  `rabbitmq-test`, always active, since every test service needs it) plus one `compose/<service>-test.yaml`
-  per tested service (`identity`, `restaurant`, `search`, `order`, `payment`, `customer`; no
-  `notification-test`). Every service inside a `-test.yaml` file, including its own Postgres/Redis/
-  Elasticsearch, carries `profiles: ["<service>-test", "test"]`, both its own per-service profile and the
-  shared `"test"` profile every documented invocation (`make test-up`, CI, the `commit-rules` skill) already
-  passes via `--profile test`. This closes a real gap the split surfaced: the original file left the
-  databases untagged while tagging their sibling migration/app containers, so a bare `docker compose -f
-  compose.test.yaml up -d` (no `--profile test`) used to start every test database with nothing to use them;
-  now it starts only the always-active `rabbitmq-test`. `--profile <service>-test` alone (e.g.
-  `--profile customer-test`) starts just that service's own test stack, for iterating on one service without
-  the other five.
-- **Compose profiles**: every service in every `compose/<service>.yaml` carries its own profile name plus the
-  shared `"all"` profile, e.g. `profiles: ["identity", "all"]` (`compose/base.yaml`'s Traefik/RabbitMQ carry
-  none, so they're always active regardless of profile). Root `.env`'s `COMPOSE_PROFILES=all` activates the
-  shared profile, so a bare `docker compose up` still starts everything by default (the same as
-  `docker compose --profile all up`). Pass `--profile <service>` (repeatable, e.g.
-  `--profile identity --profile order`) to start only some groups for one command; passing `--profile` at all
-  replaces `COMPOSE_PROFILES` from the environment entirely, it does not add to it, so `--profile identity`
-  alone does not also get `all`. `order-service` hard-`depends_on: payment-service`, so `payment`'s services
-  also carry `profiles: ["payment", "order", "all"]`; Compose errors on an unresolvable `depends_on`
-  reference if a dependency's profile isn't active, it does not pull it in automatically.
-- **Line length**: `.go` files wrap at 110 chars — no linter enforces this yet, it's a manual convention; check before committing. Exempt: generated code (`*.pb.go`) and lines that are mostly one unbreakable literal (a long JSON/SQL string, URL, or regex) rather than genuinely wrappable code.
+- **Outbox pattern** (identity-service, restaurant-service, order-service, payment-service, and customer-service — byte-identical shape in all 5): `internal/domain/outbox/`, `internal/infrastructure/persistence/outbox.go`, `internal/application/outbox/{worker,relay}.go`. The business write and the outbox row are created in the same `gorm.Transaction`; a separate poller (`cmd/worker`) claims pending rows with `SELECT ... FOR UPDATE SKIP LOCKED` (also reclaiming `processing` rows whose lease expired), publishes to RabbitMQ, and retries with exponential backoff before marking a row `failed`. All 5 outbox every event they raise, no best-effort publish path left in any of them. `payment-worker` is the exception among these: it has no inbound consumer, it only relays its own outbox.
+- **Auth/JWT forward-auth**: `identity-service` exposes `GET /auth/verify` as a Traefik forward-auth endpoint (`traefik.http.middlewares.jwt.forwardauth.*` labels in `compose.yaml`) — other services don't validate JWTs themselves, they trust the `X-User-ID`/`X-User-Role` headers Traefik injects after forward-auth succeeds.
+- **Routing map**: all traffic enters through Traefik on `:80`, path-routed by service (`/auth`, `/users` → identity; `/restaurants` → restaurant; `/search` → search-service, no auth; `/customers` → customer-service, JWT-protected).
+- **Compose file split**: root `compose.yaml`/`compose.test.yaml` are just `name:` + an `include:` list; real service definitions live in `compose/base(-test).yaml` (Traefik/RabbitMQ, always active) plus one `compose/<service>(-test).yaml` per service. Relative paths inside an included file resolve against that file's own directory, not the repo root, so each uses `../<service>`/`context: ..`. Every service carries its own profile name plus a shared `"all"`/`"test"` profile (e.g. `["identity", "all"]`); passing `--profile <name>` on the CLI replaces `COMPOSE_PROFILES` entirely rather than adding to it. `order-service` hard-`depends_on: payment-service`, so payment's services also carry the `"order"` profile — Compose errors on an unresolvable `depends_on` reference rather than pulling a missing profile in automatically.
