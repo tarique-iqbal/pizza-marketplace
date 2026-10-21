@@ -1,6 +1,7 @@
 # Identity Service API
 
-Routes served under `/auth`, `/users`, and `/health` via the Traefik gateway.
+Routes served under `/auth` and `/users` via the Traefik gateway. `/healthz` is not Traefik-routed —
+container-internal only, for probes.
 
 ## Auth — `/auth`
 
@@ -20,9 +21,9 @@ Routes served under `/auth`, `/users`, and `/health` via the Traefik gateway.
 | `POST` | `/users/customers` | — | Register customer account |
 | `GET` | `/users/{id}` | JWT | Get user by ID |
 
-## Health — `/health`
+## Health — `/healthz`
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `GET` | `/health/live` | — | Liveness probe |
-| `GET` | `/health/ready` | — | Readiness probe |
+| `GET` | `/healthz/liveness` | — | Liveness probe |
+| `GET` | `/healthz/readiness` | — | Readiness probe |
