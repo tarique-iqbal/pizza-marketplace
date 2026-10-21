@@ -1,5 +1,5 @@
 # Stage 1: Base (Dependencies & Tools)
-FROM golang:1.24 AS base
+FROM golang:1.26 AS base
 WORKDIR /app
 
 COPY search-service/go.mod search-service/go.sum ./

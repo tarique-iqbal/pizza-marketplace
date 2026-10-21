@@ -1,6 +1,6 @@
 module search-service
 
-go 1.24.1
+go 1.26.8
 
 require (
 	github.com/elastic/go-elasticsearch/v8 v8.19.7
