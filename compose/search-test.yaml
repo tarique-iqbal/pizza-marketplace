@@ -24,6 +24,7 @@ services:
     env_file: ../search-service/.env.test
     volumes:
       - ../search-service:/app
+      - ../shared:/shared
     depends_on:
       elasticsearch-test: { condition: service_healthy }
       rabbitmq-test:      { condition: service_healthy }

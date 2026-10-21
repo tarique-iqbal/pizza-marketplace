@@ -29,6 +29,7 @@ services:
       target: dev
     volumes:
       - ../search-service:/app
+      - ../shared:/shared
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -56,6 +57,7 @@ services:
     command: ["air", "-c", ".air.worker.toml"]
     volumes:
       - ../search-service:/app
+      - ../shared:/shared
     depends_on:
       elasticsearch:
         condition: service_healthy

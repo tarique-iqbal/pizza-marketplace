@@ -2,6 +2,7 @@
 FROM golang:1.26 AS base
 WORKDIR /app
 
+COPY shared/ /shared
 COPY search-service/go.mod search-service/go.sum ./
 RUN go mod download
 

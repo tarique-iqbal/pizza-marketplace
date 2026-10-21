@@ -8,11 +8,14 @@ import (
 	"search-service/internal/infrastructure/elasticsearch"
 	"search-service/internal/infrastructure/geocoder"
 	"search-service/internal/interfaces/http/handlers"
+
+	"pizza-marketplace/shared/health"
 )
 
 type APIContainer struct {
 	SearchHandler        *handlers.SearchHandler
 	GetRestaurantHandler *handlers.GetRestaurantHandler
+	HealthHandler        *handlers.HealthHandler
 }
 
 func NewAPIContainer() (*APIContainer, error) {
@@ -40,7 +43,17 @@ func NewAPIContainer() (*APIContainer, error) {
 	getRestaurant := query.NewGetRestaurant(searchRepo)
 	getRestaurantHandler := handlers.NewGetRestaurantHandler(getRestaurant)
 
-	return &APIContainer{SearchHandler: searchHandler, GetRestaurantHandler: getRestaurantHandler}, nil
+	// health
+	readiness := health.NewReadiness(
+		health.Check{Name: "elasticsearch", Pinger: elasticsearch.Pinger{ES: es}},
+	)
+	healthHandler := handlers.NewHealthHandler(readiness)
+
+	return &APIContainer{
+		SearchHandler:        searchHandler,
+		GetRestaurantHandler: getRestaurantHandler,
+		HealthHandler:        healthHandler,
+	}, nil
 }
 
 func (c *APIContainer) Close() {}

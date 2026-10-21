@@ -25,6 +25,7 @@ func main() {
 	handlers := &routes.Handlers{
 		SearchHandler:        app.SearchHandler,
 		GetRestaurantHandler: app.GetRestaurantHandler,
+		HealthHandler:        app.HealthHandler,
 	}
 
 	routes.SetupRoutes(router, handlers)
