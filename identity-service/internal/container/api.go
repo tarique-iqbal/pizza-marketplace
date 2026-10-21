@@ -5,7 +5,6 @@ import (
 	"time"
 
 	authcmd "identity-service/internal/application/auth/commands"
-	"identity-service/internal/application/health"
 	usercmd "identity-service/internal/application/user/commands"
 	userqry "identity-service/internal/application/user/queries"
 	authinfra "identity-service/internal/infrastructure/auth"
@@ -14,6 +13,8 @@ import (
 	"identity-service/internal/infrastructure/security"
 	"identity-service/internal/interfaces/http"
 	"identity-service/internal/interfaces/http/middlewares"
+
+	"pizza-marketplace/shared/health"
 )
 
 type APIContainer struct {
@@ -73,7 +74,10 @@ func NewAPIContainer() (*APIContainer, error) {
 	authHandler := http.NewAuthHandler(login, emailOTP, refreshToken, logout)
 
 	// health
-	readiness := health.NewReadiness(base.Postgres, redisStore, base.Publisher)
+	readiness := health.NewReadiness(
+		health.Check{Name: "postgres", Pinger: base.Postgres},
+		health.Check{Name: "redis", Pinger: redisStore},
+	)
 	healthHandler := http.NewHealthHandler(readiness)
 
 	return &APIContainer{

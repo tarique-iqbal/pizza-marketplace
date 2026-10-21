@@ -65,6 +65,7 @@ services:
       target: dev
     volumes:
       - ../identity-service:/app
+      - ../shared:/shared
     depends_on:
       postgres-identity:
         condition: service_healthy
@@ -102,6 +103,7 @@ services:
     command: ["air", "-c", ".air.worker.toml"]
     volumes:
       - ../identity-service:/app
+      - ../shared:/shared
     depends_on:
       postgres-identity:
         condition: service_healthy

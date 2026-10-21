@@ -15,7 +15,10 @@ require (
 	gorm.io/datatypes v1.2.7
 	gorm.io/driver/postgres v1.5.11
 	gorm.io/gorm v1.30.0
+	pizza-marketplace/shared v0.0.0
 )
+
+replace pizza-marketplace/shared => ../shared
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect

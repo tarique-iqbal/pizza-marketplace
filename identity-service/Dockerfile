@@ -4,6 +4,7 @@ WORKDIR /app
 
 RUN CGO_ENABLED=0 go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1
 
+COPY shared/ /shared
 COPY identity-service/go.mod identity-service/go.sum ./
 RUN go mod download
 

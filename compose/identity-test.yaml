@@ -53,6 +53,7 @@ services:
     env_file: ../identity-service/.env.test
     volumes:
       - ../identity-service:/app
+      - ../shared:/shared
     depends_on:
       pg-identity-test:      { condition: service_healthy }
       redis-test:            { condition: service_healthy }

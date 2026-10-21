@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"identity-service/internal/application/health"
+	"pizza-marketplace/shared/health"
 )
 
 type HealthHandler struct {
