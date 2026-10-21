@@ -7,8 +7,8 @@ import (
 )
 
 func SetupHealthRoutes(router *gin.Engine, handler *http.HealthHandler) {
-	health := router.Group("/health")
+	health := router.Group("/healthz")
 
-	health.GET("/live", handler.Live)
-	health.GET("/ready", handler.Ready)
+	health.GET("/liveness", handler.Liveness)
+	health.GET("/readiness", handler.Readiness)
 }

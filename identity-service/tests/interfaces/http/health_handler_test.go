@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"identity-service/internal/application/health"
 	httpui "identity-service/internal/interfaces/http"
+	"pizza-marketplace/shared/health"
 )
 
 type mockChecker struct {
@@ -37,18 +37,18 @@ func setupRouter(handler *httpui.HealthHandler) *gin.Engine {
 
 	r := gin.New()
 
-	r.GET("/live", handler.Live)
-	r.GET("/ready", handler.Ready)
+	r.GET("/healthz/liveness", handler.Liveness)
+	r.GET("/healthz/readiness", handler.Readiness)
 
 	return r
 }
 
-func TestHealthHandler_Live(t *testing.T) {
+func TestHealthHandler_Liveness(t *testing.T) {
 	handler := httpui.NewHealthHandler(nil)
 
 	router := setupRouter(handler)
 
-	req := httptest.NewRequest(http.MethodGet, "/live", nil)
+	req := httptest.NewRequest(http.MethodGet, "/healthz/liveness", nil)
 	rec := httptest.NewRecorder()
 
 	router.ServeHTTP(rec, req)
@@ -58,7 +58,7 @@ func TestHealthHandler_Live(t *testing.T) {
 	assert.Equal(t, "application/json; charset=utf-8", rec.Header().Get("Content-Type"))
 }
 
-func TestHealthHandler_Ready_Healthy(t *testing.T) {
+func TestHealthHandler_Readiness_Healthy(t *testing.T) {
 	checks := []health.Result{
 		{Name: "db", Status: "ok"},
 		{Name: "redis", Status: "ok"},
@@ -74,7 +74,7 @@ func TestHealthHandler_Ready_Healthy(t *testing.T) {
 
 	router := setupRouter(handler)
 
-	req := httptest.NewRequest(http.MethodGet, "/ready", nil)
+	req := httptest.NewRequest(http.MethodGet, "/healthz/readiness", nil)
 	rec := httptest.NewRecorder()
 
 	router.ServeHTTP(rec, req)
@@ -89,7 +89,7 @@ func TestHealthHandler_Ready_Healthy(t *testing.T) {
 	assert.NotNil(t, body["checks"])
 }
 
-func TestHealthHandler_Ready_Unhealthy(t *testing.T) {
+func TestHealthHandler_Readiness_Unhealthy(t *testing.T) {
 	checks := []health.Result{
 		{Name: "db", Status: "ok"},
 		{Name: "redis", Status: "down", Error: "connection refused"},
@@ -105,7 +105,7 @@ func TestHealthHandler_Ready_Unhealthy(t *testing.T) {
 
 	router := setupRouter(handler)
 
-	req := httptest.NewRequest(http.MethodGet, "/ready", nil)
+	req := httptest.NewRequest(http.MethodGet, "/healthz/readiness", nil)
 	rec := httptest.NewRecorder()
 
 	router.ServeHTTP(rec, req)
@@ -120,7 +120,7 @@ func TestHealthHandler_Ready_Unhealthy(t *testing.T) {
 	assert.NotNil(t, body["checks"])
 }
 
-func TestHealthHandler_Ready_PassesTimeoutContext(t *testing.T) {
+func TestHealthHandler_Readiness_PassesTimeoutContext(t *testing.T) {
 	handler := httpui.NewHealthHandler(
 		mockChecker{
 			checkFn: func(ctx context.Context) ([]health.Result, bool) {
@@ -139,7 +139,7 @@ func TestHealthHandler_Ready_PassesTimeoutContext(t *testing.T) {
 
 	router := setupRouter(handler)
 
-	req := httptest.NewRequest(http.MethodGet, "/ready", nil)
+	req := httptest.NewRequest(http.MethodGet, "/healthz/readiness", nil)
 	rec := httptest.NewRecorder()
 
 	router.ServeHTTP(rec, req)
@@ -147,7 +147,7 @@ func TestHealthHandler_Ready_PassesTimeoutContext(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
-func TestHealthHandler_Ready_EmptyChecks(t *testing.T) {
+func TestHealthHandler_Readiness_EmptyChecks(t *testing.T) {
 	handler := httpui.NewHealthHandler(
 		mockChecker{
 			checkFn: func(ctx context.Context) ([]health.Result, bool) {
@@ -158,7 +158,7 @@ func TestHealthHandler_Ready_EmptyChecks(t *testing.T) {
 
 	router := setupRouter(handler)
 
-	req := httptest.NewRequest(http.MethodGet, "/ready", nil)
+	req := httptest.NewRequest(http.MethodGet, "/healthz/readiness", nil)
 	rec := httptest.NewRecorder()
 
 	router.ServeHTTP(rec, req)
