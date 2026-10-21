@@ -1,6 +1,6 @@
 # Customer Service API
 
-Everything is served through the Traefik gateway at `/customers`, protected by the `jwt@docker` forward-auth middleware. Identity comes from the `X-User-ID`/`X-User-Role` headers Traefik injects after identity-service validates the JWT; this service does not parse tokens itself. Any authenticated user can call these routes (no role gate), and every route is scoped to the caller's own data.
+Everything is served through the Traefik gateway at `/customers`, protected by the `jwt@docker` forward-auth middleware. Identity comes from the `X-User-ID`/`X-User-Role` headers Traefik injects after identity-service validates the JWT. Any authenticated user can call these routes, scoped to their own data. `/healthz` is not Traefik-routed — container-internal only, for probes.
 
 ## Profile — `/customers/me`
 
@@ -57,3 +57,10 @@ The field names match order-service's checkout `deliveryAddress` (`house`, `stre
 | `401` | Missing or invalid credentials (rejected by the gateway before reaching this service) |
 | `404` | Profile row not created yet, or address missing or not the caller's |
 | `422` | `phone` missing or longer than 32 characters |
+
+## Health — `/healthz`
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/healthz/liveness` | — | Liveness probe |
+| `GET` | `/healthz/readiness` | — | Readiness probe (checks Postgres) |
