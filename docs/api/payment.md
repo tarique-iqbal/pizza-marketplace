@@ -1,6 +1,6 @@
 # Payment Service API
 
-This service's primary surface is **gRPC** (`PaymentService`, internal Docker network only, port `:50051` — no Traefik exposure, no auth layer of its own since only trusted internal services can reach it). It has exactly one HTTP route, served via the Traefik gateway.
+This service's primary surface is **gRPC** (`PaymentService`, internal Docker network only, port `:50051` — no Traefik exposure, no auth layer of its own since only trusted internal services can reach it). It has exactly one Traefik-routed HTTP route (the Mollie webhook), plus container-internal-only liveness/readiness probes under `/healthz`.
 
 ## gRPC — `PaymentService`
 
@@ -47,3 +47,12 @@ Added for order-service's `Cancel` command: order-service only learns a payment 
 | `POST` | `/webhooks/mollie` | — (public) | Mollie's own payment-status callback |
 
 Form-encoded body, single field `id` (Mollie's own payment reference — no JSON, no signature). `400` if `id` is missing. `200` on every other outcome, including every no-op case (unknown payment, already-processed payment, a still-open/non-terminal Mollie status) — only a real failure on this service's own side returns `500`, so Mollie's retry mechanism only fires when retrying could actually help. The webhook body is never trusted for the actual payment status; this handler always re-fetches the true status from Mollie's API before updating anything.
+
+## Health — `/healthz`
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/healthz/liveness` | — | Liveness probe |
+| `GET` | `/healthz/readiness` | — | Readiness probe (checks Postgres) |
+
+Container-internal only, not Traefik-routed.
