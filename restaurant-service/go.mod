@@ -1,6 +1,6 @@
 module restaurant-service
 
-go 1.24.1
+go 1.26.8
 
 require (
 	github.com/gin-gonic/gin v1.10.0
