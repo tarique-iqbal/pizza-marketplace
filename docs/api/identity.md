@@ -26,4 +26,4 @@ container-internal only, for probes.
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | `GET` | `/healthz/liveness` | — | Liveness probe |
-| `GET` | `/healthz/readiness` | — | Readiness probe |
+| `GET` | `/healthz/readiness` | — | Readiness probe (checks Postgres, Redis) |
