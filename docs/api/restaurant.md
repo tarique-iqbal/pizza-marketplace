@@ -1,6 +1,7 @@
 # Restaurant Service API
 
-Routes served under `/restaurants` via the Traefik gateway.
+Routes served under `/restaurants` via the Traefik gateway. `/healthz` is not Traefik-routed —
+container-internal only, for probes.
 
 ## Restaurants — `/restaurants`
 
@@ -42,3 +43,10 @@ Toppings (`toppings`) are a global, marketplace-wide catalog — name, descripti
 `PUT /:id/topping-prices` is how a restaurant sets its own add-on price for a topping, stored per `(restaurantId, toppingId)`. The request body is the full desired set of `{toppingId, extraPrice}` pairs, but this endpoint is an **upsert, not a full replace**: toppings included are created or re-priced, but toppings priced earlier and omitted from the request stay priced and untouched — there's currently no way to un-price a topping through this endpoint. `extraPrice` must be between `1` and `3` inclusive — `422 Unprocessable Entity` otherwise. `404 Not Found` if a `toppingId` doesn't exist; `409 Conflict` on a duplicate `toppingId` within the same request. Returns the restaurant's complete current set of topping prices (not just the ones just sent).
 
 `POST` returns `201 Created`. `PUT`/`PATCH` return `200 OK`.
+
+## Health — `/healthz`
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/healthz/liveness` | — | Liveness probe |
+| `GET` | `/healthz/readiness` | — | Readiness probe (checks Postgres) |
