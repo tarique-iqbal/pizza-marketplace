@@ -1,6 +1,7 @@
 # Order Service API
 
-Routes served under `/cart` and `/orders` via the Traefik gateway.
+Routes served under `/cart` and `/orders` via the Traefik gateway. `/healthz` is not Traefik-routed —
+container-internal only, for probes.
 
 ## Cart — `/cart`
 
@@ -44,3 +45,10 @@ Request body: `{fulfillment: "delivery" | "pickup", deliveryAddress?: {house, st
 `POST /orders/:id/cancel` only succeeds while the order is still `pending`. Before cancelling, it re-checks the *real* payment status directly with payment-service (not the local, possibly-stale order status) — if the payment already succeeded there, it returns `409 Conflict` rather than cancelling an order whose money was already captured (this system has no refund mechanism yet). A payment that already failed is still allowed to cancel through. On success it also best-effort cancels the payment at the gateway (failure there is logged, not surfaced — the order stays cancelled regardless).
 
 `POST` returns `201 Created` (checkout only); `GET` returns `200 OK`; `PATCH` returns `200 OK`; `DELETE` returns `204 No Content`; the three lifecycle `POST` endpoints (`ready`/`complete`/`cancel`) return `200 OK` with the updated order.
+
+## Health — `/healthz`
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/healthz/liveness` | — | Liveness probe |
+| `GET` | `/healthz/readiness` | — | Readiness probe (checks Postgres) |

@@ -13,6 +13,7 @@ Routes (behind Traefik, no `jwt@docker` label — auth enforced per-route-group 
 - `POST /orders` — checkout: converts the current cart into an `Order`, revalidates every line against live prices/availability, checks fulfillment support and minimum order, geocodes+validates the delivery radius, then calls payment-service for a real checkout URL. See `internal/application/order/commands/checkout.go`.
 - `GET /orders/:id`, `POST /orders/:id/cancel` — customer-or-owner (`m.Auth` only, branch on `X-User-Role` inside the query/command using `FindByIDAndCustomer`/`FindByIDAndRestaurantOwner`, never fetch-then-compare). `GET /orders` — the caller's own orders (customer), cursor-paginated.
 - `GET /orders/restaurants/:id`, `POST /orders/:id/ready`, `POST /orders/:id/complete` — owner-only (`m.EnsureOwner`), scoped to the given restaurant ID with the owner check re-verified server-side, never trusted from the path alone.
+- `GET /healthz/liveness`, `GET /healthz/readiness` (checks Postgres) — container-internal only, not Traefik-routed.
 
 ## Commands
 
