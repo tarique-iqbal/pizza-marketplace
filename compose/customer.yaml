@@ -47,6 +47,7 @@ services:
       target: dev
     volumes:
       - ../customer-service:/app
+      - ../shared:/shared
     depends_on:
       postgres-customer:
         condition: service_healthy
@@ -77,6 +78,7 @@ services:
     command: ["air", "-c", ".air.worker.toml"]
     volumes:
       - ../customer-service:/app
+      - ../shared:/shared
     depends_on:
       postgres-customer:
         condition: service_healthy

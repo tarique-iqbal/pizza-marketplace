@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -53,4 +54,16 @@ func NewDB() (*Postgres, error) {
 	sqlDB.SetConnMaxIdleTime(5 * time.Minute)
 
 	return &Postgres{DB: db}, nil
+}
+
+func (pg *Postgres) Ping(ctx context.Context) error {
+	sqlDB, err := pg.DB.DB()
+	if err != nil {
+		return fmt.Errorf("db: get sql.DB: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	return sqlDB.PingContext(ctx)
 }

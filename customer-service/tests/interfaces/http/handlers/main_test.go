@@ -14,11 +14,14 @@ import (
 	addressqry "customer-service/internal/application/address/queries"
 	"customer-service/internal/application/customer/commands"
 	"customer-service/internal/application/customer/queries"
+	dbinfra "customer-service/internal/infrastructure/db"
 	"customer-service/internal/infrastructure/persistence"
 	"customer-service/internal/interfaces/http/handlers"
 	"customer-service/internal/interfaces/http/middleware"
 	"customer-service/internal/interfaces/http/routes"
 	"customer-service/tests/testutil"
+
+	"pizza-marketplace/shared/health"
 )
 
 func TestMain(m *testing.M) {
@@ -45,10 +48,19 @@ func newRouter(t *testing.T) *gin.Engine {
 		addresscmd.NewSetDefault(db.DB, addressRepo),
 	)
 
+	readiness := health.NewReadiness(
+		health.Check{Name: "postgres", Pinger: &dbinfra.Postgres{DB: db.DB}},
+	)
+	healthHandler := handlers.NewHealthHandler(readiness)
+
 	router := gin.New()
 	routes.SetupRoutes(
 		router,
-		&routes.Handlers{CustomerHandler: customerHandler, AddressHandler: addressHandler},
+		&routes.Handlers{
+			CustomerHandler: customerHandler,
+			AddressHandler:  addressHandler,
+			HealthHandler:   healthHandler,
+		},
 		middleware.NewMiddleware(),
 	)
 

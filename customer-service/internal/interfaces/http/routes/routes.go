@@ -10,9 +10,11 @@ import (
 type Handlers struct {
 	CustomerHandler *handlers.CustomerHandler
 	AddressHandler  *handlers.AddressHandler
+	HealthHandler   *handlers.HealthHandler
 }
 
 func SetupRoutes(router *gin.Engine, h *Handlers, m *middleware.Middleware) {
 	SetupCustomerRoutes(router, h.CustomerHandler, m)
 	SetupAddressRoutes(router, h.AddressHandler, m)
+	SetupHealthRoutes(router, h.HealthHandler)
 }

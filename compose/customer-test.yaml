@@ -41,6 +41,7 @@ services:
     env_file: ../customer-service/.env.test
     volumes:
       - ../customer-service:/app
+      - ../shared:/shared
     depends_on:
       pg-customer-test:      { condition: service_healthy }
       rabbitmq-test:         { condition: service_healthy }
