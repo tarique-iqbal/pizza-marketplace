@@ -19,6 +19,7 @@ type Handlers struct {
 	PizzaHandler         *handlers.PizzaHandler
 	ApproveHandler       *handlers.ApproveHandler
 	LaunchHandler        *handlers.LaunchHandler
+	HealthHandler        *handlers.HealthHandler
 }
 
 func SetupRoutes(router *gin.Engine, h *Handlers, m *middleware.Middleware) {
@@ -26,4 +27,5 @@ func SetupRoutes(router *gin.Engine, h *Handlers, m *middleware.Middleware) {
 	SetupPayoutRoutes(router, h.PayoutHandler, m)
 	SetupToppingPriceRoutes(router, h.ToppingPriceHandler, m)
 	SetupPizzaRoutes(router, h.PizzaHandler, m)
+	SetupHealthRoutes(router, h.HealthHandler)
 }

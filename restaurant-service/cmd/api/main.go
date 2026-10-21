@@ -34,6 +34,7 @@ func main() {
 		PizzaHandler:         app.PizzaHandler,
 		ApproveHandler:       app.ApproveHandler,
 		LaunchHandler:        app.LaunchHandler,
+		HealthHandler:        app.HealthHandler,
 	}
 
 	routes.SetupRoutes(router, handlers, app.Middleware)

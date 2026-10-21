@@ -9,10 +9,13 @@ import (
 	"restaurant-service/internal/application/restaurant/commands"
 	resqry "restaurant-service/internal/application/restaurant/queries"
 	toppingcmd "restaurant-service/internal/application/topping/commands"
+	"restaurant-service/internal/infrastructure/db"
 	"restaurant-service/internal/infrastructure/geocoder"
 	"restaurant-service/internal/infrastructure/persistence"
 	"restaurant-service/internal/interfaces/http/handlers"
 	"restaurant-service/internal/interfaces/http/middleware"
+
+	"pizza-marketplace/shared/health"
 )
 
 type APIContainer struct {
@@ -29,6 +32,7 @@ type APIContainer struct {
 	PizzaHandler         *handlers.PizzaHandler
 	ApproveHandler       *handlers.ApproveHandler
 	LaunchHandler        *handlers.LaunchHandler
+	HealthHandler        *handlers.HealthHandler
 }
 
 func NewAPIContainer() (*APIContainer, error) {
@@ -107,6 +111,12 @@ func NewAPIContainer() (*APIContainer, error) {
 	getLaunchReadiness := resqry.NewGetLaunchReadiness(restaurantRepo, pizzaCatalog)
 	launchHandler := handlers.NewLaunchHandler(launchRestaurant, getLaunchReadiness)
 
+	// health
+	readiness := health.NewReadiness(
+		health.Check{Name: "postgres", Pinger: &db.Postgres{DB: base.DB}},
+	)
+	healthHandler := handlers.NewHealthHandler(readiness)
+
 	return &APIContainer{
 		Shared:               base,
 		Middleware:           middleware,
@@ -121,6 +131,7 @@ func NewAPIContainer() (*APIContainer, error) {
 		PizzaHandler:         pizzaHandler,
 		ApproveHandler:       approveHandler,
 		LaunchHandler:        launchHandler,
+		HealthHandler:        healthHandler,
 	}, nil
 }
 

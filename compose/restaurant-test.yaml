@@ -41,6 +41,7 @@ services:
     env_file: ../restaurant-service/.env.test
     volumes:
       - ../restaurant-service:/app
+      - ../shared:/shared
     depends_on:
       pg-restaurant-test:      { condition: service_healthy }
       rabbitmq-test:           { condition: service_healthy }
