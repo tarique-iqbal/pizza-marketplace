@@ -1,6 +1,7 @@
 # Search Service API
 
-Routes served under `/search` via the Traefik gateway. No auth — public by design.
+Routes served under `/search` via the Traefik gateway. No auth — public by design. `/healthz` is not
+Traefik-routed — container-internal only, for probes.
 
 ## Search — `/search`
 
@@ -22,3 +23,10 @@ By default (no `fulfillment` param), a restaurant matches only if the address fa
 Returns `{"results": [...]}` — an array of restaurant objects under a `results` key, each entry carrying `deliveryKm`/`deliveryTimeMin`/`deliveryTimeMax` only when the restaurant has them set. `500 Internal Server Error` if the address can't be geocoded.
 
 `GET /search/restaurant/{id}` returns a single restaurant object, the same shape as one entry from `GET /search`. `id` must be the restaurant's UUID — there is no slug-based lookup, since search-service already keys every indexed document by id, making an id lookup a direct point fetch rather than a search. `400 Bad Request` for a malformed id, `404 Not Found` if no restaurant with that id is indexed (never launched, or removed).
+
+## Health — `/healthz`
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/healthz/liveness` | — | Liveness probe |
+| `GET` | `/healthz/readiness` | — | Readiness probe (checks Elasticsearch) |
