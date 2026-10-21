@@ -41,6 +41,7 @@ services:
     env_file: ../order-service/.env.test
     volumes:
       - ../order-service:/app
+      - ../shared:/shared
     depends_on:
       pg-order-test:      { condition: service_healthy }
       rabbitmq-test:      { condition: service_healthy }

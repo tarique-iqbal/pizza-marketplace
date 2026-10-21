@@ -23,8 +23,9 @@ func main() {
 	router.Use(gin.Recovery(), observability.Middleware(logger))
 
 	handlers := &routes.Handlers{
-		CartHandler:  app.CartHandler,
-		OrderHandler: app.OrderHandler,
+		CartHandler:   app.CartHandler,
+		OrderHandler:  app.OrderHandler,
+		HealthHandler: app.HealthHandler,
 	}
 
 	routes.SetupRoutes(router, handlers, app.Middleware)

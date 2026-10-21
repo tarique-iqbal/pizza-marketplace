@@ -9,19 +9,23 @@ import (
 	"order-service/internal/application/cart/queries"
 	ordercmd "order-service/internal/application/order/commands"
 	orderqry "order-service/internal/application/order/queries"
+	"order-service/internal/infrastructure/db"
 	"order-service/internal/infrastructure/geocoder"
 	"order-service/internal/infrastructure/payment"
 	"order-service/internal/infrastructure/persistence"
 	"order-service/internal/interfaces/http/handlers"
 	"order-service/internal/interfaces/http/middleware"
+
+	"pizza-marketplace/shared/health"
 )
 
 type APIContainer struct {
 	*Shared
-	Middleware   *middleware.Middleware
-	CartHandler  *handlers.CartHandler
-	OrderHandler *handlers.OrderHandler
-	paymentConn  *grpc.ClientConn
+	Middleware    *middleware.Middleware
+	CartHandler   *handlers.CartHandler
+	OrderHandler  *handlers.OrderHandler
+	HealthHandler *handlers.HealthHandler
+	paymentConn   *grpc.ClientConn
 }
 
 func NewAPIContainer() (*APIContainer, error) {
@@ -85,12 +89,19 @@ func NewAPIContainer() (*APIContainer, error) {
 		checkout, getOrder, listMyOrders, listRestaurantOrders, markReady, complete, cancel,
 	)
 
+	// health
+	readiness := health.NewReadiness(
+		health.Check{Name: "postgres", Pinger: &db.Postgres{DB: base.DB}},
+	)
+	healthHandler := handlers.NewHealthHandler(readiness)
+
 	return &APIContainer{
-		Shared:       base,
-		Middleware:   mw,
-		CartHandler:  cartHandler,
-		OrderHandler: orderHandler,
-		paymentConn:  paymentConn,
+		Shared:        base,
+		Middleware:    mw,
+		CartHandler:   cartHandler,
+		OrderHandler:  orderHandler,
+		HealthHandler: healthHandler,
+		paymentConn:   paymentConn,
 	}, nil
 }
 

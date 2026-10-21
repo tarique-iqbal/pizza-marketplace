@@ -47,6 +47,7 @@ services:
       target: dev
     volumes:
       - ../order-service:/app
+      - ../shared:/shared
     depends_on:
       postgres-order:
         condition: service_healthy
@@ -79,6 +80,7 @@ services:
     command: ["air", "-c", ".air.worker.toml"]
     volumes:
       - ../order-service:/app
+      - ../shared:/shared
     depends_on:
       postgres-order:
         condition: service_healthy
