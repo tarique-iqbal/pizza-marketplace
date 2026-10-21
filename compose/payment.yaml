@@ -47,6 +47,7 @@ services:
       target: dev
     volumes:
       - ../payment-service:/app
+      - ../shared:/shared
     depends_on:
       postgres-payment:
         condition: service_healthy
@@ -76,6 +77,7 @@ services:
     command: ["air", "-c", ".air.worker.toml"]
     volumes:
       - ../payment-service:/app
+      - ../shared:/shared
     depends_on:
       postgres-payment:
         condition: service_healthy

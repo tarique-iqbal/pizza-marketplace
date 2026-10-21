@@ -8,8 +8,10 @@ import (
 
 type Handlers struct {
 	WebhookHandler *handlers.WebhookHandler
+	HealthHandler  *handlers.HealthHandler
 }
 
 func SetupRoutes(router *gin.Engine, h *Handlers) {
 	router.POST("/webhooks/mollie", h.WebhookHandler.HandleMollie)
+	SetupHealthRoutes(router, h.HealthHandler)
 }

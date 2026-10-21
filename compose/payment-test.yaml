@@ -41,6 +41,7 @@ services:
     env_file: ../payment-service/.env.test
     volumes:
       - ../payment-service:/app
+      - ../shared:/shared
     depends_on:
       pg-payment-test:      { condition: service_healthy }
       rabbitmq-test:        { condition: service_healthy }

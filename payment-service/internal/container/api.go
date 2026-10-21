@@ -5,11 +5,14 @@ import (
 
 	"payment-service/internal/application/payment/commands"
 	"payment-service/internal/application/payment/queries"
+	"payment-service/internal/infrastructure/db"
 	"payment-service/internal/infrastructure/gateway"
 	"payment-service/internal/infrastructure/persistence"
 	grpcserver "payment-service/internal/interfaces/grpc"
 	"payment-service/internal/interfaces/http/handlers"
 	"payment-service/internal/interfaces/http/routes"
+
+	"pizza-marketplace/shared/health"
 )
 
 type APIContainer struct {
@@ -36,10 +39,16 @@ func NewAPIContainer() (*APIContainer, error) {
 	grpcServer := grpcserver.NewServer(createPayment, cancelPayment, getPaymentStatus)
 	webhookHandler := handlers.NewWebhookHandler(handleMollieWebhook)
 
+	// health
+	readiness := health.NewReadiness(
+		health.Check{Name: "postgres", Pinger: &db.Postgres{DB: base.DB}},
+	)
+	healthHandler := handlers.NewHealthHandler(readiness)
+
 	return &APIContainer{
 		Shared:     base,
 		GRPCServer: grpcServer,
-		Handlers:   &routes.Handlers{WebhookHandler: webhookHandler},
+		Handlers:   &routes.Handlers{WebhookHandler: webhookHandler, HealthHandler: healthHandler},
 	}, nil
 }
 
