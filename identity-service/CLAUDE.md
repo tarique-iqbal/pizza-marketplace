@@ -14,7 +14,7 @@ Routes (all behind Traefik, see `internal/interfaces/http/routes/`):
 - `GET /auth/verify` — **not a client-facing route**: this is Traefik's forward-auth target (`traefik.http.middlewares.jwt.forwardauth.*` in root `compose.yaml`). It validates the JWT and returns `X-User-ID`/`X-User-Role` headers, which Traefik then injects into the downstream request to `restaurant-service` etc. Other services trust these headers rather than parsing JWTs themselves.
 - `POST /users/owners`, `POST /users/customers` — registration (public)
 - `GET /users/:id` — JWT-protected
-- `GET /healthz/liveness`, `GET /healthz/readiness` — liveness/readiness probes (`internal/interfaces/http/routes/health_routes.go`)
+- `GET /healthz/liveness`, `GET /healthz/readiness` — liveness/readiness probes (`internal/interfaces/http/routes/health_routes.go`). `identity-worker` serves the same two paths on its own `:8081` (checks Postgres + RabbitMQ there, since the worker holds both connections live, unlike the API).
 
 ## Commands
 
