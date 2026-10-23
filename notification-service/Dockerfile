@@ -2,6 +2,7 @@
 FROM golang:1.26 AS base
 WORKDIR /app
 
+COPY shared/ /shared
 COPY notification-service/go.mod notification-service/go.sum ./
 RUN go mod download
 
@@ -24,5 +25,5 @@ RUN apk add --no-cache ca-certificates
 COPY --from=builder /notification-service .
 COPY --from=builder /app/internal/infrastructure/notification/email/templates ./internal/infrastructure/notification/email/templates/
 
-EXPOSE 8080
+EXPOSE 8081
 CMD ["./notification-service"]

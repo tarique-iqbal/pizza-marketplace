@@ -7,13 +7,17 @@ import (
 	"notification-service/internal/domain/notification"
 	"notification-service/internal/infrastructure/messaging"
 	notifemail "notification-service/internal/infrastructure/notification/email"
+	"notification-service/internal/interfaces/http/handlers"
+
+	"pizza-marketplace/shared/health"
 )
 
 const emailTemplatePath = "internal/infrastructure/notification/email/templates"
 
 type Container struct {
-	Dispatcher notification.EventDispatcher
-	Consumer   *messaging.RabbitMQConsumer
+	Dispatcher    notification.EventDispatcher
+	Consumer      *messaging.RabbitMQConsumer
+	HealthHandler *handlers.HealthHandler
 }
 
 func NewContainer() (*Container, error) {
@@ -41,11 +45,20 @@ func NewContainer() (*Container, error) {
 	dispatcher.Register("order.confirmed", orderConfirmed)
 
 	consumer, err := messaging.NewRabbitMQConsumer(amqpURL)
+	if err != nil {
+		return nil, err
+	}
+
+	readiness := health.NewReadiness(
+		health.Check{Name: "rabbitmq", Pinger: consumer},
+	)
+	healthHandler := handlers.NewHealthHandler(readiness)
 
 	return &Container{
-		Dispatcher: dispatcher,
-		Consumer:   consumer,
-	}, err
+		Dispatcher:    dispatcher,
+		Consumer:      consumer,
+		HealthHandler: healthHandler,
+	}, nil
 }
 
 func (c *Container) Close() {
