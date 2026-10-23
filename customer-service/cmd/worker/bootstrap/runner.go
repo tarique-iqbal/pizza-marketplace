@@ -45,6 +45,20 @@ func (r *runner) start(ctx context.Context, stop context.CancelFunc) {
 
 		r.app.OutboxWorker.Start(ctx)
 	}()
+
+	r.logger.Info("starting health server", "addr", healthAddr)
+
+	r.wg.Add(1)
+	go func() {
+		defer r.wg.Done()
+		defer r.recoverPanic(stop)
+
+		if err := runHealthServer(ctx, r.app.HealthHandler); err != nil &&
+			!errors.Is(err, context.Canceled) {
+			r.logger.Error("health server stopped unexpectedly", "error", err)
+			stop()
+		}
+	}()
 }
 
 func (r *runner) done() <-chan struct{} {

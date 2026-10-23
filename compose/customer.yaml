@@ -87,6 +87,8 @@ services:
       migrate-customer:
         condition: service_completed_successfully
     env_file: ../customer-service/.env
+    expose:
+      - "8081"
     networks:
       - internal
     profiles: ["customer", "all"]
