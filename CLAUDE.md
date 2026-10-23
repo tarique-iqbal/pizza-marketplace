@@ -42,7 +42,7 @@ tests/                      # mirrors internal/ structure; integration-style, hi
 `search-service` has no database — its `internal/infrastructure/` is Elasticsearch + its own geocoder +
 messaging, no `gorm`/`persistence`/`redis`/`auth`/migrations.
 
-`restaurant-service`, `search-service`, `order-service`, `payment-service`, and `customer-service` additionally have `cmd/worker/bootstrap/` for their worker's app/runner setup; `identity-service` and `notification-service` don't.
+`restaurant-service`, `search-service`, `order-service`, `payment-service`, `customer-service`, and `notification-service` additionally have `cmd/worker/bootstrap/` for their worker's app/runner setup; `identity-service` is the only one that doesn't.
 
 ## Commands
 

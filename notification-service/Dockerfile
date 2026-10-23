@@ -14,7 +14,7 @@ CMD ["air", "-c", ".air.toml"]
 # Stage 3: Builder (Production Compilation)
 FROM base AS builder
 COPY notification-service/ .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /notification-service ./cmd/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o /notification-service ./cmd/worker/main.go
 
 # Stage 4: Final (Production Image)
 FROM alpine:3.21
