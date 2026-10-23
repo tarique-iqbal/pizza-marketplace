@@ -64,6 +64,8 @@ services:
       rabbitmq:
         condition: service_healthy
     env_file: ../search-service/.env
+    expose:
+      - "8081"
     networks:
       - internal
     profiles: ["search", "all"]

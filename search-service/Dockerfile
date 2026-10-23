@@ -31,4 +31,5 @@ FROM alpine:3.21 AS worker
 WORKDIR /app
 RUN apk add --no-cache ca-certificates
 COPY --from=builder /search-worker .
+EXPOSE 8081
 CMD ["./search-worker"]

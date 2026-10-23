@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"search-service/internal/domain/index"
@@ -33,6 +34,7 @@ type messageSource interface {
 }
 
 type RabbitMQConsumer struct {
+	mu      sync.Mutex
 	conn    *amqp.Connection
 	channel *amqp.Channel
 	amqpURL string
@@ -46,6 +48,7 @@ func NewRabbitMQConsumer(amqpURL string) (*RabbitMQConsumer, error) {
 	return c, nil
 }
 
+// connect assumes the caller already holds c.mu.
 func (c *RabbitMQConsumer) connect() error {
 	if c.channel != nil {
 		_ = c.channel.Close()
@@ -119,7 +122,11 @@ func (c *RabbitMQConsumer) GetMessages(ctx context.Context) (<-chan amqp.Deliver
 		return nil, err
 	}
 
-	msgs, err := c.channel.Consume(
+	c.mu.Lock()
+	channel := c.channel
+	c.mu.Unlock()
+
+	msgs, err := channel.Consume(
 		QueueName,
 		"",    // let RabbitMQ generate consumer tag
 		false, // manual ack
@@ -136,6 +143,9 @@ func (c *RabbitMQConsumer) GetMessages(ctx context.Context) (<-chan amqp.Deliver
 }
 
 func (c *RabbitMQConsumer) ensureConnected(ctx context.Context) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.conn == nil || c.conn.IsClosed() || c.channel == nil || c.channel.IsClosed() {
 		logobs.FromContext(ctx).Warn("reconnecting to RabbitMQ...")
 		return c.connect()
@@ -220,7 +230,11 @@ func (c *RabbitMQConsumer) Republish(ctx context.Context, msg amqp.Delivery, ret
 	}
 	headers["x-retry-count"] = int32(retryCount)
 
-	return c.channel.PublishWithContext(ctx, "", QueueName, false, false, amqp.Publishing{
+	c.mu.Lock()
+	channel := c.channel
+	c.mu.Unlock()
+
+	return channel.PublishWithContext(ctx, "", QueueName, false, false, amqp.Publishing{
 		ContentType:  msg.ContentType,
 		Body:         msg.Body,
 		Headers:      headers,
@@ -239,10 +253,30 @@ func getRetryCount(headers amqp.Table) int {
 }
 
 func (c *RabbitMQConsumer) Close() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.channel != nil {
 		_ = c.channel.Close()
 	}
 	if c.conn != nil {
 		_ = c.conn.Close()
 	}
+}
+
+func (c *RabbitMQConsumer) Ping(ctx context.Context) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.conn == nil || c.conn.IsClosed() {
+		return amqp.ErrClosed
+	}
+
+	ch, err := c.conn.Channel()
+	if err != nil {
+		return err
+	}
+	defer ch.Close()
+
+	return nil
 }

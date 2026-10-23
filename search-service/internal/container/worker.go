@@ -8,11 +8,15 @@ import (
 	"search-service/internal/domain/index"
 	"search-service/internal/infrastructure/elasticsearch"
 	"search-service/internal/infrastructure/messaging"
+	"search-service/internal/interfaces/http/handlers"
+
+	"pizza-marketplace/shared/health"
 )
 
 type WorkerContainer struct {
-	Dispatcher index.EventDispatcher
-	Consumer   *messaging.RabbitMQConsumer
+	Dispatcher    index.EventDispatcher
+	Consumer      *messaging.RabbitMQConsumer
+	HealthHandler *handlers.HealthHandler
 }
 
 func NewWorkerContainer() (*WorkerContainer, error) {
@@ -45,9 +49,16 @@ func NewWorkerContainer() (*WorkerContainer, error) {
 		return nil, err
 	}
 
+	readiness := health.NewReadiness(
+		health.Check{Name: "elasticsearch", Pinger: elasticsearch.Pinger{ES: es}},
+		health.Check{Name: "rabbitmq", Pinger: consumer},
+	)
+	healthHandler := handlers.NewHealthHandler(readiness)
+
 	return &WorkerContainer{
-		Dispatcher: dispatcher,
-		Consumer:   consumer,
+		Dispatcher:    dispatcher,
+		Consumer:      consumer,
+		HealthHandler: healthHandler,
 	}, nil
 }
 
