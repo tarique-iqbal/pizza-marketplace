@@ -8,7 +8,7 @@ Scope: this file covers `restaurant-service` only. See the root `CLAUDE.md` for 
 
 Restaurant records and their onboarding checklist, plus the pizza menu (pizzas, toppings, pricing). It is the only service that talks to `postgres-restaurant` and the OpenCage geocoding API. It implements the transactional outbox pattern (see root `CLAUDE.md`) for **every** event it raises — its `cmd/worker` runs two goroutines: the inbound `restaurant.initiated` consumer, and an outbox relay. There is no best-effort/direct-publish path anywhere in this service.
 
-Routes (behind Traefik, JWT-protected + owner-only unless noted): contact/address/delivery/tags/opening-hours updates, payout-details submission and replacement, pizza CRUD (create is checklist-gated), per-size pricing, and topping pricing, all under `/restaurants/:id/...`. See `docs/api/restaurant.md` for the full per-route reference. `GET /healthz/liveness`/`GET /healthz/readiness` (liveness/readiness probes, checks Postgres) are container-internal only, not Traefik-routed.
+Routes (behind Traefik, JWT-protected + owner-only unless noted): contact/address/delivery/tags/opening-hours updates, payout-details submission and replacement, pizza CRUD (create is checklist-gated), per-size pricing, and topping pricing, all under `/restaurants/:id/...`. See `docs/api/restaurant.md` for the full per-route reference. `GET /healthz/liveness`/`GET /healthz/readiness` (liveness/readiness probes, checks Postgres) are container-internal only, not Traefik-routed. `restaurant-worker` serves the same two paths on its own `:8081` (checks Postgres + RabbitMQ there, since the worker holds both connections live).
 
 ## Commands
 
