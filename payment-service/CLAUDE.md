@@ -17,7 +17,7 @@ gRPC surface, `PaymentService`:
 
 HTTP route (behind Traefik, **no auth** — the one deliberately public route this service has):
 - `POST /webhooks/mollie` — Mollie's own callback, form-encoded body with a single `id` field. `400` if `id` is missing, `200` on success (including every no-op case below), `500` only if something on this service's own side actually failed (so Mollie retries).
-- `GET /healthz/liveness`, `GET /healthz/readiness` (checks Postgres) — container-internal only, not Traefik-routed.
+- `GET /healthz/liveness`, `GET /healthz/readiness` (checks Postgres) — container-internal only, not Traefik-routed. `payment-worker` serves the same two paths on its own `:8081` (checks Postgres + RabbitMQ there, since the worker holds both connections live).
 
 ## Commands
 

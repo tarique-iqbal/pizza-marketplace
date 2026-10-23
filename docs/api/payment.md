@@ -55,4 +55,6 @@ Form-encoded body, single field `id` (Mollie's own payment reference — no JSON
 | `GET` | `/healthz/liveness` | — | Liveness probe |
 | `GET` | `/healthz/readiness` | — | Readiness probe (checks Postgres) |
 
-Container-internal only, not Traefik-routed.
+Container-internal only, not Traefik-routed. `payment-worker` exposes the same two paths on its own
+internal `:8081` — checking Postgres and RabbitMQ there instead, since the worker holds both connections
+live.
