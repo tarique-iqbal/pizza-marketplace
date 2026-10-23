@@ -87,6 +87,8 @@ services:
       migrate-restaurant:
         condition: service_completed_successfully
     env_file: ../restaurant-service/.env
+    expose:
+      - "8081"
     networks:
       - internal
     profiles: ["restaurant", "all"]
