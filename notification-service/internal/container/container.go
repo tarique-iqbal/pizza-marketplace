@@ -47,3 +47,9 @@ func NewContainer() (*Container, error) {
 		Consumer:   consumer,
 	}, err
 }
+
+func (c *Container) Close() {
+	if c.Consumer != nil {
+		c.Consumer.Close()
+	}
+}
