@@ -37,4 +37,5 @@ RUN apk add --no-cache postgresql-client
 COPY --from=base /go/bin/migrate /usr/local/bin/migrate
 COPY --from=builder /app/internal/infrastructure/migrations ./migrations
 COPY --from=builder /identity-worker .
+EXPOSE 8081
 CMD ["./identity-worker"]

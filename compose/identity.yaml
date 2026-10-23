@@ -112,6 +112,8 @@ services:
       migrate-identity:
         condition: service_completed_successfully
     env_file: ../identity-service/.env
+    expose:
+      - "8081"
     networks:
       - internal
     profiles: ["identity", "all"]
