@@ -2,15 +2,19 @@
 
 Sends transactional notifications in response to RabbitMQ events published by `identity-service` and
 `restaurant-service`, via a channel-adapter design: one channel-agnostic `Sender` interface, with email as its
-only implementation today. The simplest service in the repo: no database, no HTTP API, no
-`cmd/api`/`cmd/worker` split — `cmd/main.go` is the only binary. Unlike identity-worker/restaurant-worker, it *is*
-started directly by the root `compose.yaml`, since without it running the service simply never sends
-notifications (no queue to drain into a local store, no user-visible failure otherwise).
+only implementation today. The simplest service in the repo: no database, no public HTTP API, no `cmd/api`
+— `cmd/worker/main.go` is the only binary. Unlike identity-worker/restaurant-worker, it *is* started directly
+by the root `compose.yaml`, since without it running the service simply never sends notifications (no queue
+to drain into a local store, no user-visible failure otherwise). It does have a container-internal-only
+health listener (`/healthz/liveness`/`/healthz/readiness`, checks RabbitMQ), same shape as every other
+service's worker-side probe.
 
 ## Layered architecture
 
 ```
-cmd/main.go                              → the only entrypoint; builds logger, container, calls messaging.Run
+cmd/worker/main.go                       → thin entrypoint; delegates to bootstrap.App
+cmd/worker/bootstrap                     → App (signal handling, shutdown) + runner (consumer + health server
+                                            goroutines, panic recovery)
 internal/domain/notification             → Sender, Message, TemplateLoader, EventDispatcher, EventHandler,
                                             EventPayload — interfaces only
 internal/application/notification        → one handler per consumed event: EmailVerificationCreated,
@@ -20,7 +24,8 @@ internal/infrastructure/notification/     → one subdirectory per channel adapt
                                             A second channel (SMS, web-push) would be a new sibling directory
                                             implementing the same Sender interface — no interface change needed.
 internal/infrastructure/messaging        → RabbitMQ consumer (Run/runOnce as package-level functions)
-internal/container                       → wires Sender/TemplateLoader/handlers, registers them against routing keys
+internal/interfaces/http                 → health handler/routes only — no other HTTP surface
+internal/container                       → wires Sender/TemplateLoader/handlers/health, registers routing keys
 ```
 
 There is no persistence layer at all — every dependency is either an external call (SMTP today) or a pure
