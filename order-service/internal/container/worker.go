@@ -7,16 +7,21 @@ import (
 	outboxapp "order-service/internal/application/outbox"
 	appreadmodel "order-service/internal/application/readmodel"
 	"order-service/internal/domain/readmodel"
+	"order-service/internal/infrastructure/db"
 	"order-service/internal/infrastructure/messaging"
 	"order-service/internal/infrastructure/persistence"
+	"order-service/internal/interfaces/http/handlers"
+
+	"pizza-marketplace/shared/health"
 )
 
 type WorkerContainer struct {
 	*Shared
-	Dispatcher   readmodel.EventDispatcher
-	Consumer     *messaging.RabbitMQConsumer
-	Publisher    *messaging.RabbitMQPublisher
-	OutboxWorker *outboxapp.Worker
+	Dispatcher    readmodel.EventDispatcher
+	Consumer      *messaging.RabbitMQConsumer
+	Publisher     *messaging.RabbitMQPublisher
+	OutboxWorker  *outboxapp.Worker
+	HealthHandler *handlers.HealthHandler
 }
 
 func NewWorkerContainer(logger *slog.Logger) (*WorkerContainer, error) {
@@ -32,13 +37,17 @@ func NewWorkerContainer(logger *slog.Logger) (*WorkerContainer, error) {
 	customerRepo := persistence.NewCustomerRepository(base.DB)
 	orderRepo := persistence.NewOrderRepository(base.DB)
 
-	upsertRestaurant := appreadmodel.NewUpsertRestaurant(restaurantRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
+	upsertRestaurant := appreadmodel.NewUpsertRestaurant(
+		restaurantRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo,
+	)
 	updateRestaurant := appreadmodel.NewUpdateRestaurant(restaurantRepo)
 	syncPizza := appreadmodel.NewSyncPizza(pizzaRepo, pizzaPriceRepo)
 	syncToppingPrices := appreadmodel.NewSyncToppingPrices(toppingPriceRepo)
 	upsertCustomer := appreadmodel.NewUpsertCustomer(customerRepo)
 	updateCustomerPhone := appreadmodel.NewUpdateCustomerPhone(customerRepo)
-	paymentSucceeded := orderhandlers.NewPaymentSucceededHandler(base.DB, orderRepo, base.OutboxRepo, restaurantRepo)
+	paymentSucceeded := orderhandlers.NewPaymentSucceededHandler(
+		base.DB, orderRepo, base.OutboxRepo, restaurantRepo,
+	)
 	paymentFailed := orderhandlers.NewPaymentFailedHandler(base.DB, orderRepo)
 
 	dispatcher := appreadmodel.NewEventDispatcher()
@@ -64,12 +73,19 @@ func NewWorkerContainer(logger *slog.Logger) (*WorkerContainer, error) {
 	relayer := outboxapp.NewRelay(publisher)
 	outboxWorker := outboxapp.NewWorker(base.OutboxRepo, relayer, outboxapp.DefaultConfig(), logger)
 
+	readiness := health.NewReadiness(
+		health.Check{Name: "postgres", Pinger: &db.Postgres{DB: base.DB}},
+		health.Check{Name: "rabbitmq", Pinger: publisher},
+	)
+	healthHandler := handlers.NewHealthHandler(readiness)
+
 	return &WorkerContainer{
-		Shared:       base,
-		Dispatcher:   dispatcher,
-		Consumer:     consumer,
-		Publisher:    publisher,
-		OutboxWorker: outboxWorker,
+		Shared:        base,
+		Dispatcher:    dispatcher,
+		Consumer:      consumer,
+		Publisher:     publisher,
+		OutboxWorker:  outboxWorker,
+		HealthHandler: healthHandler,
 	}, nil
 }
 

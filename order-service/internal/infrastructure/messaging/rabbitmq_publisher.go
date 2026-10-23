@@ -147,6 +147,23 @@ func (p *RabbitMQPublisher) publishLocked(ctx context.Context, routingKey string
 	return nil
 }
 
+func (p *RabbitMQPublisher) Ping(ctx context.Context) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.conn == nil || p.conn.IsClosed() {
+		return amqp.ErrClosed
+	}
+
+	ch, err := p.conn.Channel()
+	if err != nil {
+		return err
+	}
+	defer ch.Close()
+
+	return nil
+}
+
 func (p *RabbitMQPublisher) Close() {
 	p.mu.Lock()
 	defer p.mu.Unlock()

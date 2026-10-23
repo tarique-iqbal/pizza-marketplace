@@ -89,6 +89,8 @@ services:
       migrate-order:
         condition: service_completed_successfully
     env_file: ../order-service/.env
+    expose:
+      - "8081"
     networks:
       - internal
     profiles: ["order", "all"]
