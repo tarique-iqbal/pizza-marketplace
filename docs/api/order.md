@@ -52,3 +52,5 @@ Request body: `{fulfillment: "delivery" | "pickup", deliveryAddress?: {house, st
 |---|---|---|---|
 | `GET` | `/healthz/liveness` | — | Liveness probe |
 | `GET` | `/healthz/readiness` | — | Readiness probe (checks Postgres) |
+
+`order-worker` exposes the same two paths on its own internal `:8081` — not covered by this API doc, and not Traefik-routed either — checking Postgres and RabbitMQ there instead, since the worker holds both connections live.
