@@ -18,6 +18,8 @@ Owns authentication, JWT issuance, and user (owner/customer) registration. Has i
 ```
 cmd/api                   → Gin HTTP server (routes, middleware)
 cmd/worker                → outbox relay poller — started by compose.yaml (identity-worker container)
+cmd/worker/bootstrap      → this service's app/runner setup (graceful shutdown, signal handling, outbox +
+                             health-server goroutines)
 internal/domain           → User, auth (credential/token/verification), OutboxEvent — no framework deps
 internal/application      → use cases: register_owner, register_customer, login, refresh, logout,
                              request_email_otp, verify_email, find_by_id; application/outbox (Relay)
