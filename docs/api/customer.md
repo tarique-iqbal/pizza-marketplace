@@ -64,3 +64,5 @@ The field names match order-service's checkout `deliveryAddress` (`house`, `stre
 |---|---|---|---|
 | `GET` | `/healthz/liveness` | — | Liveness probe |
 | `GET` | `/healthz/readiness` | — | Readiness probe (checks Postgres) |
+
+`customer-worker` exposes the same two paths on its own internal `:8081` — not covered by this API doc, and not Traefik-routed either — checking Postgres and RabbitMQ there instead, since the worker holds both connections live.

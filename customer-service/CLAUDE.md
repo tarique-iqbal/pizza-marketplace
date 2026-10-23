@@ -14,7 +14,7 @@ Routes (behind Traefik with the `jwt@docker` label, then `Middleware.Auth` in Gi
 - `GET /customers/me/addresses` — saved addresses, default first. Bare JSON array, no pagination.
 - `DELETE /customers/me/addresses/:id` — `204`; `404` if it doesn't exist or isn't the caller's.
 - `POST /customers/me/addresses/:id/default` — makes it the default, returns the address.
-- `GET /healthz/liveness`, `GET /healthz/readiness` (checks Postgres) — container-internal only, not Traefik-routed.
+- `GET /healthz/liveness`, `GET /healthz/readiness` (checks Postgres) — container-internal only, not Traefik-routed. `customer-worker` serves the same two paths on its own `:8081` (checks Postgres + RabbitMQ there, since the worker holds both connections live).
 
 There is deliberately **no `POST` to create an address**: addresses only arrive through the `order.address_saved` event (see below), so a client can never submit address text that didn't pass a real checkout.
 
