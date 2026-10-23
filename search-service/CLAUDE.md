@@ -8,7 +8,7 @@ Scope: this file covers `search-service` only. See the root `CLAUDE.md` for mono
 
 Read-only search over restaurant/pizza data, backed by Elasticsearch and kept fresh by consuming `restaurant.launched`, `restaurant.updated`, `restaurant.pizza_updated`, and `restaurant.topping_prices_updated` off RabbitMQ. It is the only service with no Postgres database, and the only service besides `restaurant-service` that calls OpenCage geocoding — its own independent client/quota, not shared with `restaurant-service`.
 
-Routes (behind Traefik, **no auth** — public by design): `GET /search` (required `house`/`street`/`city`/`postalCode`, optional `q`/`fulfillment`/`tags`/`openNow`/`sort`), `GET /search/restaurant/:id` (direct ES doc lookup by id, no slug route). See `docs/api/search.md` for the full filter/sort reference. `GET /healthz/liveness`, `GET /healthz/readiness` (checks Elasticsearch) are container-internal only, not Traefik-routed.
+Routes (behind Traefik, **no auth** — public by design): `GET /search` (required `house`/`street`/`city`/`postalCode`, optional `q`/`fulfillment`/`tags`/`openNow`/`sort`), `GET /search/restaurant/:id` (direct ES doc lookup by id, no slug route). See `docs/api/search.md` for the full filter/sort reference. `GET /healthz/liveness`, `GET /healthz/readiness` (checks Elasticsearch) are container-internal only, not Traefik-routed. `search-worker` serves the same two paths on its own `:8081` (checks Elasticsearch + RabbitMQ there, since the worker holds both connections live — `RabbitMQConsumer` is mutex-protected so its own `Ping` is safe to call concurrently with the consumer loop).
 
 ## Commands
 

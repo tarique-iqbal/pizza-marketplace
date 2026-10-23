@@ -30,3 +30,5 @@ Returns `{"results": [...]}` — an array of restaurant objects under a `results
 |---|---|---|---|
 | `GET` | `/healthz/liveness` | — | Liveness probe |
 | `GET` | `/healthz/readiness` | — | Readiness probe (checks Elasticsearch) |
+
+`search-worker` exposes the same two paths on its own internal `:8081` — not covered by this API doc, and not Traefik-routed either — checking Elasticsearch and RabbitMQ there instead, since the worker holds both connections live.
