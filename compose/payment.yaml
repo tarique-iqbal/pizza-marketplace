@@ -86,6 +86,8 @@ services:
       migrate-payment:
         condition: service_completed_successfully
     env_file: ../payment-service/.env
+    expose:
+      - "8081"
     networks:
       - internal
     profiles: ["payment", "order", "all"]

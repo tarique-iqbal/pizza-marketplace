@@ -4,13 +4,18 @@ import (
 	"log/slog"
 
 	outboxapp "payment-service/internal/application/outbox"
+	"payment-service/internal/infrastructure/db"
 	"payment-service/internal/infrastructure/messaging"
+	"payment-service/internal/interfaces/http/handlers"
+
+	"pizza-marketplace/shared/health"
 )
 
 type WorkerContainer struct {
 	*Shared
-	Publisher    *messaging.RabbitMQPublisher
-	OutboxWorker *outboxapp.Worker
+	Publisher     *messaging.RabbitMQPublisher
+	OutboxWorker  *outboxapp.Worker
+	HealthHandler *handlers.HealthHandler
 }
 
 func NewWorkerContainer(logger *slog.Logger) (*WorkerContainer, error) {
@@ -27,10 +32,17 @@ func NewWorkerContainer(logger *slog.Logger) (*WorkerContainer, error) {
 	relayer := outboxapp.NewRelay(publisher)
 	outboxWorker := outboxapp.NewWorker(base.OutboxRepo, relayer, outboxapp.DefaultConfig(), logger)
 
+	readiness := health.NewReadiness(
+		health.Check{Name: "postgres", Pinger: &db.Postgres{DB: base.DB}},
+		health.Check{Name: "rabbitmq", Pinger: publisher},
+	)
+	healthHandler := handlers.NewHealthHandler(readiness)
+
 	return &WorkerContainer{
-		Shared:       base,
-		Publisher:    publisher,
-		OutboxWorker: outboxWorker,
+		Shared:        base,
+		Publisher:     publisher,
+		OutboxWorker:  outboxWorker,
+		HealthHandler: healthHandler,
 	}, nil
 }
 
