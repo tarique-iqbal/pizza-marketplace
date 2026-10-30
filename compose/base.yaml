@@ -23,9 +23,12 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: user_dev
       RABBITMQ_DEFAULT_PASS: pass_dev
+    volumes:
+      - ./rabbitmq-enabled-plugins:/etc/rabbitmq/enabled_plugins:ro
     ports:
       - "5672:5672"
       - "15672:15672"
+      - "15692:15692"
     healthcheck:
       test: ["CMD", "rabbitmqctl", "status"]
       interval: 30s
