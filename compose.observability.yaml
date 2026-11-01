@@ -1,0 +1,104 @@
+name: pizza-marketplace-observability
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.113.0
+    container_name: pizza-otel-collector
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./observability/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    depends_on:
+      - tempo
+      - prometheus
+      - loki
+    networks:
+      - backend
+      - internal
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: pizza-tempo
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./observability/tempo-config.yaml:/etc/tempo.yaml:ro
+      - tempo_data:/var/tempo
+    ports:
+      - "3200:3200"
+    networks:
+      - backend
+      - internal
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: pizza-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--web.enable-remote-write-receiver"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - backend
+      - internal
+
+  loki:
+    image: grafana/loki:3.2.1
+    container_name: pizza-loki
+    command: ["-config.file=/etc/loki/loki-config.yaml"]
+    volumes:
+      - ./observability/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - backend
+      - internal
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    container_name: pizza-grafana
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_FEATURE_TOGGLES_ENABLE: traceqlEditor
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    networks:
+      - backend
+      - internal
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: pizza-postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://user_dev:pass_dev@postgres-identity:5432/identity_db?sslmode=disable"
+    ports:
+      - "9187:9187"
+    networks:
+      - internal
+
+volumes:
+  tempo_data:
+  prometheus_data:
+  loki_data:
+  grafana_data:
+
+networks:
+  backend:
+    name: pizza-marketplace_backend
+    external: true
+  internal:
+    name: pizza-marketplace_internal
+    external: true
