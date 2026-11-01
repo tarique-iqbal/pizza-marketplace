@@ -1,0 +1,56 @@
+{
+  "title": "Postgres Overview",
+  "uid": "postgres-overview",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Up",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "pg_up", "refId": "A" }]
+    },
+    {
+      "id": 2,
+      "title": "Max connections",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "pg_settings_max_connections", "refId": "A" }]
+    },
+    {
+      "id": 3,
+      "title": "Active backends per database",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "pg_stat_database_numbackends", "legendFormat": "{{datname}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Database size (bytes) per database",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "pg_database_size_bytes", "legendFormat": "{{datname}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Committed transactions/sec per database",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 13, "w": 24, "h": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "rate(pg_stat_database_xact_commit[1m])", "legendFormat": "{{datname}}", "refId": "A" }
+      ]
+    }
+  ]
+}
