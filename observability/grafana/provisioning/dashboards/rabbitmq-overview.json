@@ -1,0 +1,53 @@
+{
+  "title": "RabbitMQ Overview",
+  "uid": "rabbitmq-overview",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Connections",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "rabbitmq_connections", "refId": "A" }]
+    },
+    {
+      "id": 2,
+      "title": "Channels",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "rabbitmq_channels", "refId": "A" }]
+    },
+    {
+      "id": 3,
+      "title": "Queues",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "rabbitmq_queues", "refId": "A" }]
+    },
+    {
+      "id": 4,
+      "title": "Consumers",
+      "type": "stat",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "rabbitmq_consumers", "refId": "A" }]
+    },
+    {
+      "id": 5,
+      "title": "Messages ready vs. total (unacked included)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 4, "w": 24, "h": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "rabbitmq_queue_messages_ready", "legendFormat": "ready", "refId": "A" },
+        { "expr": "rabbitmq_queue_messages", "legendFormat": "total", "refId": "B" }
+      ]
+    }
+  ]
+}
