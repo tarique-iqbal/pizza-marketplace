@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
 
-	logobs "identity-service/internal/infrastructure/observability/logger"
+	"pizza-marketplace/shared/logobs"
 )
 
 const exchangeName = "identity.events"

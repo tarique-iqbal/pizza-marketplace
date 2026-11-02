@@ -4,9 +4,9 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"identity-service/internal/container"
-	"identity-service/internal/infrastructure/observability"
-	logobs "identity-service/internal/infrastructure/observability/logger"
 	"identity-service/internal/interfaces/http/routes"
+
+	"pizza-marketplace/shared/logobs"
 )
 
 func main() {
@@ -20,7 +20,7 @@ func main() {
 	defer app.Close()
 
 	router := gin.New()
-	router.Use(gin.Recovery(), observability.Middleware(logger))
+	router.Use(gin.Recovery(), logobs.Middleware(logger))
 
 	handlers := &routes.Handlers{
 		UserHandler:   app.UserHandler,

@@ -8,7 +8,8 @@ import (
 	"time"
 
 	"identity-service/internal/container"
-	logobs "identity-service/internal/infrastructure/observability/logger"
+
+	"pizza-marketplace/shared/logobs"
 )
 
 const shutdownTimeout = 10 * time.Second

@@ -8,8 +8,9 @@ import (
 
 	"identity-service/internal/domain/auth"
 	"identity-service/internal/domain/user"
-	logobs "identity-service/internal/infrastructure/observability/logger"
 	apperr "identity-service/internal/shared/errors"
+
+	"pizza-marketplace/shared/logobs"
 )
 
 func HandleError(ctx *gin.Context, err error) {

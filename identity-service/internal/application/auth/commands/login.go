@@ -8,8 +8,9 @@ import (
 	authapp "identity-service/internal/application/auth"
 	"identity-service/internal/domain/auth"
 	"identity-service/internal/domain/user"
-	logobs "identity-service/internal/infrastructure/observability/logger"
 	apperr "identity-service/internal/shared/errors"
+
+	"pizza-marketplace/shared/logobs"
 )
 
 const refreshTokenExpiry = 7
