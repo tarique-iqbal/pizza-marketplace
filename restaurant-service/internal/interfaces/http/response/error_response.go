@@ -8,8 +8,9 @@ import (
 
 	"restaurant-service/internal/domain/payout"
 	"restaurant-service/internal/domain/restaurant"
-	logobs "restaurant-service/internal/infrastructure/observability/logger"
 	apperr "restaurant-service/internal/shared/errors"
+
+	"pizza-marketplace/shared/logobs"
 )
 
 func HandleError(ctx *gin.Context, err error) {

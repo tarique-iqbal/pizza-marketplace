@@ -4,7 +4,8 @@ import (
 	"os"
 
 	"restaurant-service/cmd/worker/bootstrap"
-	logobs "restaurant-service/internal/infrastructure/observability/logger"
+
+	"pizza-marketplace/shared/logobs"
 )
 
 func main() {
