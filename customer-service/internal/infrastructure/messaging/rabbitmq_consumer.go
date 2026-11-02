@@ -9,7 +9,8 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 
 	"customer-service/internal/domain/customer"
-	logobs "customer-service/internal/infrastructure/observability/logger"
+
+	"pizza-marketplace/shared/logobs"
 )
 
 const (

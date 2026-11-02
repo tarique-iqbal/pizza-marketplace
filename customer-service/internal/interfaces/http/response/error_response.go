@@ -6,8 +6,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	logobs "customer-service/internal/infrastructure/observability/logger"
 	apperr "customer-service/internal/shared/errors"
+
+	"pizza-marketplace/shared/logobs"
 )
 
 func HandleError(ctx *gin.Context, err error) {

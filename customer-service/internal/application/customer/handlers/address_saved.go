@@ -8,7 +8,8 @@ import (
 	"github.com/google/uuid"
 
 	"customer-service/internal/domain/customer"
-	logobs "customer-service/internal/infrastructure/observability/logger"
+
+	"pizza-marketplace/shared/logobs"
 )
 
 type addressSavedPayload struct {
