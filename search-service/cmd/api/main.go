@@ -4,9 +4,9 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"search-service/internal/container"
-	"search-service/internal/infrastructure/observability"
-	logobs "search-service/internal/infrastructure/observability/logger"
 	"search-service/internal/interfaces/http/routes"
+
+	"pizza-marketplace/shared/logobs"
 )
 
 func main() {
@@ -20,7 +20,7 @@ func main() {
 	defer app.Close()
 
 	router := gin.New()
-	router.Use(gin.Recovery(), observability.Middleware(logger))
+	router.Use(gin.Recovery(), logobs.Middleware(logger))
 
 	handlers := &routes.Handlers{
 		SearchHandler:        app.SearchHandler,

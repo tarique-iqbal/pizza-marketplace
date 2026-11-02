@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"search-service/internal/domain/index"
-	logobs "search-service/internal/infrastructure/observability/logger"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+
+	"pizza-marketplace/shared/logobs"
 )
 
 const (
