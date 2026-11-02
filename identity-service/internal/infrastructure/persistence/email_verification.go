@@ -25,7 +25,7 @@ func (repo *emailVerificationRepo) FindByEmail(
 	email string,
 ) (*auth.EmailVerification, error) {
 	var ev auth.EmailVerification
-	err := repo.db.Where("email = ?", email).First(&ev).Error
+	err := repo.db.WithContext(ctx).Where("email = ?", email).First(&ev).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -39,21 +39,21 @@ func (repo *emailVerificationRepo) Create(
 	ctx context.Context,
 	ev *auth.EmailVerification,
 ) error {
-	return repo.db.Create(ev).Error
+	return repo.db.WithContext(ctx).Create(ev).Error
 }
 
 func (repo *emailVerificationRepo) Updates(
 	ctx context.Context,
 	ev *auth.EmailVerification,
 ) error {
-	return repo.db.Model(ev).Select("*").Updates(ev).Error
+	return repo.db.WithContext(ctx).Model(ev).Select("*").Updates(ev).Error
 }
 
 func (repo *emailVerificationRepo) IncrementAttempts(
 	ctx context.Context,
 	id uuid.UUID,
 ) error {
-	return repo.db.Model(&auth.EmailVerification{}).
+	return repo.db.WithContext(ctx).Model(&auth.EmailVerification{}).
 		Where("id = ?", id).
 		Update("attempt_count", gorm.Expr("attempt_count + 1")).Error
 }
