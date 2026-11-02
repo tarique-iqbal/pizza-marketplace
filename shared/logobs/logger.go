@@ -1,26 +1,37 @@
 package logobs
 
 import (
+	"context"
 	"log/slog"
 	"os"
+
+	"go.opentelemetry.io/contrib/bridges/otelslog"
 )
+
+const scopeName = "pizza-marketplace/shared/logobs"
 
 func NewLogger(serviceName string) *slog.Logger {
 	env := os.Getenv("APP_ENV")
+	level := parseLevel()
 
 	opts := &slog.HandlerOptions{
-		Level: parseLevel(),
+		Level: level,
 	}
 
-	var handler slog.Handler
+	var stdout slog.Handler
 
 	switch env {
 	case "prod":
-		handler = slog.NewJSONHandler(os.Stdout, opts)
+		stdout = slog.NewJSONHandler(os.Stdout, opts)
 
 	default:
-		handler = slog.NewTextHandler(os.Stdout, opts)
+		stdout = slog.NewTextHandler(os.Stdout, opts)
 	}
+
+	handler := slog.NewMultiHandler(
+		stdout,
+		&levelHandler{Handler: otelslog.NewHandler(scopeName), level: level},
+	)
 
 	return slog.New(handler).With(
 		"service", serviceName,
@@ -39,4 +50,21 @@ func parseLevel() slog.Level {
 	default:
 		return slog.LevelInfo
 	}
+}
+
+type levelHandler struct {
+	slog.Handler
+	level slog.Level
+}
+
+func (h *levelHandler) Enabled(ctx context.Context, l slog.Level) bool {
+	return l >= h.level && h.Handler.Enabled(ctx, l)
+}
+
+func (h *levelHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &levelHandler{Handler: h.Handler.WithAttrs(attrs), level: h.level}
+}
+
+func (h *levelHandler) WithGroup(name string) slog.Handler {
+	return &levelHandler{Handler: h.Handler.WithGroup(name), level: h.level}
 }
