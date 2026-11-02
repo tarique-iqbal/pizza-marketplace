@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"notification-service/internal/domain/notification"
-	logobs "notification-service/internal/infrastructure/observability/logger"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+
+	"pizza-marketplace/shared/logobs"
 )
 
 const (
