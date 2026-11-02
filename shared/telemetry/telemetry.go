@@ -6,9 +6,11 @@ import (
 	"fmt"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
+	sdklog "go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -26,12 +28,12 @@ type Config struct {
 	ServiceName string
 }
 
-// Shutdown flushes and stops the tracer/meter providers. Call it once, on
-// process exit, with a bounded context.
+// Shutdown flushes and stops the tracer/meter/logger providers. Call it once,
+// on process exit, with a bounded context.
 type Shutdown func(context.Context) error
 
-// Init sets up the global TracerProvider and MeterProvider, both exporting
-// over OTLP/gRPC to the Collector, and installs the W3C TraceContext
+// Init sets up the global TracerProvider, MeterProvider, and LoggerProvider,
+// all exporting over OTLP/gRPC to the Collector, and installs the W3C TraceContext
 // propagator globally. Call it once per process, before anything that uses
 // the per-layer helpers in this package.
 func Init(ctx context.Context, cfg Config) (Shutdown, error) {
@@ -69,11 +71,26 @@ func Init(ctx context.Context, cfg Config) (Shutdown, error) {
 		metric.WithResource(res),
 	)
 
+	logExporter, err := otlploggrpc.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("telemetry: create log exporter: %w", err)
+	}
+
+	loggerProvider := sdklog.NewLoggerProvider(
+		sdklog.WithProcessor(sdklog.NewBatchProcessor(logExporter)),
+		sdklog.WithResource(res),
+	)
+
 	otel.SetTracerProvider(tracerProvider)
 	otel.SetMeterProvider(meterProvider)
+	otel.SetLoggerProvider(loggerProvider)
 	otel.SetTextMapPropagator(propagation.TraceContext{})
 
 	return func(ctx context.Context) error {
-		return errors.Join(tracerProvider.Shutdown(ctx), meterProvider.Shutdown(ctx))
+		return errors.Join(
+			tracerProvider.Shutdown(ctx),
+			meterProvider.Shutdown(ctx),
+			loggerProvider.Shutdown(ctx),
+		)
 	}, nil
 }
