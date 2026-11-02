@@ -8,10 +8,10 @@ import (
 	grpclib "google.golang.org/grpc"
 
 	"payment-service/internal/container"
-	"payment-service/internal/infrastructure/observability"
-	logobs "payment-service/internal/infrastructure/observability/logger"
 	"payment-service/internal/interfaces/grpc/pb"
 	"payment-service/internal/interfaces/http/routes"
+
+	"pizza-marketplace/shared/logobs"
 )
 
 const grpcAddr = ":50051"
@@ -29,7 +29,7 @@ func main() {
 	go startGRPCServer(logger, app)
 
 	router := gin.New()
-	router.Use(gin.Recovery(), observability.Middleware(logger))
+	router.Use(gin.Recovery(), logobs.Middleware(logger))
 
 	routes.SetupRoutes(router, app.Handlers)
 

@@ -7,7 +7,8 @@ import (
 	"github.com/google/uuid"
 
 	"payment-service/internal/domain/payment"
-	logobs "payment-service/internal/infrastructure/observability/logger"
+
+	"pizza-marketplace/shared/logobs"
 )
 
 type CancelPayment struct {

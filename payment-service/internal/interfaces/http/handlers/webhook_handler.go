@@ -6,7 +6,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"payment-service/internal/application/payment/commands"
-	logobs "payment-service/internal/infrastructure/observability/logger"
+
+	"pizza-marketplace/shared/logobs"
 )
 
 type WebhookHandler struct {

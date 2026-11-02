@@ -8,7 +8,8 @@ import (
 	"time"
 
 	"payment-service/internal/container"
-	logobs "payment-service/internal/infrastructure/observability/logger"
+
+	"pizza-marketplace/shared/logobs"
 )
 
 const shutdownTimeout = 10 * time.Second
