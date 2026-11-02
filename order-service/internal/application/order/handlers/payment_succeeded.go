@@ -13,8 +13,9 @@ import (
 	"order-service/internal/domain/order"
 	"order-service/internal/domain/outbox"
 	"order-service/internal/domain/readmodel"
-	logobs "order-service/internal/infrastructure/observability/logger"
 	"order-service/internal/shared/event"
+
+	"pizza-marketplace/shared/logobs"
 )
 
 type paymentEventPayload struct {

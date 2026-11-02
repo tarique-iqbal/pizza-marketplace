@@ -9,7 +9,8 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 
 	"order-service/internal/domain/readmodel"
-	logobs "order-service/internal/infrastructure/observability/logger"
+
+	"pizza-marketplace/shared/logobs"
 )
 
 const (

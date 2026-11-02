@@ -10,7 +10,8 @@ import (
 
 	"order-service/internal/domain/order"
 	"order-service/internal/domain/readmodel"
-	logobs "order-service/internal/infrastructure/observability/logger"
+
+	"pizza-marketplace/shared/logobs"
 )
 
 type PaymentFailedHandler struct {

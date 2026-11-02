@@ -9,8 +9,9 @@ import (
 
 	orderapp "order-service/internal/application/order"
 	"order-service/internal/domain/order"
-	logobs "order-service/internal/infrastructure/observability/logger"
 	apperr "order-service/internal/shared/errors"
+
+	"pizza-marketplace/shared/logobs"
 )
 
 type Cancel struct {

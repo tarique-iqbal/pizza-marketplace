@@ -4,9 +4,9 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"order-service/internal/container"
-	"order-service/internal/infrastructure/observability"
-	logobs "order-service/internal/infrastructure/observability/logger"
 	"order-service/internal/interfaces/http/routes"
+
+	"pizza-marketplace/shared/logobs"
 )
 
 func main() {
@@ -20,7 +20,7 @@ func main() {
 	defer app.Close()
 
 	router := gin.New()
-	router.Use(gin.Recovery(), observability.Middleware(logger))
+	router.Use(gin.Recovery(), logobs.Middleware(logger))
 
 	handlers := &routes.Handlers{
 		CartHandler:   app.CartHandler,
