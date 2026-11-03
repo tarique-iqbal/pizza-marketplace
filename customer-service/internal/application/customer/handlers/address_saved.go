@@ -43,7 +43,7 @@ func (h *AddressSaved) Handle(event customer.EventPayload) error {
 		return fmt.Errorf("failed to check existing address: %w", err)
 	}
 	if exists {
-		logobs.FromContext(ctx).Warn(
+		logobs.FromContext(ctx).WarnContext(ctx,
 			"order.address_saved no-op, address already saved",
 			"customer_id", payload.CustomerID,
 		)

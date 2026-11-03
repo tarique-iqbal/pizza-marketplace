@@ -42,7 +42,7 @@ func (a *App) Run() error {
 	runner.start(ctx, stop)
 
 	<-ctx.Done()
-	a.logger.Info("shutdown initiated")
+	a.logger.InfoContext(ctx, "shutdown initiated")
 
 	return a.awaitShutdown(runner)
 }

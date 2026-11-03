@@ -22,7 +22,7 @@ func newRunner(logger *slog.Logger, app *container.WorkerContainer) *runner {
 }
 
 func (r *runner) start(ctx context.Context, stop context.CancelFunc) {
-	r.logger.Info("starting consumer")
+	r.logger.InfoContext(ctx, "starting consumer")
 
 	r.wg.Add(1)
 	go func() {
@@ -31,12 +31,12 @@ func (r *runner) start(ctx context.Context, stop context.CancelFunc) {
 
 		if err := messaging.Run(ctx, r.app.Consumer, r.app.Dispatcher); err != nil &&
 			!errors.Is(err, context.Canceled) {
-			r.logger.Error("consumer stopped unexpectedly", "error", err)
+			r.logger.ErrorContext(ctx, "consumer stopped unexpectedly", "error", err)
 			stop()
 		}
 	}()
 
-	r.logger.Info("starting outbox worker")
+	r.logger.InfoContext(ctx, "starting outbox worker")
 
 	r.wg.Add(1)
 	go func() {
@@ -46,7 +46,7 @@ func (r *runner) start(ctx context.Context, stop context.CancelFunc) {
 		r.app.OutboxWorker.Start(ctx)
 	}()
 
-	r.logger.Info("starting health server", "addr", healthAddr)
+	r.logger.InfoContext(ctx, "starting health server", "addr", healthAddr)
 
 	r.wg.Add(1)
 	go func() {
@@ -55,7 +55,7 @@ func (r *runner) start(ctx context.Context, stop context.CancelFunc) {
 
 		if err := runHealthServer(ctx, r.app.HealthHandler); err != nil &&
 			!errors.Is(err, context.Canceled) {
-			r.logger.Error("health server stopped unexpectedly", "error", err)
+			r.logger.ErrorContext(ctx, "health server stopped unexpectedly", "error", err)
 			stop()
 		}
 	}()
