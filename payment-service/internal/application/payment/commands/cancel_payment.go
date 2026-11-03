@@ -30,7 +30,7 @@ func (cmd *CancelPayment) Execute(ctx context.Context, paymentID uuid.UUID) erro
 	}
 
 	if err := cmd.gateway.CancelPayment(ctx, *p.GatewayPaymentID); err != nil {
-		logobs.FromContext(ctx).Warn(
+		logobs.FromContext(ctx).WarnContext(ctx,
 			"failed to cancel payment at gateway, ignoring (best-effort)",
 			"payment_id", paymentID,
 			"error", err,

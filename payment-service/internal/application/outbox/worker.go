@@ -59,7 +59,7 @@ func (w *Worker) Start(ctx context.Context) {
 	w.mu.Lock()
 	if w.isRunning {
 		w.mu.Unlock()
-		w.logger.Warn("worker already running")
+		w.logger.WarnContext(ctx, "worker already running")
 		return
 	}
 	w.isRunning = true
@@ -68,7 +68,7 @@ func (w *Worker) Start(ctx context.Context) {
 	ticker := time.NewTicker(w.config.PollInterval)
 	defer ticker.Stop()
 
-	w.logger.Info("worker started",
+	w.logger.InfoContext(ctx, "worker started",
 		"poll_interval", w.config.PollInterval,
 		"batch_size", w.config.BatchSize,
 		"concurrency", w.config.Concurrency,
@@ -78,9 +78,9 @@ func (w *Worker) Start(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			w.logger.Info("stopping worker...")
+			w.logger.InfoContext(ctx, "stopping worker...")
 			w.shutdown()
-			w.logger.Info("worker stopped")
+			w.logger.InfoContext(ctx, "worker stopped")
 			return
 
 		case <-ticker.C:
@@ -132,7 +132,7 @@ func (w *Worker) processBatch(ctx context.Context) {
 		return
 	}
 
-	w.logger.Debug("processing batch", "count", len(events))
+	w.logger.DebugContext(ctx, "processing batch", "count", len(events))
 
 	sem := make(chan struct{}, w.config.Concurrency)
 	var wg sync.WaitGroup
@@ -194,36 +194,36 @@ func (w *Worker) handleEvent(ctx context.Context, ev outbox.OutboxEvent) {
 	defer cancelWrite()
 
 	if err != nil {
-		logger.Error("event processing failed", "error", err)
+		logger.ErrorContext(ctx, "event processing failed", "error", err)
 
 		// attempts already incremented
 		if ev.Attempts >= w.config.MaxRetries {
-			logger.Warn("max retries reached, marking as failed")
+			logger.WarnContext(ctx, "max retries reached, marking as failed")
 
 			failErr := fmt.Errorf("max retries (%d) reached: %w", w.config.MaxRetries, err)
 			if markErr := w.repo.MarkFailed(writeCtx, ev.ID, failErr.Error()); markErr != nil {
-				logger.Error("CRITICAL: failed to mark event as failed", "error", markErr)
+				logger.ErrorContext(ctx, "CRITICAL: failed to mark event as failed", "error", markErr)
 			}
 			return
 		}
 
 		backoff := computeBackoff(ev.Attempts)
-		logger.Info("releasing event for retry", "backoff", backoff)
+		logger.InfoContext(ctx, "releasing event for retry", "backoff", backoff)
 
 		if releaseErr := w.repo.ReleaseForRetry(
 			writeCtx, ev.ID, err.Error(), backoff,
 		); releaseErr != nil {
-			logger.Error("CRITICAL: failed to release event for retry", "error", releaseErr)
+			logger.ErrorContext(ctx, "CRITICAL: failed to release event for retry", "error", releaseErr)
 		}
 		return
 	}
 
 	if err := w.repo.MarkProcessed(writeCtx, ev.ID); err != nil {
-		logger.Error("failed to mark event as processed", "error", err)
+		logger.ErrorContext(ctx, "failed to mark event as processed", "error", err)
 		return
 	}
 
-	logger.Debug("event processed successfully")
+	logger.DebugContext(ctx, "event processed successfully")
 }
 
 // Records an event's outcome even after its 30s deadline has passed or the

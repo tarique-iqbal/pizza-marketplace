@@ -25,8 +25,10 @@ func (h *WebhookHandler) HandleMollie(c *gin.Context) {
 		return
 	}
 
-	if err := h.handleMollieWebhook.Execute(c.Request.Context(), id); err != nil {
-		logobs.FromContext(c.Request.Context()).Error(
+	ctx := c.Request.Context()
+
+	if err := h.handleMollieWebhook.Execute(ctx, id); err != nil {
+		logobs.FromContext(ctx).ErrorContext(ctx,
 			"failed to handle mollie webhook",
 			"gateway_payment_id", id,
 			"error", err,
