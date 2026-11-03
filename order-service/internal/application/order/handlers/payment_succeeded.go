@@ -65,7 +65,7 @@ func (h *PaymentSucceededHandler) Handle(evt readmodel.EventPayload) error {
 
 		if err := ord.Confirm(); err != nil {
 			if errors.Is(err, order.ErrInvalidStatusTransition) {
-				logobs.FromContext(ctx).Warn(
+				logobs.FromContext(ctx).WarnContext(ctx,
 					"payment.succeeded no-op, order already confirmed or terminal",
 					"order_id", ord.ID,
 				)

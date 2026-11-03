@@ -69,7 +69,10 @@ func (cmd *Cancel) Execute(
 	// Best-effort: the order stays cancelled even if the gateway cancel call fails.
 	if ord.PaymentID != nil {
 		if err := cmd.paymentProvider.CancelPayment(ctx, *ord.PaymentID); err != nil {
-			logobs.FromContext(ctx).Warn("failed to cancel payment", "order_id", ord.ID, "error", err)
+			logobs.FromContext(ctx).WarnContext(ctx, "failed to cancel payment",
+				"order_id", ord.ID,
+				"error", err,
+			)
 		}
 	}
 

@@ -145,7 +145,7 @@ func (c *RabbitMQConsumer) GetMessages(ctx context.Context) (<-chan amqp.Deliver
 
 func (c *RabbitMQConsumer) ensureConnected(ctx context.Context) error {
 	if c.conn == nil || c.conn.IsClosed() || c.channel == nil || c.channel.IsClosed() {
-		logobs.FromContext(ctx).Warn("reconnecting to RabbitMQ...")
+		logobs.FromContext(ctx).WarnContext(ctx, "reconnecting to RabbitMQ...")
 		return c.connect()
 	}
 
@@ -161,7 +161,7 @@ func Run(ctx context.Context, source messageSource, dispatcher readmodel.EventDi
 			return nil
 		}
 
-		logobs.FromContext(ctx).Warn("consumer connection lost, reconnecting", "error", err)
+		logobs.FromContext(ctx).WarnContext(ctx, "consumer connection lost, reconnecting", "error", err)
 
 		select {
 		case <-ctx.Done():
@@ -194,7 +194,7 @@ func runOnce(ctx context.Context, source messageSource, dispatcher readmodel.Eve
 			if err := dispatcher.Dispatch(event); err != nil {
 				retryCount := getRetryCount(msg.Headers)
 				if retryCount >= MaxRetryAttempts {
-					logobs.FromContext(ctx).Warn(
+					logobs.FromContext(ctx).WarnContext(ctx,
 						"message exceeded retry limit",
 						"message_id", msg.MessageId,
 						"retry_count", retryCount,
@@ -206,7 +206,7 @@ func runOnce(ctx context.Context, source messageSource, dispatcher readmodel.Eve
 				time.Sleep(time.Second * time.Duration(retryCount+1))
 
 				if err := source.Republish(ctx, msg, retryCount+1); err != nil {
-					logobs.FromContext(ctx).Warn("failed to republish for retry", "error", err)
+					logobs.FromContext(ctx).WarnContext(ctx, "failed to republish for retry", "error", err)
 					_ = msg.Nack(false, true)
 					continue
 				}

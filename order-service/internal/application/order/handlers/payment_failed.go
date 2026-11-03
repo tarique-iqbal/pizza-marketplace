@@ -44,7 +44,7 @@ func (h *PaymentFailedHandler) Handle(evt readmodel.EventPayload) error {
 
 		if err := ord.Cancel(); err != nil {
 			if errors.Is(err, order.ErrInvalidStatusTransition) {
-				logobs.FromContext(ctx).Warn(
+				logobs.FromContext(ctx).WarnContext(ctx,
 					"payment.failed no-op, order already cancelled or terminal",
 					"order_id", ord.ID,
 				)
