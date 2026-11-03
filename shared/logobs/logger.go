@@ -29,7 +29,7 @@ func NewLogger(serviceName string) *slog.Logger {
 	}
 
 	handler := slog.NewMultiHandler(
-		stdout,
+		newTraceHandler(stdout),
 		&levelHandler{Handler: otelslog.NewHandler(scopeName), level: level},
 	)
 

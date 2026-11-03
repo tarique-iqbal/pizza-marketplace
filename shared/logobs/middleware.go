@@ -31,7 +31,7 @@ func Middleware(base *slog.Logger) gin.HandlerFunc {
 
 		c.Next()
 
-		FromContext(ctx).Info(
+		FromContext(ctx).InfoContext(ctx,
 			"http request completed",
 			"status", c.Writer.Status(),
 			"duration", time.Since(start),
