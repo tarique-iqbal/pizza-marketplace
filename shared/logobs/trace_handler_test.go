@@ -1,4 +1,4 @@
-package telemetry
+package logobs
 
 import (
 	"bytes"
@@ -10,9 +10,9 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func TestSlogHandler_AddsTraceAndSpanID(t *testing.T) {
+func TestTraceHandler_AddsTraceAndSpanID(t *testing.T) {
 	var buf bytes.Buffer
-	handler := NewSlogHandler(slog.NewJSONHandler(&buf, nil))
+	handler := newTraceHandler(slog.NewJSONHandler(&buf, nil))
 	logger := slog.New(handler)
 
 	sc := trace.NewSpanContext(trace.SpanContextConfig{
@@ -38,9 +38,9 @@ func TestSlogHandler_AddsTraceAndSpanID(t *testing.T) {
 	}
 }
 
-func TestSlogHandler_NoSpanInContext(t *testing.T) {
+func TestTraceHandler_NoSpanInContext(t *testing.T) {
 	var buf bytes.Buffer
-	logger := slog.New(NewSlogHandler(slog.NewJSONHandler(&buf, nil)))
+	logger := slog.New(newTraceHandler(slog.NewJSONHandler(&buf, nil)))
 
 	logger.InfoContext(context.Background(), "no span here")
 
@@ -54,9 +54,9 @@ func TestSlogHandler_NoSpanInContext(t *testing.T) {
 	}
 }
 
-func TestSlogHandler_WithAttrsPreservesInjection(t *testing.T) {
+func TestTraceHandler_WithAttrsPreservesInjection(t *testing.T) {
 	var buf bytes.Buffer
-	logger := slog.New(NewSlogHandler(slog.NewJSONHandler(&buf, nil))).With("service", "test")
+	logger := slog.New(newTraceHandler(slog.NewJSONHandler(&buf, nil))).With("service", "test")
 
 	sc := trace.NewSpanContext(trace.SpanContextConfig{
 		TraceID:    trace.TraceID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
