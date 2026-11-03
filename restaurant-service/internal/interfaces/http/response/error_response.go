@@ -38,7 +38,8 @@ func HandleError(ctx *gin.Context, err error) {
 		ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 
 	default:
-		logobs.FromContext(ctx.Request.Context()).Error("unhandled error", "error", err)
+		reqCtx := ctx.Request.Context()
+		logobs.FromContext(reqCtx).ErrorContext(reqCtx, "unhandled error", "error", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 	}
 }
