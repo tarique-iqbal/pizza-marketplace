@@ -80,7 +80,7 @@ func (p *RabbitMQPublisher) ensureConnected(ctx context.Context) error {
 		return nil
 	}
 
-	logobs.FromContext(ctx).Warn("reconnecting to RabbitMQ...")
+	logobs.FromContext(ctx).WarnContext(ctx, "reconnecting to RabbitMQ...")
 
 	return p.connect()
 }
@@ -143,7 +143,7 @@ func (p *RabbitMQPublisher) publishLocked(ctx context.Context, routingKey string
 			},
 		},
 	); err != nil {
-		logobs.FromContext(ctx).Warn(
+		logobs.FromContext(ctx).WarnContext(ctx,
 			"failed to publish message",
 			"error", err,
 			"payload", string(payload),

@@ -27,8 +27,8 @@ func main() {
 
 	runErr := bootstrap.NewApp(logger).Run()
 
-	ctx, cancel := context.WithTimeout(context.Background(), telemetryFlushTimeout)
-	_ = shutdown(ctx)
+	flushCtx, cancel := context.WithTimeout(context.Background(), telemetryFlushTimeout)
+	_ = shutdown(flushCtx)
 	cancel()
 
 	if runErr != nil {

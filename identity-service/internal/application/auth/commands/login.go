@@ -81,7 +81,7 @@ func (cmd *Login) Execute(
 	usr.LoggedAt = &loggedAt
 
 	if err := cmd.userRepo.Update(ctx, usr); err != nil {
-		logobs.FromContext(ctx).Warn("failed to update user's last login", "error", err)
+		logobs.FromContext(ctx).WarnContext(ctx, "failed to update user's last login", "error", err)
 	}
 
 	return authapp.TokenResponse{
