@@ -9,7 +9,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"pizza-marketplace/shared/telemetry"
+	"pizza-marketplace/shared/telemetry/otelgorm"
 )
 
 type Postgres struct {
@@ -45,7 +45,7 @@ func NewDB() (*Postgres, error) {
 		return nil, fmt.Errorf("db: open connection: %w", err)
 	}
 
-	if err := db.Use(telemetry.GormPlugin()); err != nil {
+	if err := db.Use(otelgorm.Plugin()); err != nil {
 		return nil, fmt.Errorf("db: register telemetry plugin: %w", err)
 	}
 

@@ -1,4 +1,4 @@
-package telemetry
+package otelamqp
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func TestAMQPHeaderCarrier_RoundTripsTraceContext(t *testing.T) {
+func TestHeaderCarrier_RoundTripsTraceContext(t *testing.T) {
 	sc := trace.NewSpanContext(trace.SpanContextConfig{
 		TraceID:    trace.TraceID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
 		SpanID:     trace.SpanID{1, 2, 3, 4, 5, 6, 7, 8},
@@ -19,7 +19,7 @@ func TestAMQPHeaderCarrier_RoundTripsTraceContext(t *testing.T) {
 
 	propagator := propagation.TraceContext{}
 
-	headers := AMQPHeaderCarrier(amqp.Table{})
+	headers := HeaderCarrier(amqp.Table{})
 	propagator.Inject(ctx, headers)
 
 	if headers.Get("traceparent") == "" {
@@ -38,8 +38,8 @@ func TestAMQPHeaderCarrier_RoundTripsTraceContext(t *testing.T) {
 	}
 }
 
-func TestAMQPHeaderCarrier_Keys(t *testing.T) {
-	headers := AMQPHeaderCarrier(amqp.Table{"a": "1", "b": "2"})
+func TestHeaderCarrier_Keys(t *testing.T) {
+	headers := HeaderCarrier(amqp.Table{"a": "1", "b": "2"})
 
 	keys := headers.Keys()
 	if len(keys) != 2 {
@@ -47,8 +47,8 @@ func TestAMQPHeaderCarrier_Keys(t *testing.T) {
 	}
 }
 
-func TestAMQPHeaderCarrier_GetMissingKey(t *testing.T) {
-	headers := AMQPHeaderCarrier(amqp.Table{})
+func TestHeaderCarrier_GetMissingKey(t *testing.T) {
+	headers := HeaderCarrier(amqp.Table{})
 
 	if got := headers.Get("missing"); got != "" {
 		t.Fatalf("expected empty string for missing key, got %q", got)

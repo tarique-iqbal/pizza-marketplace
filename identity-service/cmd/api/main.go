@@ -11,6 +11,7 @@ import (
 
 	"pizza-marketplace/shared/logobs"
 	"pizza-marketplace/shared/telemetry"
+	"pizza-marketplace/shared/telemetry/otelgin"
 )
 
 const (
@@ -36,7 +37,7 @@ func main() {
 	defer app.Close()
 
 	router := gin.New()
-	router.Use(gin.Recovery(), telemetry.GinMiddleware(serviceName), logobs.Middleware(logger))
+	router.Use(gin.Recovery(), otelgin.Middleware(serviceName), logobs.Middleware(logger))
 
 	handlers := &routes.Handlers{
 		UserHandler:   app.UserHandler,
