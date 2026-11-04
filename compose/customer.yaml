@@ -62,7 +62,6 @@ services:
       - "traefik.http.routers.customer.entrypoints=web"
       - "traefik.http.routers.customer.middlewares=jwt@docker"
       - "traefik.http.services.customer.loadbalancer.server.port=8080"
-      - "traefik.docker.network=backend"
     networks:
       - backend
       - internal

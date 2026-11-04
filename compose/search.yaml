@@ -41,7 +41,6 @@ services:
       - "traefik.http.routers.search.rule=PathPrefix(`/search`)"
       - "traefik.http.routers.search.entrypoints=web"
       - "traefik.http.services.search.loadbalancer.server.port=8080"
-      - "traefik.docker.network=backend"
     networks:
       - backend
       - internal

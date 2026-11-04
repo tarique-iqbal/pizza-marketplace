@@ -87,7 +87,6 @@ services:
       - "traefik.http.middlewares.jwt.forwardauth.address=http://identity-service:8080/auth/verify"
       - "traefik.http.middlewares.jwt.forwardauth.authRequestHeaders=Authorization"
       - "traefik.http.middlewares.jwt.forwardauth.authResponseHeaders=X-User-ID,X-User-Role"
-      - "traefik.docker.network=backend"
     networks:
       - backend
       - internal

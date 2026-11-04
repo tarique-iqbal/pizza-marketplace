@@ -61,7 +61,6 @@ services:
       - "traefik.http.routers.payment.rule=PathPrefix(`/webhooks/mollie`)"
       - "traefik.http.routers.payment.entrypoints=web"
       - "traefik.http.services.payment.loadbalancer.server.port=8080"
-      - "traefik.docker.network=backend"
     networks:
       - backend
       - internal

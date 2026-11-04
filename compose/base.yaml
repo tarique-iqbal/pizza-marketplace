@@ -7,6 +7,7 @@ services:
       - "--api.insecure=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=pizza-marketplace_backend"
       - "--entrypoints.web.address=:80"
       - "--tracing.otlp.http.endpoint=http://otel-collector:4318/v1/traces"
       - "--metrics.otlp.http.endpoint=http://otel-collector:4318/v1/metrics"
