@@ -1,6 +1,7 @@
 package notification_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -16,7 +17,7 @@ type mockHandler struct {
 	Err    error
 }
 
-func (m *mockHandler) Handle(event notification.EventPayload) error {
+func (m *mockHandler) Handle(ctx context.Context, event notification.EventPayload) error {
 	m.Called = true
 	m.Passed = event
 	return m.Err
@@ -29,7 +30,7 @@ func TestDispatch_CallsRegisteredHandler(t *testing.T) {
 	dispatcher.Register("user.registered", mock)
 
 	event := notification.EventPayload{Name: "user.registered", Data: []byte(`{}`)}
-	err := dispatcher.Dispatch(event)
+	err := dispatcher.Dispatch(context.Background(), event)
 
 	assert.NoError(t, err)
 	assert.True(t, mock.Called)
@@ -40,7 +41,7 @@ func TestDispatch_NoHandler(t *testing.T) {
 	dispatcher := notifapp.NewEventDispatcher()
 
 	event := notification.EventPayload{Name: "user.unknown", Data: []byte(`{}`)}
-	err := dispatcher.Dispatch(event)
+	err := dispatcher.Dispatch(context.Background(), event)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no handler registered for event: user.unknown")
@@ -53,7 +54,7 @@ func TestDispatch_HandlerReturnsError(t *testing.T) {
 	dispatcher.Register("user.registered", mock)
 
 	event := notification.EventPayload{Name: "user.registered", Data: []byte(`{}`)}
-	err := dispatcher.Dispatch(event)
+	err := dispatcher.Dispatch(context.Background(), event)
 
 	assert.Error(t, err)
 	assert.Equal(t, "handler error", err.Error())

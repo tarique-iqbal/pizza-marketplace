@@ -1,6 +1,7 @@
 package notification
 
 import (
+	"context"
 	"encoding/json"
 	"notification-service/internal/domain/notification"
 	"os"
@@ -15,7 +16,7 @@ func NewEmailVerificationCreated(sender notification.Sender, template notificati
 	return &EmailVerificationCreated{sender: sender, template: template}
 }
 
-func (h *EmailVerificationCreated) Handle(event notification.EventPayload) error {
+func (h *EmailVerificationCreated) Handle(ctx context.Context, event notification.EventPayload) error {
 	var payload struct {
 		Email string `json:"email"`
 		Code  string `json:"code"`

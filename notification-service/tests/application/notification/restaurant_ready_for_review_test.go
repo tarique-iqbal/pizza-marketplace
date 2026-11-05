@@ -1,6 +1,7 @@
 package notification_test
 
 import (
+	"context"
 	"errors"
 	"os"
 	"testing"
@@ -49,7 +50,7 @@ func TestRestaurantReadyForReview_Handle_Success(t *testing.T) {
 		}`),
 	}
 
-	err := handler.Handle(event)
+	err := handler.Handle(context.Background(), event)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "admin@mock.com", sender.To)
@@ -69,7 +70,7 @@ func TestRestaurantReadyForReview_Handle_InvalidJSON(t *testing.T) {
 		Data: []byte(`{invalid}`),
 	}
 
-	err := handler.Handle(event)
+	err := handler.Handle(context.Background(), event)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid character")
@@ -89,7 +90,7 @@ func TestRestaurantReadyForReview_Handle_TemplateRenderFails(t *testing.T) {
 		}`),
 	}
 
-	err := handler.Handle(event)
+	err := handler.Handle(context.Background(), event)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "template rendering failed")
@@ -109,7 +110,7 @@ func TestRestaurantReadyForReview_Handle_EmailSendFails(t *testing.T) {
 		}`),
 	}
 
-	err := handler.Handle(event)
+	err := handler.Handle(context.Background(), event)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "smtp error")

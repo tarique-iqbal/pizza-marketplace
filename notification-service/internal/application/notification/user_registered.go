@@ -1,6 +1,7 @@
 package notification
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"notification-service/internal/domain/notification"
@@ -21,7 +22,7 @@ func NewUserRegistered(sender notification.Sender, template notification.Templat
 	return &UserRegistered{sender: sender, template: template}
 }
 
-func (h *UserRegistered) Handle(event notification.EventPayload) error {
+func (h *UserRegistered) Handle(ctx context.Context, event notification.EventPayload) error {
 	var payload struct {
 		Email     string `json:"email"`
 		FirstName string `json:"first_name"`

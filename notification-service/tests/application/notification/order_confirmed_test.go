@@ -1,6 +1,7 @@
 package notification_test
 
 import (
+	"context"
 	"errors"
 	"os"
 	"testing"
@@ -75,7 +76,7 @@ func TestOrderConfirmed_Handle_SendsCustomerAndOwnerEmails(t *testing.T) {
 
 	event := notification.EventPayload{Name: "order.confirmed", Data: []byte(orderConfirmedEventJSON)}
 
-	err := handler.Handle(event)
+	err := handler.Handle(context.Background(), event)
 	require.NoError(t, err)
 
 	require.Len(t, sender.messages, 2)
@@ -96,7 +97,7 @@ func TestOrderConfirmed_Handle_InvalidJSON(t *testing.T) {
 
 	event := notification.EventPayload{Name: "order.confirmed", Data: []byte(`{invalid}`)}
 
-	err := handler.Handle(event)
+	err := handler.Handle(context.Background(), event)
 
 	assert.Error(t, err)
 	assert.Empty(t, sender.messages)
@@ -109,7 +110,7 @@ func TestOrderConfirmed_Handle_TemplateRenderFails(t *testing.T) {
 
 	event := notification.EventPayload{Name: "order.confirmed", Data: []byte(orderConfirmedEventJSON)}
 
-	err := handler.Handle(event)
+	err := handler.Handle(context.Background(), event)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "template rendering failed")
@@ -122,7 +123,7 @@ func TestOrderConfirmed_Handle_EmailSendFails(t *testing.T) {
 
 	event := notification.EventPayload{Name: "order.confirmed", Data: []byte(orderConfirmedEventJSON)}
 
-	err := handler.Handle(event)
+	err := handler.Handle(context.Background(), event)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "smtp error")

@@ -1,6 +1,7 @@
 package notification
 
 import (
+	"context"
 	"encoding/json"
 	"notification-service/internal/domain/notification"
 	"os"
@@ -20,7 +21,7 @@ func NewRestaurantApproved(
 	return &RestaurantApproved{sender: sender, template: template}
 }
 
-func (h *RestaurantApproved) Handle(event notification.EventPayload) error {
+func (h *RestaurantApproved) Handle(ctx context.Context, event notification.EventPayload) error {
 	var payload struct {
 		RestaurantID   string    `json:"restaurant_id"`
 		RestaurantName string    `json:"restaurant_name"`
