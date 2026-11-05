@@ -8,6 +8,7 @@ CREATE TABLE outbox_events (
     locked_until     TIMESTAMPTZ,
     next_attempt_at  TIMESTAMPTZ,
     last_error       TEXT,
+    trace_context    VARCHAR(128),
     created_at       TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     processed_at     TIMESTAMPTZ,
     CONSTRAINT outbox_events_status_check

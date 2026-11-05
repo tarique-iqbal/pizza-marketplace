@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
 
 	"payment-service/internal/domain/outbox"
@@ -53,6 +54,38 @@ func TestOutboxRepository_Create(t *testing.T) {
 
 	assert.Equal(t, outbox.StatusPending, found.Status)
 	assert.NotZero(t, found.CreatedAt)
+}
+
+func TestOutboxRepository_Create_StoresTraceContext(t *testing.T) {
+	db := testutil.DB(t)
+	repo := setupOutboxRepo(t)
+
+	sc := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    trace.TraceID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+		SpanID:     trace.SpanID{1, 2, 3, 4, 5, 6, 7, 8},
+		TraceFlags: trace.FlagsSampled,
+	})
+	ctx := trace.ContextWithSpanContext(context.Background(), sc)
+
+	event := outbox.NewOutboxEvent(testutil.MustNewID(), "payment.succeeded", []byte(`{}`))
+	require.NoError(t, repo.Create(ctx, &event))
+
+	var found outbox.OutboxEvent
+	require.NoError(t, db.DB.First(&found, event.ID).Error)
+	require.NotNil(t, found.TraceContext)
+	assert.Equal(t, "00-"+sc.TraceID().String()+"-"+sc.SpanID().String()+"-01", *found.TraceContext)
+}
+
+func TestOutboxRepository_Create_WithoutSpan_LeavesTraceContextNil(t *testing.T) {
+	db := testutil.DB(t)
+	repo := setupOutboxRepo(t)
+
+	event := outbox.NewOutboxEvent(testutil.MustNewID(), "payment.succeeded", []byte(`{}`))
+	require.NoError(t, repo.Create(context.Background(), &event))
+
+	var found outbox.OutboxEvent
+	require.NoError(t, db.DB.First(&found, event.ID).Error)
+	assert.Nil(t, found.TraceContext)
 }
 
 func TestOutboxRepository_FetchAndMarkProcessing(t *testing.T) {

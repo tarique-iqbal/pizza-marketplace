@@ -8,6 +8,8 @@ import (
 	"gorm.io/gorm"
 
 	"payment-service/internal/domain/outbox"
+
+	"pizza-marketplace/shared/telemetry"
 )
 
 type OutboxRepository struct {
@@ -23,6 +25,10 @@ func (r *OutboxRepository) WithTx(tx *gorm.DB) outbox.OutboxRepository {
 }
 
 func (r *OutboxRepository) Create(ctx context.Context, e *outbox.OutboxEvent) error {
+	if traceParent := telemetry.TraceParent(ctx); traceParent != "" {
+		e.TraceContext = &traceParent
+	}
+
 	return r.db.WithContext(ctx).Create(e).Error
 }
 
