@@ -10,6 +10,8 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 
 	"pizza-marketplace/shared/logobs"
+	"pizza-marketplace/shared/telemetry"
+	"pizza-marketplace/shared/telemetry/otelamqp"
 )
 
 const exchangeName = "identity.events"
@@ -121,7 +123,16 @@ func (p *RabbitMQPublisher) Publish(
 
 // publishLocked always runs under p.mu to completion, deliberately ignoring ctx
 // cancellation for its own blocking calls. See the comment in Publish for why.
-func (p *RabbitMQPublisher) publishLocked(ctx context.Context, routingKey string, payload []byte) error {
+func (p *RabbitMQPublisher) publishLocked(
+	ctx context.Context,
+	routingKey string,
+	payload []byte,
+) (err error) {
+	headers := amqp.Table{"x-event-name": routingKey}
+
+	ctx, span := otelamqp.StartPublish(ctx, exchangeName, routingKey, headers)
+	defer func() { telemetry.EndSpan(span, err) }()
+
 	if err := p.ensureConnected(ctx); err != nil {
 		return fmt.Errorf("ensure rabbitmq connection: %w", err)
 	}
@@ -138,9 +149,7 @@ func (p *RabbitMQPublisher) publishLocked(ctx context.Context, routingKey string
 			MessageId:    uuid.NewString(),
 			Timestamp:    time.Now().UTC(),
 			Type:         routingKey,
-			Headers: amqp.Table{
-				"x-event-name": routingKey,
-			},
+			Headers:      headers,
 		},
 	); err != nil {
 		logobs.FromContext(ctx).WarnContext(ctx,
