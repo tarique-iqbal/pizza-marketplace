@@ -44,10 +44,10 @@ type Message struct {
 }
 type Sender interface          { Send(msg Message) error }
 type TemplateLoader interface  { Render(name string, data any) (string, error) }
-type EventHandler interface    { Handle(event EventPayload) error }
+type EventHandler interface    { Handle(ctx context.Context, event EventPayload) error }
 type EventDispatcher interface {
     Register(eventName string, handler EventHandler)
-    Dispatch(event EventPayload) error
+    Dispatch(ctx context.Context, event EventPayload) error
 }
 ```
 
