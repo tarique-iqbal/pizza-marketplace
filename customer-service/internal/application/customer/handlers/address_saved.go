@@ -28,13 +28,11 @@ func NewAddressSaved(addressRepo customer.AddressRepository) *AddressSaved {
 	return &AddressSaved{addressRepo: addressRepo}
 }
 
-func (h *AddressSaved) Handle(event customer.EventPayload) error {
+func (h *AddressSaved) Handle(ctx context.Context, event customer.EventPayload) error {
 	var payload addressSavedPayload
 	if err := json.Unmarshal(event.Data, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal %s payload: %w", event.Name, err)
 	}
-
-	ctx := context.Background()
 
 	exists, err := h.addressRepo.ExistsForCustomer(
 		ctx, payload.CustomerID, payload.House, payload.Street, payload.City, payload.PostalCode,

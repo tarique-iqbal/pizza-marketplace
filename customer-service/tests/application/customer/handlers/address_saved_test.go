@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -31,7 +32,7 @@ func TestAddressSaved_Handle_NoExistingAddresses_CreatesAsDefault(t *testing.T) 
 	addressRepo := &testutil.MockAddressRepository{}
 	h := apphandlers.NewAddressSaved(addressRepo)
 
-	err := h.Handle(newAddressSavedPayload(t))
+	err := h.Handle(context.Background(), newAddressSavedPayload(t))
 
 	require.NoError(t, err)
 	require.Len(t, addressRepo.Created, 1)
@@ -45,7 +46,7 @@ func TestAddressSaved_Handle_ExistingAddresses_CreatesAsNonDefault(t *testing.T)
 	}
 	h := apphandlers.NewAddressSaved(addressRepo)
 
-	err := h.Handle(newAddressSavedPayload(t))
+	err := h.Handle(context.Background(), newAddressSavedPayload(t))
 
 	require.NoError(t, err)
 	require.Len(t, addressRepo.Created, 1)
@@ -56,7 +57,7 @@ func TestAddressSaved_Handle_AlreadyExists_NoOp(t *testing.T) {
 	addressRepo := &testutil.MockAddressRepository{ExistsResult: true}
 	h := apphandlers.NewAddressSaved(addressRepo)
 
-	err := h.Handle(newAddressSavedPayload(t))
+	err := h.Handle(context.Background(), newAddressSavedPayload(t))
 
 	require.NoError(t, err)
 	assert.Empty(t, addressRepo.Created)
@@ -66,7 +67,7 @@ func TestAddressSaved_Handle_PropagatesExistsError(t *testing.T) {
 	addressRepo := &testutil.MockAddressRepository{ExistsErr: assert.AnError}
 	h := apphandlers.NewAddressSaved(addressRepo)
 
-	err := h.Handle(newAddressSavedPayload(t))
+	err := h.Handle(context.Background(), newAddressSavedPayload(t))
 
 	assert.ErrorIs(t, err, assert.AnError)
 }
@@ -75,7 +76,7 @@ func TestAddressSaved_Handle_PropagatesListError(t *testing.T) {
 	addressRepo := &testutil.MockAddressRepository{ListByCustomerErr: assert.AnError}
 	h := apphandlers.NewAddressSaved(addressRepo)
 
-	err := h.Handle(newAddressSavedPayload(t))
+	err := h.Handle(context.Background(), newAddressSavedPayload(t))
 
 	assert.ErrorIs(t, err, assert.AnError)
 }
@@ -84,7 +85,7 @@ func TestAddressSaved_Handle_PropagatesCreateError(t *testing.T) {
 	addressRepo := &testutil.MockAddressRepository{CreateErr: assert.AnError}
 	h := apphandlers.NewAddressSaved(addressRepo)
 
-	err := h.Handle(newAddressSavedPayload(t))
+	err := h.Handle(context.Background(), newAddressSavedPayload(t))
 
 	assert.ErrorIs(t, err, assert.AnError)
 }

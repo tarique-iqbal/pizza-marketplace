@@ -27,7 +27,7 @@ func NewUserRegistered(customerRepo customer.CustomerRepository) *UserRegistered
 }
 
 // Handle stores every registered user, regardless of role: an owner can place orders too.
-func (h *UserRegistered) Handle(event customer.EventPayload) error {
+func (h *UserRegistered) Handle(ctx context.Context, event customer.EventPayload) error {
 	var payload userRegisteredPayload
 	if err := json.Unmarshal(event.Data, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal %s payload: %w", event.Name, err)
@@ -40,7 +40,7 @@ func (h *UserRegistered) Handle(event customer.EventPayload) error {
 		LastName:  payload.LastName,
 	}
 
-	if err := h.customerRepo.Upsert(context.Background(), c); err != nil {
+	if err := h.customerRepo.Upsert(ctx, c); err != nil {
 		return fmt.Errorf("failed to upsert customer: %w", err)
 	}
 

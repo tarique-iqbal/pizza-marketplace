@@ -1,6 +1,7 @@
 package customer
 
 import (
+	"context"
 	"fmt"
 
 	"customer-service/internal/domain/customer"
@@ -20,11 +21,11 @@ func (d *EventDispatcher) Register(eventName string, handler customer.EventHandl
 	d.handlers[eventName] = handler
 }
 
-func (d *EventDispatcher) Dispatch(event customer.EventPayload) error {
+func (d *EventDispatcher) Dispatch(ctx context.Context, event customer.EventPayload) error {
 	handler, ok := d.handlers[event.Name]
 	if !ok {
 		return fmt.Errorf("no handler registered for event: %s", event.Name)
 	}
 
-	return handler.Handle(event)
+	return handler.Handle(ctx, event)
 }

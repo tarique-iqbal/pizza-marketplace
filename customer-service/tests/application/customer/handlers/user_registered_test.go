@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -30,7 +31,7 @@ func TestUserRegistered_Handle_UpsertsCustomer(t *testing.T) {
 	customerRepo := &testutil.MockCustomerRepository{}
 	h := apphandlers.NewUserRegistered(customerRepo)
 
-	err := h.Handle(newUserRegisteredPayload(t))
+	err := h.Handle(context.Background(), newUserRegisteredPayload(t))
 
 	require.NoError(t, err)
 	require.Len(t, customerRepo.Upserted, 1)
@@ -43,7 +44,7 @@ func TestUserRegistered_Handle_PropagatesUpsertError(t *testing.T) {
 	customerRepo := &testutil.MockCustomerRepository{UpsertErr: assert.AnError}
 	h := apphandlers.NewUserRegistered(customerRepo)
 
-	err := h.Handle(newUserRegisteredPayload(t))
+	err := h.Handle(context.Background(), newUserRegisteredPayload(t))
 
 	assert.ErrorIs(t, err, assert.AnError)
 }
