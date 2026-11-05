@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"payment-service/internal/domain/outbox"
+
+	"pizza-marketplace/shared/telemetry"
 )
 
 type WorkerConfig struct {
@@ -119,7 +121,7 @@ func (w *Worker) processBatch(ctx context.Context) {
 		return
 	}
 
-	events, err := w.repo.FetchAndMarkProcessing(ctx, w.config.BatchSize)
+	events, err := w.repo.FetchAndMarkProcessing(telemetry.WithoutTracing(ctx), w.config.BatchSize)
 	if err != nil {
 		if ctx.Err() != nil {
 			return
@@ -168,7 +170,8 @@ func (w *Worker) releaseUnprocessed(ctx context.Context, events []outbox.OutboxE
 	defer cancel()
 
 	for _, ev := range events {
-		if err := w.repo.ReleaseForRetry(releaseCtx, ev.ID, "worker shutdown", 0); err != nil {
+		err := w.repo.ReleaseForRetry(eventContext(releaseCtx, ev), ev.ID, "worker shutdown", 0)
+		if err != nil {
 			w.logger.ErrorContext(releaseCtx, "failed to release event",
 				"event_id", ev.ID,
 				"error", err,
@@ -178,6 +181,8 @@ func (w *Worker) releaseUnprocessed(ctx context.Context, events []outbox.OutboxE
 }
 
 func (w *Worker) handleEvent(ctx context.Context, ev outbox.OutboxEvent) {
+	ctx = eventContext(ctx, ev)
+
 	eventCtx, cancel := context.WithTimeout(ctx, w.config.EventTimeout)
 	defer cancel()
 
@@ -224,6 +229,14 @@ func (w *Worker) handleEvent(ctx context.Context, ev outbox.OutboxEvent) {
 	}
 
 	logger.DebugContext(ctx, "event processed successfully")
+}
+
+func eventContext(ctx context.Context, ev outbox.OutboxEvent) context.Context {
+	if ev.TraceContext == nil {
+		return ctx
+	}
+
+	return telemetry.WithTraceParent(ctx, *ev.TraceContext)
 }
 
 // Records an event's outcome even after its 30s deadline has passed or the
