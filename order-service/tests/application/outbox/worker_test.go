@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
 
 	outboxapp "order-service/internal/application/outbox"
@@ -439,4 +440,158 @@ func TestWorker_Start_ExpiredEventContext_StillRecordsSuccess(t *testing.T) {
 		return assertAllProcessed(t, events)
 	}, 10*time.Second, 200*time.Millisecond,
 		"success must be recorded even though the event context expired")
+}
+
+func TestWorker_Start_RelayRunsUnderEventTraceContext(t *testing.T) {
+	testDB := newEmptyTestDB(t)
+
+	sc := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    trace.TraceID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+		SpanID:     trace.SpanID{1, 2, 3, 4, 5, 6, 7, 8},
+		TraceFlags: trace.FlagsSampled,
+	})
+	requestCtx := trace.ContextWithSpanContext(context.Background(), sc)
+
+	event := outbox.NewOutboxEvent(testutil.MustNewID(), "order.confirmed", []byte(`{}`))
+	require.NoError(t, testDB.Repo.Create(requestCtx, &event))
+
+	seen := make(chan trace.SpanContext, 1)
+	relayer := &relayStub{fn: func(ctx context.Context, e outbox.OutboxEvent) error {
+		select {
+		case seen <- trace.SpanContextFromContext(ctx):
+		default:
+		}
+		return nil
+	}}
+
+	cancel := startWorker(t, testDB.Repo, relayer)
+	defer cancel()
+
+	select {
+	case got := <-seen:
+		require.Equal(t, sc.TraceID(), got.TraceID())
+		require.Equal(t, sc.SpanID(), got.SpanID())
+		require.True(t, got.IsRemote())
+	case <-time.After(5 * time.Second):
+		t.Fatal("relayer was never called")
+	}
+}
+
+type ctxRecordingRepo struct {
+	outbox.OutboxRepository
+
+	mu        sync.Mutex
+	fetched   []trace.SpanContext
+	processed []trace.SpanContext
+	released  []trace.SpanContext
+	failed    []trace.SpanContext
+}
+
+func (r *ctxRecordingRepo) record(into *[]trace.SpanContext, ctx context.Context) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	*into = append(*into, trace.SpanContextFromContext(ctx))
+}
+
+func (r *ctxRecordingRepo) snapshot(from *[]trace.SpanContext) []trace.SpanContext {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]trace.SpanContext(nil), *from...)
+}
+
+func (r *ctxRecordingRepo) FetchAndMarkProcessing(
+	ctx context.Context,
+	limit int,
+) ([]outbox.OutboxEvent, error) {
+	r.record(&r.fetched, ctx)
+	return r.OutboxRepository.FetchAndMarkProcessing(ctx, limit)
+}
+
+func (r *ctxRecordingRepo) MarkProcessed(ctx context.Context, id int64) error {
+	r.record(&r.processed, ctx)
+	return r.OutboxRepository.MarkProcessed(ctx, id)
+}
+
+func (r *ctxRecordingRepo) ReleaseForRetry(
+	ctx context.Context,
+	id int64,
+	errMsg string,
+	delay time.Duration,
+) error {
+	r.record(&r.released, ctx)
+	return r.OutboxRepository.ReleaseForRetry(ctx, id, errMsg, delay)
+}
+
+func (r *ctxRecordingRepo) MarkFailed(ctx context.Context, id int64, errMsg string) error {
+	r.record(&r.failed, ctx)
+	return r.OutboxRepository.MarkFailed(ctx, id, errMsg)
+}
+
+func createTracedEvent(t *testing.T, repo outbox.OutboxRepository) trace.SpanContext {
+	t.Helper()
+
+	sc := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    trace.TraceID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+		SpanID:     trace.SpanID{1, 2, 3, 4, 5, 6, 7, 8},
+		TraceFlags: trace.FlagsSampled,
+	})
+
+	event := outbox.NewOutboxEvent(testutil.MustNewID(), "order.confirmed", []byte(`{}`))
+	require.NoError(t, repo.Create(trace.ContextWithSpanContext(context.Background(), sc), &event))
+
+	return sc
+}
+
+func TestWorker_Start_PollUntracedAndMarkProcessedJoinsEventTrace(t *testing.T) {
+	testDB := newEmptyTestDB(t)
+	sc := createTracedEvent(t, testDB.Repo)
+	repo := &ctxRecordingRepo{OutboxRepository: testDB.Repo}
+
+	relayer := &relayStub{fn: func(ctx context.Context, e outbox.OutboxEvent) error {
+		return nil
+	}}
+
+	cancel := startWorker(t, repo, relayer)
+	defer cancel()
+
+	require.Eventually(t, func() bool {
+		return len(repo.snapshot(&repo.processed)) == 1
+	}, 5*time.Second, 50*time.Millisecond, "event should be marked processed")
+
+	processed := repo.snapshot(&repo.processed)[0]
+	require.Equal(t, sc.TraceID(), processed.TraceID())
+	require.Equal(t, sc.SpanID(), processed.SpanID())
+
+	fetched := repo.snapshot(&repo.fetched)
+	require.NotEmpty(t, fetched)
+	for _, poll := range fetched {
+		require.True(t, poll.IsValid(), "poll context should carry a span context")
+		require.False(t, poll.IsSampled(), "poll context should be unsampled")
+		require.NotEqual(t, sc.TraceID(), poll.TraceID())
+	}
+}
+
+func TestWorker_Start_RetryAndFailureJoinEventTrace(t *testing.T) {
+	testDB := newEmptyTestDB(t)
+	sc := createTracedEvent(t, testDB.Repo)
+	repo := &ctxRecordingRepo{OutboxRepository: testDB.Repo}
+
+	relayer := &relayStub{fn: func(ctx context.Context, e outbox.OutboxEvent) error {
+		return errors.New("simulated failure")
+	}}
+
+	cancel := startWorker(t, repo, relayer)
+	defer cancel()
+
+	require.Eventually(t, func() bool {
+		return len(repo.snapshot(&repo.failed)) == 1
+	}, 10*time.Second, 50*time.Millisecond, "event should be marked failed")
+
+	released := repo.snapshot(&repo.released)
+	require.NotEmpty(t, released)
+	for _, retry := range released {
+		require.Equal(t, sc.TraceID(), retry.TraceID())
+	}
+
+	require.Equal(t, sc.TraceID(), repo.snapshot(&repo.failed)[0].TraceID())
 }
