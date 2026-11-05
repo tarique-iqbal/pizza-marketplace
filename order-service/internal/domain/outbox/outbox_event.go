@@ -26,6 +26,7 @@ type OutboxEvent struct {
 	LockedUntil   *time.Time     `gorm:"type:timestamptz"`
 	NextAttemptAt *time.Time     `gorm:"type:timestamptz;index"`
 	LastError     *string        `gorm:"type:text"`
+	TraceContext  *string        `gorm:"type:varchar(128)"`
 	CreatedAt     time.Time      `gorm:"type:timestamptz;not null"`
 	ProcessedAt   *time.Time     `gorm:"type:timestamptz"`
 }
