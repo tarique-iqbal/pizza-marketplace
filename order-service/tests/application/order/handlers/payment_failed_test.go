@@ -16,7 +16,7 @@ func TestPaymentFailedHandler_Handle_CancelsOrder(t *testing.T) {
 	db, _, ord := seedPendingOrder(t)
 	h := handlers.NewPaymentFailedHandler(db.DB, persistence.NewOrderRepository(db.DB))
 
-	err := h.Handle(newPaymentEventPayload(t, "payment.failed", "order", ord.ID))
+	err := h.Handle(context.Background(), newPaymentEventPayload(t, "payment.failed", "order", ord.ID))
 	require.NoError(t, err)
 
 	updated, err := persistence.NewOrderRepository(db.DB).FindByID(context.Background(), ord.ID)
@@ -28,8 +28,14 @@ func TestPaymentFailedHandler_Handle_NoOpWhenAlreadyCancelled(t *testing.T) {
 	db, _, ord := seedPendingOrder(t)
 	h := handlers.NewPaymentFailedHandler(db.DB, persistence.NewOrderRepository(db.DB))
 
-	require.NoError(t, h.Handle(newPaymentEventPayload(t, "payment.failed", "order", ord.ID)))
-	require.NoError(t, h.Handle(newPaymentEventPayload(t, "payment.failed", "order", ord.ID)))
+	require.NoError(t, h.Handle(
+		context.Background(),
+		newPaymentEventPayload(t, "payment.failed", "order", ord.ID),
+	))
+	require.NoError(t, h.Handle(
+		context.Background(),
+		newPaymentEventPayload(t, "payment.failed", "order", ord.ID),
+	))
 
 	updated, err := persistence.NewOrderRepository(db.DB).FindByID(context.Background(), ord.ID)
 	require.NoError(t, err)
@@ -40,7 +46,10 @@ func TestPaymentFailedHandler_Handle_IgnoresNonOrderSubject(t *testing.T) {
 	db, _, ord := seedPendingOrder(t)
 	h := handlers.NewPaymentFailedHandler(db.DB, persistence.NewOrderRepository(db.DB))
 
-	require.NoError(t, h.Handle(newPaymentEventPayload(t, "payment.failed", "subscription", ord.ID)))
+	require.NoError(t, h.Handle(
+		context.Background(),
+		newPaymentEventPayload(t, "payment.failed", "subscription", ord.ID),
+	))
 
 	updated, err := persistence.NewOrderRepository(db.DB).FindByID(context.Background(), ord.ID)
 	require.NoError(t, err)

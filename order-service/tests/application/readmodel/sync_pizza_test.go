@@ -1,6 +1,7 @@
 package readmodel_test
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -50,7 +51,7 @@ func TestSyncPizza_Handle_UpsertsAvailablePizza(t *testing.T) {
 
 	pizzaID := testutil.MustNewID().String()
 
-	err := h.Handle(newPizzaUpdatedPayload(t, pizzaID, nil))
+	err := h.Handle(context.Background(), newPizzaUpdatedPayload(t, pizzaID, nil))
 
 	require.NoError(t, err)
 	require.Len(t, pizzaRepo.Upserted, 1)
@@ -66,7 +67,10 @@ func TestSyncPizza_Handle_DeletesArchivedPizza(t *testing.T) {
 
 	pizzaID := testutil.MustNewID().String()
 
-	err := h.Handle(newPizzaUpdatedPayload(t, pizzaID, map[string]any{"status": "archived"}))
+	err := h.Handle(
+		context.Background(),
+		newPizzaUpdatedPayload(t, pizzaID, map[string]any{"status": "archived"}),
+	)
 
 	require.NoError(t, err)
 	assert.Empty(t, pizzaRepo.Upserted)
@@ -82,7 +86,10 @@ func TestSyncPizza_Handle_DeletesUnpricedPizza(t *testing.T) {
 
 	pizzaID := testutil.MustNewID().String()
 
-	err := h.Handle(newPizzaUpdatedPayload(t, pizzaID, map[string]any{"prices": []any{}}))
+	err := h.Handle(
+		context.Background(),
+		newPizzaUpdatedPayload(t, pizzaID, map[string]any{"prices": []any{}}),
+	)
 
 	require.NoError(t, err)
 	assert.Empty(t, pizzaRepo.Upserted)

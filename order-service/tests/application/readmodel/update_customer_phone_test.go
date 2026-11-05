@@ -1,6 +1,7 @@
 package readmodel_test
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -30,7 +31,7 @@ func TestUpdateCustomerPhone_Handle_UpdatesPhone(t *testing.T) {
 
 	customerID := testutil.MustNewID()
 
-	err := h.Handle(newPhoneUpdatedPayload(t, customerID.String(), "+49 89 9998877"))
+	err := h.Handle(context.Background(), newPhoneUpdatedPayload(t, customerID.String(), "+49 89 9998877"))
 
 	require.NoError(t, err)
 	assert.Equal(t, 1, customerRepo.UpdatePhoneCalls)
@@ -42,7 +43,10 @@ func TestUpdateCustomerPhone_Handle_PropagatesRepositoryError(t *testing.T) {
 	customerRepo := &testutil.MockCustomerRepository{UpdatePhoneErr: assert.AnError}
 	h := appreadmodel.NewUpdateCustomerPhone(customerRepo)
 
-	err := h.Handle(newPhoneUpdatedPayload(t, testutil.MustNewID().String(), "+49 89 9998877"))
+	err := h.Handle(
+		context.Background(),
+		newPhoneUpdatedPayload(t, testutil.MustNewID().String(), "+49 89 9998877"),
+	)
 
 	assert.ErrorIs(t, err, assert.AnError)
 }

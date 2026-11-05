@@ -1,6 +1,7 @@
 package readmodel_test
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -30,7 +31,7 @@ func TestUpsertCustomer_Handle_Customer(t *testing.T) {
 	customerRepo := &testutil.MockCustomerRepository{}
 	h := appreadmodel.NewUpsertCustomer(customerRepo)
 
-	err := h.Handle(newUserRegisteredPayload(t, "customer"))
+	err := h.Handle(context.Background(), newUserRegisteredPayload(t, "customer"))
 
 	require.NoError(t, err)
 	require.Len(t, customerRepo.Upserted, 1)
@@ -41,7 +42,7 @@ func TestUpsertCustomer_Handle_Owner(t *testing.T) {
 	customerRepo := &testutil.MockCustomerRepository{}
 	h := appreadmodel.NewUpsertCustomer(customerRepo)
 
-	err := h.Handle(newUserRegisteredPayload(t, "owner"))
+	err := h.Handle(context.Background(), newUserRegisteredPayload(t, "owner"))
 
 	require.NoError(t, err)
 	require.Len(t, customerRepo.Upserted, 1, "an owner must still be stored — owners can place orders too")

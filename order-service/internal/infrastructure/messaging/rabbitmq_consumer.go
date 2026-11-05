@@ -191,7 +191,7 @@ func runOnce(ctx context.Context, source messageSource, dispatcher readmodel.Eve
 				Data: msg.Body,
 			}
 
-			if err := dispatcher.Dispatch(event); err != nil {
+			if err := dispatcher.Dispatch(ctx, event); err != nil {
 				retryCount := getRetryCount(msg.Headers)
 				if retryCount >= MaxRetryAttempts {
 					logobs.FromContext(ctx).WarnContext(ctx,

@@ -31,7 +31,7 @@ func NewSyncToppingPrices(toppingPriceRepo readmodel.ToppingPriceRepository) *Sy
 	return &SyncToppingPrices{toppingPriceRepo: toppingPriceRepo}
 }
 
-func (h *SyncToppingPrices) Handle(event readmodel.EventPayload) error {
+func (h *SyncToppingPrices) Handle(ctx context.Context, event readmodel.EventPayload) error {
 	var payload toppingPricesUpdatedPayload
 	if err := json.Unmarshal(event.Data, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal %s payload: %w", event.Name, err)
@@ -51,7 +51,7 @@ func (h *SyncToppingPrices) Handle(event readmodel.EventPayload) error {
 			UpdatedAt:    payload.UpdatedAt,
 		}
 
-		if err := h.toppingPriceRepo.Upsert(context.Background(), price); err != nil {
+		if err := h.toppingPriceRepo.Upsert(ctx, price); err != nil {
 			return fmt.Errorf("failed to upsert topping price: %w", err)
 		}
 	}

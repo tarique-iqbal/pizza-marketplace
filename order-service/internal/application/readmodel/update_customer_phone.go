@@ -24,13 +24,13 @@ func NewUpdateCustomerPhone(customerRepo readmodel.CustomerRepository) *UpdateCu
 	return &UpdateCustomerPhone{customerRepo: customerRepo}
 }
 
-func (h *UpdateCustomerPhone) Handle(event readmodel.EventPayload) error {
+func (h *UpdateCustomerPhone) Handle(ctx context.Context, event readmodel.EventPayload) error {
 	var payload phoneUpdatedPayload
 	if err := json.Unmarshal(event.Data, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal %s payload: %w", event.Name, err)
 	}
 
-	err := h.customerRepo.UpdatePhone(context.Background(), payload.CustomerID, payload.Phone)
+	err := h.customerRepo.UpdatePhone(ctx, payload.CustomerID, payload.Phone)
 	if err != nil {
 		return fmt.Errorf("failed to update customer phone: %w", err)
 	}

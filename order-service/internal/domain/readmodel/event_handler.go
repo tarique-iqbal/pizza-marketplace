@@ -1,7 +1,9 @@
 package readmodel
 
+import "context"
+
 type EventHandler interface {
-	Handle(event EventPayload) error
+	Handle(ctx context.Context, event EventPayload) error
 }
 
 type EventPayload struct {

@@ -1,6 +1,7 @@
 package readmodel
 
 import (
+	"context"
 	"fmt"
 
 	"order-service/internal/domain/readmodel"
@@ -20,11 +21,11 @@ func (d *EventDispatcher) Register(eventName string, handler readmodel.EventHand
 	d.handlers[eventName] = handler
 }
 
-func (d *EventDispatcher) Dispatch(event readmodel.EventPayload) error {
+func (d *EventDispatcher) Dispatch(ctx context.Context, event readmodel.EventPayload) error {
 	handler, ok := d.handlers[event.Name]
 	if !ok {
 		return fmt.Errorf("no handler registered for event: %s", event.Name)
 	}
 
-	return handler.Handle(event)
+	return handler.Handle(ctx, event)
 }

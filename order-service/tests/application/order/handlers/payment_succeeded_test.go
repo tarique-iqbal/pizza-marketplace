@@ -114,7 +114,7 @@ func TestPaymentSucceededHandler_Handle_ConfirmsOrderAndDispatchesEvent(t *testi
 	db, restaurant, ord := seedPendingOrder(t)
 	h := newPaymentSucceededHandler(db.DB)
 
-	err := h.Handle(newPaymentEventPayload(t, "payment.succeeded", "order", ord.ID))
+	err := h.Handle(context.Background(), newPaymentEventPayload(t, "payment.succeeded", "order", ord.ID))
 	require.NoError(t, err)
 
 	updated, err := persistence.NewOrderRepository(db.DB).FindByID(context.Background(), ord.ID)
@@ -140,8 +140,14 @@ func TestPaymentSucceededHandler_Handle_NoOpWhenAlreadyConfirmed(t *testing.T) {
 	db, _, ord := seedPendingOrder(t)
 	h := newPaymentSucceededHandler(db.DB)
 
-	require.NoError(t, h.Handle(newPaymentEventPayload(t, "payment.succeeded", "order", ord.ID)))
-	require.NoError(t, h.Handle(newPaymentEventPayload(t, "payment.succeeded", "order", ord.ID)))
+	require.NoError(t, h.Handle(
+		context.Background(),
+		newPaymentEventPayload(t, "payment.succeeded", "order", ord.ID),
+	))
+	require.NoError(t, h.Handle(
+		context.Background(),
+		newPaymentEventPayload(t, "payment.succeeded", "order", ord.ID),
+	))
 
 	var events []outbox.OutboxEvent
 	require.NoError(t, db.DB.Where("aggregate_id = ?", ord.ID).Find(&events).Error)
@@ -152,7 +158,10 @@ func TestPaymentSucceededHandler_Handle_IgnoresNonOrderSubject(t *testing.T) {
 	db, _, ord := seedPendingOrder(t)
 	h := newPaymentSucceededHandler(db.DB)
 
-	require.NoError(t, h.Handle(newPaymentEventPayload(t, "payment.succeeded", "subscription", ord.ID)))
+	require.NoError(t, h.Handle(
+		context.Background(),
+		newPaymentEventPayload(t, "payment.succeeded", "subscription", ord.ID),
+	))
 
 	updated, err := persistence.NewOrderRepository(db.DB).FindByID(context.Background(), ord.ID)
 	require.NoError(t, err)

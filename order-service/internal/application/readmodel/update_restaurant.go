@@ -41,7 +41,7 @@ func NewUpdateRestaurant(restaurantRepo readmodel.RestaurantRepository) *UpdateR
 	return &UpdateRestaurant{restaurantRepo: restaurantRepo}
 }
 
-func (h *UpdateRestaurant) Handle(event readmodel.EventPayload) error {
+func (h *UpdateRestaurant) Handle(ctx context.Context, event readmodel.EventPayload) error {
 	var payload restaurantUpdatedPayload
 	if err := json.Unmarshal(event.Data, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal %s payload: %w", event.Name, err)
@@ -77,7 +77,7 @@ func (h *UpdateRestaurant) Handle(event readmodel.EventPayload) error {
 		UpdatedAt:    payload.UpdatedAt,
 	}
 
-	if err := h.restaurantRepo.Upsert(context.Background(), restaurant); err != nil {
+	if err := h.restaurantRepo.Upsert(ctx, restaurant); err != nil {
 		return fmt.Errorf("failed to upsert restaurant: %w", err)
 	}
 

@@ -1,6 +1,7 @@
 package readmodel_test
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -45,7 +46,7 @@ func TestUpdateRestaurant_Handle(t *testing.T) {
 	restaurantRepo := &testutil.MockRestaurantRepository{}
 	h := appreadmodel.NewUpdateRestaurant(restaurantRepo)
 
-	err := h.Handle(newUpdatedPayload(t, nil))
+	err := h.Handle(context.Background(), newUpdatedPayload(t, nil))
 
 	require.NoError(t, err)
 	require.Len(t, restaurantRepo.Upserted, 1)
@@ -56,7 +57,7 @@ func TestUpdateRestaurant_Handle_MissingContactEmail(t *testing.T) {
 	restaurantRepo := &testutil.MockRestaurantRepository{}
 	h := appreadmodel.NewUpdateRestaurant(restaurantRepo)
 
-	err := h.Handle(newUpdatedPayload(t, map[string]any{"contact": map[string]any{}}))
+	err := h.Handle(context.Background(), newUpdatedPayload(t, map[string]any{"contact": map[string]any{}}))
 
 	assert.Error(t, err)
 	assert.Empty(t, restaurantRepo.Upserted)

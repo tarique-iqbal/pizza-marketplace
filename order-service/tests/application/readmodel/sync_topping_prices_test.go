@@ -1,6 +1,7 @@
 package readmodel_test
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -44,7 +45,7 @@ func TestSyncToppingPrices_Handle(t *testing.T) {
 	toppingPriceRepo := &testutil.MockToppingPriceRepository{}
 	h := appreadmodel.NewSyncToppingPrices(toppingPriceRepo)
 
-	err := h.Handle(newToppingPricesUpdatedPayload(t, nil))
+	err := h.Handle(context.Background(), newToppingPricesUpdatedPayload(t, nil))
 
 	require.NoError(t, err)
 	require.Len(t, toppingPriceRepo.Upserted, 2)
@@ -56,7 +57,10 @@ func TestSyncToppingPrices_Handle_Empty(t *testing.T) {
 	toppingPriceRepo := &testutil.MockToppingPriceRepository{}
 	h := appreadmodel.NewSyncToppingPrices(toppingPriceRepo)
 
-	err := h.Handle(newToppingPricesUpdatedPayload(t, map[string]any{"topping_prices": []any{}}))
+	err := h.Handle(
+		context.Background(),
+		newToppingPricesUpdatedPayload(t, map[string]any{"topping_prices": []any{}}),
+	)
 
 	require.NoError(t, err)
 	assert.Empty(t, toppingPriceRepo.Upserted)

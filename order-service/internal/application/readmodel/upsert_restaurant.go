@@ -87,7 +87,7 @@ func NewUpsertRestaurant(
 	}
 }
 
-func (h *UpsertRestaurant) Handle(event readmodel.EventPayload) error {
+func (h *UpsertRestaurant) Handle(ctx context.Context, event readmodel.EventPayload) error {
 	var payload restaurantLaunchedPayload
 	if err := json.Unmarshal(event.Data, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal %s payload: %w", event.Name, err)
@@ -106,8 +106,6 @@ func (h *UpsertRestaurant) Handle(event readmodel.EventPayload) error {
 	if err != nil {
 		return fmt.Errorf("failed to parse minimum order: %w", err)
 	}
-
-	ctx := context.Background()
 
 	restaurant := readmodel.Restaurant{
 		ID:           payload.RestaurantID,

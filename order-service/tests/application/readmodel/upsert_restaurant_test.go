@@ -1,6 +1,7 @@
 package readmodel_test
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -72,7 +73,7 @@ func TestUpsertRestaurant_Handle(t *testing.T) {
 
 	h := appreadmodel.NewUpsertRestaurant(restaurantRepo, pizzaRepo, pizzaPriceRepo, toppingPriceRepo)
 
-	err := h.Handle(newLaunchedPayload(t, nil))
+	err := h.Handle(context.Background(), newLaunchedPayload(t, nil))
 
 	require.NoError(t, err)
 	require.Len(t, restaurantRepo.Upserted, 1)
@@ -104,7 +105,7 @@ func TestUpsertRestaurant_Handle_SkipsArchivedPizza(t *testing.T) {
 		},
 	})
 
-	err := h.Handle(payload)
+	err := h.Handle(context.Background(), payload)
 
 	require.NoError(t, err)
 	assert.Empty(t, pizzaRepo.Upserted)
@@ -130,7 +131,7 @@ func TestUpsertRestaurant_Handle_SkipsUnpricedPizza(t *testing.T) {
 		},
 	})
 
-	err := h.Handle(payload)
+	err := h.Handle(context.Background(), payload)
 
 	require.NoError(t, err)
 	assert.Empty(t, pizzaRepo.Upserted)
@@ -148,7 +149,7 @@ func TestUpsertRestaurant_Handle_MissingContactEmail(t *testing.T) {
 		"contact": map[string]any{},
 	})
 
-	err := h.Handle(payload)
+	err := h.Handle(context.Background(), payload)
 
 	assert.Error(t, err)
 	assert.Empty(t, restaurantRepo.Upserted)

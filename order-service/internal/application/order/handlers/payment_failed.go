@@ -23,7 +23,7 @@ func NewPaymentFailedHandler(db *gorm.DB, orderRepo order.OrderRepository) *Paym
 	return &PaymentFailedHandler{db: db, orderRepo: orderRepo}
 }
 
-func (h *PaymentFailedHandler) Handle(evt readmodel.EventPayload) error {
+func (h *PaymentFailedHandler) Handle(ctx context.Context, evt readmodel.EventPayload) error {
 	var payload paymentEventPayload
 	if err := json.Unmarshal(evt.Data, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal %s payload: %w", evt.Name, err)
@@ -31,8 +31,6 @@ func (h *PaymentFailedHandler) Handle(evt readmodel.EventPayload) error {
 	if payload.SubjectType != "order" {
 		return nil
 	}
-
-	ctx := context.Background()
 
 	return h.db.Transaction(func(tx *gorm.DB) error {
 		orderRepo := h.orderRepo.WithTx(tx)

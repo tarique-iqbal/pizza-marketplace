@@ -49,13 +49,11 @@ func NewSyncPizza(pizzaRepo readmodel.PizzaRepository, pizzaPriceRepo readmodel.
 }
 
 // Handle deletes an archived or unpriced pizza rather than storing it — it isn't orderable.
-func (h *SyncPizza) Handle(event readmodel.EventPayload) error {
+func (h *SyncPizza) Handle(ctx context.Context, event readmodel.EventPayload) error {
 	var payload pizzaUpdatedPayload
 	if err := json.Unmarshal(event.Data, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal %s payload: %w", event.Name, err)
 	}
-
-	ctx := context.Background()
 
 	if payload.Pizza.Status == "archived" || !payload.hasActivePrice() {
 		if err := h.pizzaRepo.Delete(ctx, payload.Pizza.ID, payload.UpdatedAt); err != nil {
