@@ -56,7 +56,7 @@ func NewSyncPizza(repo index.SearchRepository) *SyncPizza {
 // pizzas array. An archived or unpriced pizza isn't orderable, so it's
 // removed from the index rather than upserted — matching restaurant-
 // service's own public-facing filter for unsellable pizzas.
-func (h *SyncPizza) Handle(event index.EventPayload) error {
+func (h *SyncPizza) Handle(ctx context.Context, event index.EventPayload) error {
 	var payload pizzaUpdatedPayload
 	if err := json.Unmarshal(event.Data, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal %s payload: %w", event.Name, err)
@@ -64,7 +64,7 @@ func (h *SyncPizza) Handle(event index.EventPayload) error {
 
 	if payload.Pizza.Status == "archived" || !payload.hasActivePrice() {
 		if err := h.repo.RemovePizza(
-			context.Background(), payload.RestaurantID, payload.Pizza.ID, payload.UpdatedAt,
+			ctx, payload.RestaurantID, payload.Pizza.ID, payload.UpdatedAt,
 		); err != nil {
 			return fmt.Errorf("failed to remove pizza: %w", err)
 		}
@@ -72,7 +72,7 @@ func (h *SyncPizza) Handle(event index.EventPayload) error {
 		return nil
 	}
 
-	if err := h.repo.UpsertPizza(context.Background(), payload.RestaurantID, toIndexedPizza(payload)); err != nil {
+	if err := h.repo.UpsertPizza(ctx, payload.RestaurantID, toIndexedPizza(payload)); err != nil {
 		return fmt.Errorf("failed to upsert pizza: %w", err)
 	}
 

@@ -1,6 +1,7 @@
 package index_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -44,7 +45,7 @@ func TestUpdateRestaurantFields_Success(t *testing.T) {
 
 	restaurantID := uuid.New()
 
-	err := handler.Handle(index.EventPayload{
+	err := handler.Handle(context.Background(), index.EventPayload{
 		Name: "restaurant.updated",
 		Data: updatedPayload(t, restaurantID),
 	})
@@ -81,7 +82,7 @@ func TestUpdateRestaurantFields_InvalidJSON(t *testing.T) {
 	repo := &testutil.MockSearchRepository{}
 	handler := idxapp.NewUpdateRestaurantFields(repo)
 
-	err := handler.Handle(index.EventPayload{
+	err := handler.Handle(context.Background(), index.EventPayload{
 		Name: "restaurant.updated",
 		Data: []byte(`not json`),
 	})
@@ -94,7 +95,7 @@ func TestUpdateRestaurantFields_RepositoryError(t *testing.T) {
 	repo := &testutil.MockSearchRepository{UpdateErr: errors.New("es unreachable")}
 	handler := idxapp.NewUpdateRestaurantFields(repo)
 
-	err := handler.Handle(index.EventPayload{
+	err := handler.Handle(context.Background(), index.EventPayload{
 		Name: "restaurant.updated",
 		Data: updatedPayload(t, uuid.New()),
 	})

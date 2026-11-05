@@ -1,6 +1,8 @@
 package index
 
+import "context"
+
 type EventDispatcher interface {
 	Register(eventName string, handler EventHandler)
-	Dispatch(event EventPayload) error
+	Dispatch(ctx context.Context, event EventPayload) error
 }

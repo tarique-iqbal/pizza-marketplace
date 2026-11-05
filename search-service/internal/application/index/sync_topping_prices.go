@@ -32,7 +32,7 @@ func NewSyncToppingPrices(repo index.SearchRepository) *SyncToppingPrices {
 	return &SyncToppingPrices{repo: repo}
 }
 
-func (h *SyncToppingPrices) Handle(event index.EventPayload) error {
+func (h *SyncToppingPrices) Handle(ctx context.Context, event index.EventPayload) error {
 	var payload toppingPricesUpdatedPayload
 	if err := json.Unmarshal(event.Data, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal %s payload: %w", event.Name, err)
@@ -48,7 +48,7 @@ func (h *SyncToppingPrices) Handle(event index.EventPayload) error {
 	}
 
 	if err := h.repo.UpdateToppingPrices(
-		context.Background(), payload.RestaurantID, prices, payload.UpdatedAt,
+		ctx, payload.RestaurantID, prices, payload.UpdatedAt,
 	); err != nil {
 		return fmt.Errorf("failed to update topping prices: %w", err)
 	}

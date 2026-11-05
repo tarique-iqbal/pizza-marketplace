@@ -46,13 +46,13 @@ func NewUpdateRestaurantFields(repo index.SearchRepository) *UpdateRestaurantFie
 	return &UpdateRestaurantFields{repo: repo}
 }
 
-func (h *UpdateRestaurantFields) Handle(event index.EventPayload) error {
+func (h *UpdateRestaurantFields) Handle(ctx context.Context, event index.EventPayload) error {
 	var payload restaurantUpdatedPayload
 	if err := json.Unmarshal(event.Data, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal %s payload: %w", event.Name, err)
 	}
 
-	if err := h.repo.UpdateFields(context.Background(), payload.RestaurantID, toRestaurantFields(payload)); err != nil {
+	if err := h.repo.UpdateFields(ctx, payload.RestaurantID, toRestaurantFields(payload)); err != nil {
 		return fmt.Errorf("failed to update restaurant fields: %w", err)
 	}
 

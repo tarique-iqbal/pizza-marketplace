@@ -24,7 +24,7 @@ type mockDispatcher struct {
 
 func (m *mockDispatcher) Register(eventName string, handler index.EventHandler) {}
 
-func (m *mockDispatcher) Dispatch(event index.EventPayload) error {
+func (m *mockDispatcher) Dispatch(ctx context.Context, event index.EventPayload) error {
 	m.mu.Lock()
 	m.dispatchCalled = true
 	m.eventReceived = event

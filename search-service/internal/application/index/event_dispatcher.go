@@ -1,6 +1,7 @@
 package index
 
 import (
+	"context"
 	"fmt"
 
 	"search-service/internal/domain/index"
@@ -20,10 +21,10 @@ func (d *EventDispatcher) Register(eventName string, handler index.EventHandler)
 	d.handlers[eventName] = handler
 }
 
-func (d *EventDispatcher) Dispatch(event index.EventPayload) error {
+func (d *EventDispatcher) Dispatch(ctx context.Context, event index.EventPayload) error {
 	handler, ok := d.handlers[event.Name]
 	if !ok {
 		return fmt.Errorf("no handler registered for event: %s", event.Name)
 	}
-	return handler.Handle(event)
+	return handler.Handle(ctx, event)
 }

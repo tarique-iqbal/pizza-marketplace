@@ -69,7 +69,7 @@ func NewUpsertSnapshot(repo index.SearchRepository) *UpsertSnapshot {
 	return &UpsertSnapshot{repo: repo}
 }
 
-func (h *UpsertSnapshot) Handle(event index.EventPayload) error {
+func (h *UpsertSnapshot) Handle(ctx context.Context, event index.EventPayload) error {
 	var payload restaurantLaunchedPayload
 	if err := json.Unmarshal(event.Data, &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal %s payload: %w", event.Name, err)
@@ -79,7 +79,7 @@ func (h *UpsertSnapshot) Handle(event index.EventPayload) error {
 		return fmt.Errorf("%s payload missing lat/lon for restaurant %s", event.Name, payload.RestaurantID)
 	}
 
-	if err := h.repo.UpsertSnapshot(context.Background(), toIndexedRestaurant(payload)); err != nil {
+	if err := h.repo.UpsertSnapshot(ctx, toIndexedRestaurant(payload)); err != nil {
 		return fmt.Errorf("failed to upsert snapshot: %w", err)
 	}
 

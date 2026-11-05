@@ -1,6 +1,7 @@
 package index_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -33,7 +34,7 @@ func TestSyncToppingPrices_Success(t *testing.T) {
 	restaurantID := uuid.New()
 	toppingID := uuid.New()
 
-	err := handler.Handle(index.EventPayload{
+	err := handler.Handle(context.Background(), index.EventPayload{
 		Name: "restaurant.topping_prices_updated",
 		Data: toppingPricesUpdatedPayload(t, restaurantID, toppingID),
 	})
@@ -54,7 +55,7 @@ func TestSyncToppingPrices_EmptyList(t *testing.T) {
 
 	restaurantID := uuid.New()
 
-	err := handler.Handle(index.EventPayload{
+	err := handler.Handle(context.Background(), index.EventPayload{
 		Name: "restaurant.topping_prices_updated",
 		Data: []byte(`{"restaurant_id": "` + restaurantID.String() + `", "updated_at": "2026-08-26T09:00:00Z", "topping_prices": []}`),
 	})
@@ -68,7 +69,7 @@ func TestSyncToppingPrices_InvalidJSON(t *testing.T) {
 	repo := &testutil.MockSearchRepository{}
 	handler := idxapp.NewSyncToppingPrices(repo)
 
-	err := handler.Handle(index.EventPayload{
+	err := handler.Handle(context.Background(), index.EventPayload{
 		Name: "restaurant.topping_prices_updated",
 		Data: []byte(`not json`),
 	})
@@ -81,7 +82,7 @@ func TestSyncToppingPrices_RepositoryError(t *testing.T) {
 	repo := &testutil.MockSearchRepository{UpdateToppingPricesErr: errors.New("es unreachable")}
 	handler := idxapp.NewSyncToppingPrices(repo)
 
-	err := handler.Handle(index.EventPayload{
+	err := handler.Handle(context.Background(), index.EventPayload{
 		Name: "restaurant.topping_prices_updated",
 		Data: toppingPricesUpdatedPayload(t, uuid.New(), uuid.New()),
 	})

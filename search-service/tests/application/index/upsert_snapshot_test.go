@@ -1,6 +1,7 @@
 package index_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -62,7 +63,7 @@ func TestUpsertSnapshot_Success(t *testing.T) {
 
 	restaurantID := uuid.New()
 
-	err := handler.Handle(index.EventPayload{
+	err := handler.Handle(context.Background(), index.EventPayload{
 		Name: "restaurant.launched",
 		Data: launchedPayload(t, restaurantID),
 	})
@@ -119,7 +120,7 @@ func TestUpsertSnapshot_MissingLatLon_ReturnsError(t *testing.T) {
 	repo := &testutil.MockSearchRepository{}
 	handler := idxapp.NewUpsertSnapshot(repo)
 
-	err := handler.Handle(index.EventPayload{
+	err := handler.Handle(context.Background(), index.EventPayload{
 		Name: "restaurant.launched",
 		Data: []byte(`{"restaurant_id": "` + uuid.New().String() + `", "restaurant_name": "No Coords"}`),
 	})
@@ -133,7 +134,7 @@ func TestUpsertSnapshot_InvalidJSON(t *testing.T) {
 	repo := &testutil.MockSearchRepository{}
 	handler := idxapp.NewUpsertSnapshot(repo)
 
-	err := handler.Handle(index.EventPayload{
+	err := handler.Handle(context.Background(), index.EventPayload{
 		Name: "restaurant.launched",
 		Data: []byte(`not json`),
 	})
@@ -146,7 +147,7 @@ func TestUpsertSnapshot_RepositoryError(t *testing.T) {
 	repo := &testutil.MockSearchRepository{UpsertErr: errors.New("es unreachable")}
 	handler := idxapp.NewUpsertSnapshot(repo)
 
-	err := handler.Handle(index.EventPayload{
+	err := handler.Handle(context.Background(), index.EventPayload{
 		Name: "restaurant.launched",
 		Data: launchedPayload(t, uuid.New()),
 	})

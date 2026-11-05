@@ -1,6 +1,7 @@
 package index_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -44,7 +45,7 @@ func TestSyncPizza_AvailableAndPriced_Upserts(t *testing.T) {
 	pizzaID := uuid.New()
 	sizeID := uuid.New()
 
-	err := handler.Handle(index.EventPayload{
+	err := handler.Handle(context.Background(), index.EventPayload{
 		Name: "restaurant.pizza_updated",
 		Data: pizzaUpdatedPayload(t, restaurantID, pizzaID, "available", `[
 			{"sizeId": "`+sizeID.String()+`", "diameterCm": 30, "price": "9.99", "isActive": true},
@@ -75,7 +76,7 @@ func TestSyncPizza_Archived_Removes(t *testing.T) {
 	restaurantID := uuid.New()
 	pizzaID := uuid.New()
 
-	err := handler.Handle(index.EventPayload{
+	err := handler.Handle(context.Background(), index.EventPayload{
 		Name: "restaurant.pizza_updated",
 		Data: pizzaUpdatedPayload(t, restaurantID, pizzaID, "archived", `[{"isActive": true}]`),
 	})
@@ -96,7 +97,7 @@ func TestSyncPizza_NoActivePrice_Removes(t *testing.T) {
 	restaurantID := uuid.New()
 	pizzaID := uuid.New()
 
-	err := handler.Handle(index.EventPayload{
+	err := handler.Handle(context.Background(), index.EventPayload{
 		Name: "restaurant.pizza_updated",
 		Data: pizzaUpdatedPayload(t, restaurantID, pizzaID, "available", `[{"isActive": false}]`),
 	})
@@ -110,7 +111,7 @@ func TestSyncPizza_InvalidJSON(t *testing.T) {
 	repo := &testutil.MockSearchRepository{}
 	handler := idxapp.NewSyncPizza(repo)
 
-	err := handler.Handle(index.EventPayload{
+	err := handler.Handle(context.Background(), index.EventPayload{
 		Name: "restaurant.pizza_updated",
 		Data: []byte(`not json`),
 	})
@@ -124,7 +125,7 @@ func TestSyncPizza_UpsertRepositoryError(t *testing.T) {
 	repo := &testutil.MockSearchRepository{UpsertPizzaErr: errors.New("es unreachable")}
 	handler := idxapp.NewSyncPizza(repo)
 
-	err := handler.Handle(index.EventPayload{
+	err := handler.Handle(context.Background(), index.EventPayload{
 		Name: "restaurant.pizza_updated",
 		Data: pizzaUpdatedPayload(t, uuid.New(), uuid.New(), "available", `[{"isActive": true}]`),
 	})
@@ -137,7 +138,7 @@ func TestSyncPizza_RemoveRepositoryError(t *testing.T) {
 	repo := &testutil.MockSearchRepository{RemovePizzaErr: errors.New("es unreachable")}
 	handler := idxapp.NewSyncPizza(repo)
 
-	err := handler.Handle(index.EventPayload{
+	err := handler.Handle(context.Background(), index.EventPayload{
 		Name: "restaurant.pizza_updated",
 		Data: pizzaUpdatedPayload(t, uuid.New(), uuid.New(), "archived", `[]`),
 	})
