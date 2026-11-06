@@ -3,6 +3,7 @@ package messaging_test
 import (
 	"context"
 	"errors"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -202,4 +203,66 @@ func TestRabbitMQConsumer_Run_ExceedsRetryLimit_NacksWithoutRequeue(t *testing.T
 	assert.True(t, nacked)
 	assert.False(t, requeue, "exhausted retries route to the DLX-bound DLQ, not a plain requeue")
 	assert.Empty(t, source.republishCalls())
+}
+
+func purgeQueue(t *testing.T, url, queue string) {
+	t.Helper()
+
+	conn, err := amqp091.Dial(url)
+	require.NoError(t, err)
+	defer conn.Close()
+
+	ch, err := conn.Channel()
+	require.NoError(t, err)
+
+	_, err = ch.QueuePurge(queue, false)
+	require.NoError(t, err)
+}
+
+func TestRabbitMQConsumer_Republish_RetryKeepsEventName(t *testing.T) {
+	url := os.Getenv("RABBITMQ_URL")
+	require.NotEmpty(t, url, "RABBITMQ_URL must be set (see .env.test)")
+
+	consumer, err := messaging.NewRabbitMQConsumer(url)
+	require.NoError(t, err)
+	t.Cleanup(consumer.Close)
+
+	purgeQueue(t, url, messaging.QueueName)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	original := amqp091.Delivery{
+		Exchange:   "identity.events",
+		RoutingKey: "restaurant.initiated",
+		Body:       []byte(`{}`),
+		Headers:    amqp091.Table{},
+		MessageId:  "retry-keeps-event-name",
+	}
+	require.NoError(t, consumer.Republish(ctx, original, 1))
+
+	msgs, err := consumer.GetMessages(ctx)
+	require.NoError(t, err)
+
+	var retried amqp091.Delivery
+	select {
+	case retried = <-msgs:
+	case <-ctx.Done():
+		t.Fatal("republished message was never delivered")
+	}
+	require.NoError(t, retried.Ack(false))
+
+	ack := &fakeAcknowledger{}
+	retried.Acknowledger = ack
+
+	dispatcher := &mockDispatcher{}
+	source := &fakeSource{messages: make(chan amqp091.Delivery, 1)}
+
+	go func() { _ = messaging.Run(ctx, source, dispatcher) }()
+
+	source.messages <- retried
+
+	waitFor(t, time.Second, ack.isAcked)
+
+	assert.Equal(t, "restaurant.initiated", dispatcher.eventReceived.Name)
 }
