@@ -127,7 +127,7 @@ func TestRabbitMQPublisher_Publish_InjectsProducerTraceContext(t *testing.T) {
 
 	var producer sdktrace.ReadOnlySpan
 	for _, s := range recorder.Ended() {
-		if s.Name() == "send order.events" {
+		if s.Name() == "send order.events:test.traced" {
 			producer = s
 		}
 	}

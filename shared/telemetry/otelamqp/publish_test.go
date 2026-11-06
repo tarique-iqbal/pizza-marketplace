@@ -9,6 +9,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -41,12 +42,12 @@ func TestStartPublish_ProducerSpanChildOfCallerAndInjected(t *testing.T) {
 
 	var producer sdktrace.ReadOnlySpan
 	for _, s := range recorder.Ended() {
-		if s.Name() == "send identity.events" {
+		if s.Name() == "send identity.events:user.registered" {
 			producer = s
 		}
 	}
 	if producer == nil {
-		t.Fatal("expected a span named \"send identity.events\"")
+		t.Fatal("expected a span named \"send identity.events:user.registered\"")
 	}
 
 	if producer.SpanKind() != trace.SpanKindProducer {
@@ -55,6 +56,33 @@ func TestStartPublish_ProducerSpanChildOfCallerAndInjected(t *testing.T) {
 
 	if producer.Parent().SpanID() != parent.SpanContext().SpanID() {
 		t.Fatal("expected the producer span to be a child of the caller's span")
+	}
+
+	var destination string
+	for _, attr := range producer.Attributes() {
+		if attr.Key == semconv.MessagingDestinationNameKey {
+			destination = attr.Value.AsString()
+		}
+	}
+	if destination != "identity.events:user.registered" {
+		t.Fatalf("expected destination identity.events:user.registered, got %q", destination)
+	}
+}
+
+func TestPublishDestination(t *testing.T) {
+	tests := []struct {
+		exchange, routingKey, want string
+	}{
+		{"identity.events", "user.registered", "identity.events:user.registered"},
+		{"identity.events", "", "identity.events"},
+		{"", "email_queue", "email_queue"},
+		{"", "", "amq.default"},
+	}
+
+	for _, tt := range tests {
+		if got := publishDestination(tt.exchange, tt.routingKey); got != tt.want {
+			t.Errorf("publishDestination(%q, %q) = %q, want %q", tt.exchange, tt.routingKey, got, tt.want)
+		}
 	}
 }
 

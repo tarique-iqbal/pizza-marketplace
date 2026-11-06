@@ -17,13 +17,15 @@ func StartPublish(
 	routingKey string,
 	headers amqp.Table,
 ) (context.Context, trace.Span) {
-	ctx, span := otel.Tracer(scopeName).Start(ctx, "send "+exchange,
+	destination := publishDestination(exchange, routingKey)
+
+	ctx, span := otel.Tracer(scopeName).Start(ctx, "send "+destination,
 		trace.WithSpanKind(trace.SpanKindProducer),
 		trace.WithAttributes(
 			semconv.MessagingSystemRabbitMQ,
 			semconv.MessagingOperationTypeSend,
 			semconv.MessagingOperationName("send"),
-			semconv.MessagingDestinationName(exchange),
+			semconv.MessagingDestinationName(destination),
 			semconv.MessagingRabbitMQDestinationRoutingKey(routingKey),
 		),
 	)
@@ -31,4 +33,17 @@ func StartPublish(
 	otel.GetTextMapPropagator().Inject(ctx, HeaderCarrier(headers))
 
 	return ctx, span
+}
+
+func publishDestination(exchange, routingKey string) string {
+	switch {
+	case exchange != "" && routingKey != "":
+		return exchange + ":" + routingKey
+	case exchange != "":
+		return exchange
+	case routingKey != "":
+		return routingKey
+	default:
+		return "amq.default"
+	}
 }
