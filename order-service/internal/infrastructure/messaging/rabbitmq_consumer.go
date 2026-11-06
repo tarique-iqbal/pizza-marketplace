@@ -187,7 +187,7 @@ func runOnce(ctx context.Context, source messageSource, dispatcher readmodel.Eve
 			}
 
 			event := readmodel.EventPayload{
-				Name: msg.RoutingKey,
+				Name: getEventName(msg),
 				Data: msg.Body,
 			}
 
@@ -221,13 +221,17 @@ func runOnce(ctx context.Context, source messageSource, dispatcher readmodel.Eve
 }
 
 // Republish requeues msg via the default exchange with an incremented
-// x-retry-count, which getRetryCount reads on the next delivery.
+// x-retry-count, which getRetryCount reads on the next delivery. The default exchange
+// routes by queue name, so the original routing key is kept in x-original-routing-key.
 func (c *RabbitMQConsumer) Republish(ctx context.Context, msg amqp.Delivery, retryCount int) error {
 	headers := amqp.Table{}
 	for k, v := range msg.Headers {
 		headers[k] = v
 	}
 	headers["x-retry-count"] = int32(retryCount)
+	if _, ok := headers["x-original-routing-key"]; !ok {
+		headers["x-original-routing-key"] = msg.RoutingKey
+	}
 
 	return c.channel.PublishWithContext(ctx, "", QueueName, false, false, amqp.Publishing{
 		ContentType:  msg.ContentType,
@@ -236,6 +240,13 @@ func (c *RabbitMQConsumer) Republish(ctx context.Context, msg amqp.Delivery, ret
 		DeliveryMode: amqp.Persistent,
 		MessageId:    msg.MessageId,
 	})
+}
+
+func getEventName(msg amqp.Delivery) string {
+	if name, ok := msg.Headers["x-original-routing-key"].(string); ok && name != "" {
+		return name
+	}
+	return msg.RoutingKey
 }
 
 func getRetryCount(headers amqp.Table) int {
