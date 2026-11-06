@@ -201,3 +201,24 @@ func TestRabbitMQConsumer_Run_ExceedsRetryLimit_NacksWithoutRequeue(t *testing.T
 	assert.False(t, requeue, "exhausted retries route to the DLX-bound DLQ, not a plain requeue")
 	assert.Empty(t, source.republishCalls())
 }
+
+func TestRabbitMQConsumer_Run_RetriedMessage_UsesOriginalRoutingKey(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	dispatcher := &mockDispatcher{}
+	source := &fakeSource{messages: make(chan amqp091.Delivery, 1)}
+
+	go func() { _ = messaging.Run(ctx, source, dispatcher) }()
+
+	ack := &fakeAcknowledger{}
+	headers := amqp091.Table{
+		"x-retry-count":          int32(1),
+		"x-original-routing-key": "user.registered",
+	}
+	source.messages <- makeDelivery([]byte(`{}`), messaging.QueueName, headers, ack)
+
+	waitFor(t, time.Second, ack.isAcked)
+
+	assert.Equal(t, "user.registered", dispatcher.eventReceived.Name)
+}
