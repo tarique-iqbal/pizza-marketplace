@@ -11,15 +11,23 @@ import (
 	"github.com/rabbitmq/amqp091-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	"go.opentelemetry.io/otel/trace"
 
 	"search-service/internal/domain/index"
 	"search-service/internal/infrastructure/messaging"
+
+	"pizza-marketplace/shared/telemetry/otelamqp"
 )
 
 type mockDispatcher struct {
 	mu             sync.Mutex
 	fail           bool
 	dispatchCalled bool
+	spanContext    trace.SpanContext
 	eventReceived  index.EventPayload
 }
 
@@ -29,6 +37,7 @@ func (m *mockDispatcher) Dispatch(ctx context.Context, event index.EventPayload)
 	m.mu.Lock()
 	m.dispatchCalled = true
 	m.eventReceived = event
+	m.spanContext = trace.SpanContextFromContext(ctx)
 	m.mu.Unlock()
 
 	if m.fail {
@@ -265,4 +274,67 @@ func TestRabbitMQConsumer_Republish_RetryKeepsEventName(t *testing.T) {
 	waitFor(t, time.Second, ack.isAcked)
 
 	assert.Equal(t, "restaurant.launched", dispatcher.eventReceived.Name)
+}
+
+func (m *mockDispatcher) receivedSpanContext() trace.SpanContext {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.spanContext
+}
+
+func TestRabbitMQConsumer_Run_DispatchesUnderConsumerSpan(t *testing.T) {
+	previousProvider := otel.GetTracerProvider()
+	previousPropagator := otel.GetTextMapPropagator()
+	t.Cleanup(func() {
+		otel.SetTracerProvider(previousProvider)
+		otel.SetTextMapPropagator(previousPropagator)
+	})
+
+	recorder := tracetest.NewSpanRecorder()
+	otel.SetTracerProvider(sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder)))
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+
+	producer := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    trace.TraceID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+		SpanID:     trace.SpanID{1, 2, 3, 4, 5, 6, 7, 8},
+		TraceFlags: trace.FlagsSampled,
+	})
+	headers := amqp091.Table{}
+	propagation.TraceContext{}.Inject(
+		trace.ContextWithSpanContext(context.Background(), producer),
+		otelamqp.HeaderCarrier(headers),
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	dispatcher := &mockDispatcher{}
+	source := &fakeSource{messages: make(chan amqp091.Delivery, 1)}
+
+	go func() { _ = messaging.Run(ctx, source, dispatcher) }()
+
+	ack := &fakeAcknowledger{}
+	source.messages <- amqp091.Delivery{
+		Acknowledger: ack,
+		Exchange:     "restaurant.events",
+		RoutingKey:   "restaurant.launched",
+		Headers:      headers,
+		Body:         []byte(`{}`),
+	}
+
+	waitFor(t, time.Second, ack.isAcked)
+
+	var consumer sdktrace.ReadOnlySpan
+	for _, s := range recorder.Ended() {
+		if s.Name() == "process restaurant.events:restaurant.launched:"+messaging.QueueName {
+			consumer = s
+		}
+	}
+	require.NotNil(t, consumer, "consumer span should be ended")
+	require.Equal(t, trace.SpanKindConsumer, consumer.SpanKind())
+	require.Equal(t, producer.TraceID(), consumer.SpanContext().TraceID())
+	require.Equal(t, producer.SpanID(), consumer.Parent().SpanID())
+
+	got := dispatcher.receivedSpanContext()
+	require.Equal(t, consumer.SpanContext().SpanID(), got.SpanID(), "handler runs under the consumer span")
 }
