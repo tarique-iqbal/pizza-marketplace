@@ -11,6 +11,8 @@ import (
 	"order-service/internal/domain/readmodel"
 
 	"pizza-marketplace/shared/logobs"
+	"pizza-marketplace/shared/telemetry"
+	"pizza-marketplace/shared/telemetry/otelamqp"
 )
 
 const (
@@ -191,12 +193,20 @@ func runOnce(ctx context.Context, source messageSource, dispatcher readmodel.Eve
 				Data: msg.Body,
 			}
 
-			if err := dispatcher.Dispatch(ctx, event); err != nil {
+			msgCtx, span := otelamqp.StartConsume(ctx, QueueName, getExchange(msg), event.Name, msg)
+			msgCtx = logobs.WithContext(msgCtx, logobs.FromContext(ctx).With(
+				"event_name", event.Name,
+				"message_id", msg.MessageId,
+			))
+
+			err := dispatcher.Dispatch(msgCtx, event)
+			telemetry.EndSpan(span, err)
+
+			if err != nil {
 				retryCount := getRetryCount(msg.Headers)
 				if retryCount >= MaxRetryAttempts {
-					logobs.FromContext(ctx).WarnContext(ctx,
+					logobs.FromContext(msgCtx).WarnContext(msgCtx,
 						"message exceeded retry limit",
-						"message_id", msg.MessageId,
 						"retry_count", retryCount,
 					)
 					_ = msg.Nack(false, false)
@@ -206,7 +216,10 @@ func runOnce(ctx context.Context, source messageSource, dispatcher readmodel.Eve
 				time.Sleep(time.Second * time.Duration(retryCount+1))
 
 				if err := source.Republish(ctx, msg, retryCount+1); err != nil {
-					logobs.FromContext(ctx).WarnContext(ctx, "failed to republish for retry", "error", err)
+					logobs.FromContext(msgCtx).WarnContext(msgCtx,
+						"failed to republish for retry",
+						"error", err,
+					)
 					_ = msg.Nack(false, true)
 					continue
 				}
@@ -222,7 +235,7 @@ func runOnce(ctx context.Context, source messageSource, dispatcher readmodel.Eve
 
 // Republish requeues msg via the default exchange with an incremented
 // x-retry-count, which getRetryCount reads on the next delivery. The default exchange
-// routes by queue name, so the original routing key is kept in x-original-routing-key.
+// routes by queue name, so the original routing key and exchange are kept in x-original-*.
 func (c *RabbitMQConsumer) Republish(ctx context.Context, msg amqp.Delivery, retryCount int) error {
 	headers := amqp.Table{}
 	for k, v := range msg.Headers {
@@ -231,6 +244,9 @@ func (c *RabbitMQConsumer) Republish(ctx context.Context, msg amqp.Delivery, ret
 	headers["x-retry-count"] = int32(retryCount)
 	if _, ok := headers["x-original-routing-key"]; !ok {
 		headers["x-original-routing-key"] = msg.RoutingKey
+	}
+	if _, ok := headers["x-original-exchange"]; !ok {
+		headers["x-original-exchange"] = msg.Exchange
 	}
 
 	return c.channel.PublishWithContext(ctx, "", QueueName, false, false, amqp.Publishing{
@@ -247,6 +263,13 @@ func getEventName(msg amqp.Delivery) string {
 		return name
 	}
 	return msg.RoutingKey
+}
+
+func getExchange(msg amqp.Delivery) string {
+	if exchange, ok := msg.Headers["x-original-exchange"].(string); ok {
+		return exchange
+	}
+	return msg.Exchange
 }
 
 func getRetryCount(headers amqp.Table) int {
