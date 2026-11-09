@@ -9,6 +9,8 @@ import (
 
 	"order-service/internal/domain/order"
 	"order-service/internal/infrastructure/payment/pb"
+
+	"pizza-marketplace/shared/telemetry/otelgrpc"
 )
 
 type Client struct {
@@ -17,7 +19,11 @@ type Client struct {
 }
 
 func Dial(addr string) (*grpc.ClientConn, error) {
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(
+		addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		otelgrpc.ClientOption(),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("dial payment-service: %w", err)
 	}
