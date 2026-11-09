@@ -18,17 +18,27 @@ import (
 	"payment-service/internal/interfaces/http/routes"
 
 	"pizza-marketplace/shared/logobs"
+	"pizza-marketplace/shared/telemetry"
+	"pizza-marketplace/shared/telemetry/otelgin"
 )
 
 const (
-	serviceName     = "payment-api"
-	httpAddr        = ":8080"
-	grpcAddr        = ":50051"
-	shutdownTimeout = 10 * time.Second
+	serviceName           = "payment-api"
+	httpAddr              = ":8080"
+	grpcAddr              = ":50051"
+	shutdownTimeout       = 10 * time.Second
+	telemetryFlushTimeout = 5 * time.Second
 )
 
 func main() {
 	logger := logobs.NewLogger(serviceName)
+
+	shutdown, err := telemetry.Init(context.Background(), telemetry.Config{ServiceName: serviceName})
+	if err != nil {
+		logger.Error("failed to initialize telemetry", "error", err)
+		return
+	}
+	defer flushTelemetry(shutdown)
 
 	app, err := container.NewAPIContainer()
 	if err != nil {
@@ -48,7 +58,7 @@ func main() {
 	}()
 
 	router := gin.New()
-	router.Use(gin.Recovery(), logobs.Middleware(logger))
+	router.Use(gin.Recovery(), otelgin.Middleware(serviceName), logobs.Middleware(logger))
 
 	routes.SetupRoutes(router, app.Handlers)
 
@@ -131,4 +141,11 @@ func stopGRPC(server *grpclib.Server) {
 	case <-time.After(shutdownTimeout):
 		server.Stop()
 	}
+}
+
+func flushTelemetry(shutdown telemetry.Shutdown) {
+	ctx, cancel := context.WithTimeout(context.Background(), telemetryFlushTimeout)
+	defer cancel()
+
+	_ = shutdown(ctx)
 }
