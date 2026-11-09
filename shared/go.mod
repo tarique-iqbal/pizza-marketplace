@@ -3,6 +3,8 @@ module pizza-marketplace/shared
 go 1.26.8
 
 require (
+	github.com/elastic/elastic-transport-go/v8 v8.9.0
+	github.com/elastic/go-elasticsearch/v8 v8.19.7
 	github.com/gin-gonic/gin v1.12.0
 	github.com/google/uuid v1.6.0
 	github.com/rabbitmq/amqp091-go v1.10.0
