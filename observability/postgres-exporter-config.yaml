@@ -1,0 +1,8 @@
+auth_modules:
+  dev:
+    type: userpass
+    userpass:
+      username: user_dev
+      password: pass_dev
+    options:
+      sslmode: disable

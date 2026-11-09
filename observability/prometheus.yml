@@ -10,6 +10,22 @@ scrape_configs:
     static_configs:
       - targets: ["rabbitmq:15692"]
 
-  - job_name: postgres-identity
+  - job_name: postgres
+    metrics_path: /probe
+    params:
+      auth_module: [dev]
     static_configs:
-      - targets: ["postgres-exporter:9187"]
+      - targets:
+          - postgres-identity:5432/identity_db
+          - postgres-restaurant:5432/restaurant_db
+          - postgres-order:5432/order_db
+          - postgres-payment:5432/payment_db
+          - postgres-customer:5432/customer_db
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__address__]
+        regex: postgres-([a-z]+):.*
+        target_label: instance
+      - target_label: __address__
+        replacement: postgres-exporter:9187
