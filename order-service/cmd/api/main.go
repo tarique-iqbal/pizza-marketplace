@@ -15,16 +15,26 @@ import (
 	"order-service/internal/interfaces/http/routes"
 
 	"pizza-marketplace/shared/logobs"
+	"pizza-marketplace/shared/telemetry"
+	"pizza-marketplace/shared/telemetry/otelgin"
 )
 
 const (
-	serviceName     = "order-api"
-	httpAddr        = ":8080"
-	shutdownTimeout = 10 * time.Second
+	serviceName           = "order-api"
+	httpAddr              = ":8080"
+	shutdownTimeout       = 10 * time.Second
+	telemetryFlushTimeout = 5 * time.Second
 )
 
 func main() {
 	logger := logobs.NewLogger(serviceName)
+
+	shutdown, err := telemetry.Init(context.Background(), telemetry.Config{ServiceName: serviceName})
+	if err != nil {
+		logger.Error("failed to initialize telemetry", "error", err)
+		return
+	}
+	defer flushTelemetry(shutdown)
 
 	app, err := container.NewAPIContainer()
 	if err != nil {
@@ -34,7 +44,7 @@ func main() {
 	defer app.Close()
 
 	router := gin.New()
-	router.Use(gin.Recovery(), logobs.Middleware(logger))
+	router.Use(gin.Recovery(), otelgin.Middleware(serviceName), logobs.Middleware(logger))
 
 	handlers := &routes.Handlers{
 		CartHandler:   app.CartHandler,
@@ -81,4 +91,11 @@ func serve(ctx context.Context, logger *slog.Logger, handler http.Handler) error
 	logger.Info("shutdown complete")
 
 	return nil
+}
+
+func flushTelemetry(shutdown telemetry.Shutdown) {
+	ctx, cancel := context.WithTimeout(context.Background(), telemetryFlushTimeout)
+	defer cancel()
+
+	_ = shutdown(ctx)
 }
