@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/elastic/go-elasticsearch/v8"
+
+	"pizza-marketplace/shared/telemetry/otelelasticsearch"
 )
 
 type Pinger struct {
@@ -14,7 +16,8 @@ type Pinger struct {
 
 func NewClient(addr string) (*elasticsearch.Client, error) {
 	return elasticsearch.NewClient(elasticsearch.Config{
-		Addresses: []string{addr},
+		Addresses:       []string{addr},
+		Instrumentation: otelelasticsearch.Instrumentation(),
 	})
 }
 
