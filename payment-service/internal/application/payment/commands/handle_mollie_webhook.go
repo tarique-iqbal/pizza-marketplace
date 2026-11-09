@@ -11,6 +11,8 @@ import (
 	paymentapp "payment-service/internal/application/payment"
 	"payment-service/internal/domain/outbox"
 	"payment-service/internal/domain/payment"
+
+	"pizza-marketplace/shared/telemetry"
 )
 
 type HandleMollieWebhook struct {
@@ -41,6 +43,9 @@ func (cmd *HandleMollieWebhook) Execute(ctx context.Context, gatewayPaymentID st
 	}
 	if p == nil {
 		return nil
+	}
+	if p.TraceContext != nil {
+		telemetry.LinkTraceParent(ctx, *p.TraceContext)
 	}
 	if p.Status != payment.StatusPending {
 		return nil

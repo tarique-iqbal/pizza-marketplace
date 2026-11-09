@@ -8,6 +8,9 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	"go.opentelemetry.io/otel/trace"
 
 	paymentapp "payment-service/internal/application/payment"
 	"payment-service/internal/application/payment/commands"
@@ -160,4 +163,44 @@ func TestHandleMollieWebhook_Failed_MarksFailedAndPublishes(t *testing.T) {
 	var decoded paymentapp.PaymentFailedPayload
 	require.NoError(t, json.Unmarshal(event.Payload, &decoded))
 	assert.Equal(t, "payment expired", decoded.Reason)
+}
+
+func TestHandleMollieWebhook_LinksCheckoutTrace(t *testing.T) {
+	db := testutil.DB(t)
+	db.TruncateTables(t, testutil.TablePayment, testutil.TableOutboxEvent)
+
+	repo := persistence.NewPaymentRepository(db.DB)
+	outboxRepo := persistence.NewOutboxRepository(db.DB)
+
+	checkout := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    trace.TraceID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+		SpanID:     trace.SpanID{1, 2, 3, 4, 5, 6, 7, 8},
+		TraceFlags: trace.FlagsSampled,
+	})
+	p := payment.NewPayment(
+		testutil.MustNewID(), testutil.MustNewID(), testutil.MustNewID(), testutil.MustNewID(),
+		"order", decimal.NewFromFloat(24.50), "EUR", decimal.Zero, "mollie",
+	)
+	require.NoError(t, repo.Create(trace.ContextWithSpanContext(context.Background(), checkout), p))
+	p.AttachGatewayReference("tr_linked")
+	require.NoError(t, repo.Update(context.Background(), p))
+
+	recorder := tracetest.NewSpanRecorder()
+	tracer := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder)).Tracer("test")
+	ctx, span := tracer.Start(context.Background(), "POST /webhooks/mollie")
+
+	gw := &fakeGateway{statusResult: payment.PaymentStatusResult{Status: payment.StatusSucceeded}}
+	cmd := commands.NewHandleMollieWebhook(db.DB, repo, gw, outboxRepo)
+	require.NoError(t, cmd.Execute(ctx, "tr_linked"))
+	span.End()
+
+	webhook := recorder.Ended()[0]
+	require.Len(t, webhook.Links(), 1)
+	assert.Equal(t, checkout.TraceID(), webhook.Links()[0].SpanContext.TraceID())
+	assert.Equal(t, checkout.SpanID(), webhook.Links()[0].SpanContext.SpanID())
+
+	var event outbox.OutboxEvent
+	require.NoError(t, db.DB.First(&event).Error)
+	require.NotNil(t, event.TraceContext)
+	assert.Contains(t, *event.TraceContext, webhook.SpanContext().TraceID().String())
 }
