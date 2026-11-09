@@ -102,3 +102,43 @@ func TestWithoutTracing_ChildSpansAreNotRecorded(t *testing.T) {
 		t.Fatalf("expected no recorded spans, got %d", n)
 	}
 }
+
+func TestLinkTraceParent_AddsLinkToCurrentSpan(t *testing.T) {
+	tracer, recorder := newTestTracer()
+
+	_, origin := tracer.Start(context.Background(), "checkout")
+	origin.End()
+	traceParent := TraceParent(trace.ContextWithSpan(context.Background(), origin))
+
+	ctx, span := tracer.Start(context.Background(), "webhook")
+	LinkTraceParent(ctx, traceParent)
+	span.End()
+
+	webhook := recorder.Ended()[1]
+	if len(webhook.Links()) != 1 {
+		t.Fatalf("expected 1 link, got %d", len(webhook.Links()))
+	}
+
+	linked, want := webhook.Links()[0].SpanContext, origin.SpanContext()
+	if linked.TraceID() != want.TraceID() || linked.SpanID() != want.SpanID() {
+		t.Fatalf("linked %s/%s, want %s/%s", linked.TraceID(), linked.SpanID(), want.TraceID(), want.SpanID())
+	}
+
+	if webhook.SpanContext().TraceID() == want.TraceID() {
+		t.Fatal("expected the linking span to stay in its own trace")
+	}
+}
+
+func TestLinkTraceParent_InvalidAddsNoLink(t *testing.T) {
+	for _, traceParent := range []string{"", "not-a-traceparent"} {
+		tracer, recorder := newTestTracer()
+
+		ctx, span := tracer.Start(context.Background(), "webhook")
+		LinkTraceParent(ctx, traceParent)
+		span.End()
+
+		if n := len(recorder.Ended()[0].Links()); n != 0 {
+			t.Errorf("traceparent %q: expected no links, got %d", traceParent, n)
+		}
+	}
+}

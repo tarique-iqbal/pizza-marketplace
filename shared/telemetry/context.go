@@ -25,6 +25,15 @@ func WithTraceParent(ctx context.Context, traceParent string) context.Context {
 	return propagation.TraceContext{}.Extract(ctx, propagation.MapCarrier{traceParentKey: traceParent})
 }
 
+func LinkTraceParent(ctx context.Context, traceParent string) {
+	linked := trace.SpanContextFromContext(WithTraceParent(context.Background(), traceParent))
+	if !linked.IsValid() {
+		return
+	}
+
+	trace.SpanFromContext(ctx).AddLink(trace.Link{SpanContext: linked})
+}
+
 func WithoutTracing(ctx context.Context) context.Context {
 	var traceID trace.TraceID
 	var spanID trace.SpanID
