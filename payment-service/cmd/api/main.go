@@ -20,6 +20,7 @@ import (
 	"pizza-marketplace/shared/logobs"
 	"pizza-marketplace/shared/telemetry"
 	"pizza-marketplace/shared/telemetry/otelgin"
+	"pizza-marketplace/shared/telemetry/otelgrpc"
 )
 
 const (
@@ -108,7 +109,7 @@ func serveGRPC(ctx context.Context, logger *slog.Logger, app *container.APIConta
 		return
 	}
 
-	server := grpclib.NewServer()
+	server := grpclib.NewServer(otelgrpc.ServerOption())
 	pb.RegisterPaymentServiceServer(server, app.GRPCServer)
 
 	stopped := make(chan struct{})
