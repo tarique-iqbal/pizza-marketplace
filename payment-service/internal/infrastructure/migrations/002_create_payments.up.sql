@@ -28,6 +28,7 @@ CREATE TABLE payments (
     gateway            VARCHAR(32)   NOT NULL,
     gateway_payment_id VARCHAR(64),
     failure_reason     VARCHAR(500),
+    trace_context      VARCHAR(128),
     created_at         TIMESTAMPTZ   NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at         TIMESTAMPTZ,
 

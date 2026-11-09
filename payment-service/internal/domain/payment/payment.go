@@ -28,6 +28,7 @@ type Payment struct {
 	Gateway          string          `gorm:"size:32;not null"`
 	GatewayPaymentID *string         `gorm:"size:64"`
 	FailureReason    *string         `gorm:"size:500"`
+	TraceContext     *string         `gorm:"type:varchar(128)"`
 	CreatedAt        time.Time       `gorm:"type:timestamptz;not null;autoCreateTime"`
 	UpdatedAt        *time.Time      `gorm:"type:timestamptz;autoUpdateTime;default:null"`
 }

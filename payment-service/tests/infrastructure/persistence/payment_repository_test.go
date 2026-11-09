@@ -8,6 +8,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
 
 	"payment-service/internal/domain/payment"
@@ -53,6 +54,44 @@ func TestPaymentRepository_Create(t *testing.T) {
 	assert.True(t, p.Amount.Equal(found.Amount))
 	assert.Equal(t, payment.StatusPending, found.Status)
 	assert.NotZero(t, found.CreatedAt)
+}
+
+func TestPaymentRepository_Create_StoresTraceContext(t *testing.T) {
+	db := testutil.DB(t)
+	repo, _ := setupPaymentRepo(t)
+
+	sc := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    trace.TraceID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+		SpanID:     trace.SpanID{1, 2, 3, 4, 5, 6, 7, 8},
+		TraceFlags: trace.FlagsSampled,
+	})
+	ctx := trace.ContextWithSpanContext(context.Background(), sc)
+
+	p := payment.NewPayment(
+		testutil.MustNewID(), testutil.MustNewID(), testutil.MustNewID(), testutil.MustNewID(),
+		"order", decimal.NewFromFloat(30.00), "EUR", decimal.Zero, "mollie",
+	)
+	require.NoError(t, repo.Create(ctx, p))
+
+	var found payment.Payment
+	require.NoError(t, db.DB.First(&found, "id = ?", p.ID).Error)
+	require.NotNil(t, found.TraceContext)
+	assert.Equal(t, "00-"+sc.TraceID().String()+"-"+sc.SpanID().String()+"-01", *found.TraceContext)
+}
+
+func TestPaymentRepository_Create_WithoutSpan_LeavesTraceContextNil(t *testing.T) {
+	db := testutil.DB(t)
+	repo, _ := setupPaymentRepo(t)
+
+	p := payment.NewPayment(
+		testutil.MustNewID(), testutil.MustNewID(), testutil.MustNewID(), testutil.MustNewID(),
+		"order", decimal.NewFromFloat(30.00), "EUR", decimal.Zero, "mollie",
+	)
+	require.NoError(t, repo.Create(context.Background(), p))
+
+	var found payment.Payment
+	require.NoError(t, db.DB.First(&found, "id = ?", p.ID).Error)
+	assert.Nil(t, found.TraceContext)
 }
 
 func TestPaymentRepository_Update(t *testing.T) {

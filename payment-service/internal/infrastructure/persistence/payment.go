@@ -8,6 +8,8 @@ import (
 	"gorm.io/gorm"
 
 	"payment-service/internal/domain/payment"
+
+	"pizza-marketplace/shared/telemetry"
 )
 
 type PaymentRepository struct {
@@ -23,6 +25,10 @@ func (r *PaymentRepository) WithTx(tx *gorm.DB) payment.PaymentRepository {
 }
 
 func (r *PaymentRepository) Create(ctx context.Context, p *payment.Payment) error {
+	if traceParent := telemetry.TraceParent(ctx); traceParent != "" {
+		p.TraceContext = &traceParent
+	}
+
 	return r.db.WithContext(ctx).Create(p).Error
 }
 
