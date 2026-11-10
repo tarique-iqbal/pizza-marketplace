@@ -23,6 +23,11 @@ var (
 	ordersConfirmed = telemetry.NewCounter(meterScope, "orders.confirmed", "Orders confirmed after payment.")
 	ordersCancelled = telemetry.NewCounter(meterScope, "orders.cancelled", "Orders cancelled, by source.")
 	ordersCompleted = telemetry.NewCounter(meterScope, "orders.completed", "Orders completed by the owner.")
+
+	orderCompletionDuration = telemetry.NewHistogram(meterScope, "order.completion.duration", "s",
+		"Time from placing an order to completing it.",
+		5*60, 10*60, 15*60, 20*60, 30*60, 45*60, 60*60, 90*60, 120*60,
+	)
 )
 
 func RecordPlaced(ctx context.Context, ord *order.Order) {
@@ -39,6 +44,11 @@ func RecordCancelled(ctx context.Context, source CancelSource) {
 
 func RecordCompleted(ctx context.Context, ord *order.Order) {
 	ordersCompleted.Add(ctx, fulfillmentLabel(ord))
+
+	if ord.CompletedAt != nil && !ord.PlacedAt.IsZero() {
+		duration := ord.CompletedAt.Sub(ord.PlacedAt).Seconds()
+		orderCompletionDuration.Record(ctx, duration, fulfillmentLabel(ord))
+	}
 }
 
 func fulfillmentLabel(ord *order.Order) telemetry.Label {

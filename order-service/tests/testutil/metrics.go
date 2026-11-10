@@ -74,3 +74,26 @@ func hasLabels(set attribute.Set, labels []attribute.KeyValue) bool {
 
 	return true
 }
+
+func HistogramCountAndSum(t *testing.T, name string, labels ...attribute.KeyValue) (uint64, float64) {
+	t.Helper()
+
+	m, ok := collectMetric(t, name)
+	if !ok {
+		return 0, 0
+	}
+
+	hist, ok := m.Data.(metricdata.Histogram[float64])
+	require.True(t, ok, "metric %s is %T, not a float64 histogram", name, m.Data)
+
+	var count uint64
+	var sum float64
+	for _, dp := range hist.DataPoints {
+		if hasLabels(dp.Attributes, labels) {
+			count += dp.Count
+			sum += dp.Sum
+		}
+	}
+
+	return count, sum
+}
