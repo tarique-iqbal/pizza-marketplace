@@ -1,0 +1,295 @@
+{
+  "title": "Service RED",
+  "uid": "service-red",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "job",
+        "label": "API",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "query": "label_values(http_server_request_duration_seconds_count{job=~\".+-api\"}, job)", "refId": "job" },
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+-api",
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "APIs",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "title": "Requests/s",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 1, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum by (job) (rate(http_server_request_duration_seconds_count{job=~\"$job\", http_route!~\"/healthz/.*\"}[5m]))",
+          "legendFormat": "{{job}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "5xx share",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 1, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": { "thresholdsStyle": { "mode": "line" } },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 0.01 }] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "(sum by (job) (rate(http_server_request_duration_seconds_count{job=~\"$job\", http_route!~\"/healthz/.*\", http_response_status_code=~\"5..\"}[5m])) or sum by (job) (rate(http_server_request_duration_seconds_count{job=~\"$job\", http_route!~\"/healthz/.*\"}[5m])) * 0) / sum by (job) (rate(http_server_request_duration_seconds_count{job=~\"$job\", http_route!~\"/healthz/.*\"}[5m]))",
+          "legendFormat": "{{job}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "p95 latency",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 1, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "thresholdsStyle": { "mode": "line" } },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 0.5 }] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, job) (rate(http_server_request_duration_seconds_bucket{job=~\"$job\", http_route!~\"/healthz/.*\"}[5m])))",
+          "legendFormat": "{{job}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Routes over the dashboard range",
+      "type": "table",
+      "gridPos": { "x": 0, "y": 9, "w": 24, "h": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "sortBy": [{ "displayName": "p95", "desc": true }] },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Requests" }, "properties": [{ "id": "decimals", "value": 0 }] },
+          { "matcher": { "id": "byName", "options": "p95" }, "properties": [{ "id": "unit", "value": "s" }] },
+          { "matcher": { "id": "byName", "options": "5xx" }, "properties": [{ "id": "decimals", "value": 0 }] }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "sum by (job, http_route) (increase(http_server_request_duration_seconds_count{job=~\"$job\", http_route!~\"/healthz/.*\"}[$__range])) > 0",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, job, http_route) (increase(http_server_request_duration_seconds_bucket{job=~\"$job\", http_route!~\"/healthz/.*\"}[$__range]))) > 0",
+          "format": "table",
+          "instant": true,
+          "refId": "B"
+        },
+        {
+          "expr": "sum by (job, http_route) (increase(http_server_request_duration_seconds_count{job=~\"$job\", http_route!~\"/healthz/.*\", http_response_status_code=~\"5..\"}[$__range])) or (sum by (job, http_route) (increase(http_server_request_duration_seconds_count{job=~\"$job\", http_route!~\"/healthz/.*\"}[$__range])) > 0) * 0",
+          "format": "table",
+          "instant": true,
+          "refId": "C"
+        }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "indexByName": { "job": 0, "http_route": 1, "Value #A": 2, "Value #B": 3, "Value #C": 4 },
+            "renameByName": { "job": "API", "http_route": "Route", "Value #A": "Requests", "Value #B": "p95", "Value #C": "5xx" }
+          }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "gRPC (payment-api)",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 18, "w": 24, "h": 1 },
+      "panels": []
+    },
+    {
+      "id": 7,
+      "title": "Calls/s by method",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 19, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum by (rpc_method) (rate(rpc_server_call_duration_seconds_count{job=\"payment-api\", rpc_method!~\"grpc.health.*\"}[5m]))",
+          "legendFormat": "{{rpc_method}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Server-error share by method",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 19, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": { "thresholdsStyle": { "mode": "line" } },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 0.01 }] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "(sum by (rpc_method) (rate(rpc_server_call_duration_seconds_count{job=\"payment-api\", rpc_method!~\"grpc.health.*\", rpc_response_status_code=~\"UNKNOWN|DEADLINE_EXCEEDED|UNIMPLEMENTED|INTERNAL|UNAVAILABLE|DATA_LOSS\"}[5m])) or sum by (rpc_method) (rate(rpc_server_call_duration_seconds_count{job=\"payment-api\", rpc_method!~\"grpc.health.*\"}[5m])) * 0) / sum by (rpc_method) (rate(rpc_server_call_duration_seconds_count{job=\"payment-api\", rpc_method!~\"grpc.health.*\"}[5m]))",
+          "legendFormat": "{{rpc_method}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "p95 latency by method",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 19, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "thresholdsStyle": { "mode": "line" } },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 0.5 }] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, rpc_method) (rate(rpc_server_call_duration_seconds_bucket{job=\"payment-api\", rpc_method!~\"grpc.health.*\"}[5m])))",
+          "legendFormat": "{{rpc_method}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Workers (from spans)",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 27, "w": 24, "h": 1 },
+      "panels": []
+    },
+    {
+      "id": 11,
+      "title": "Messages processed/s",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 28, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum by (service) (rate(traces_spanmetrics_calls_total{span_kind=\"SPAN_KIND_CONSUMER\"}[5m]))",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Error share",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 28, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": { "thresholdsStyle": { "mode": "line" } },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 0.01 }] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "(sum by (service) (rate(traces_spanmetrics_calls_total{span_kind=\"SPAN_KIND_CONSUMER\", status_code=\"STATUS_CODE_ERROR\"}[5m])) or sum by (service) (rate(traces_spanmetrics_calls_total{span_kind=\"SPAN_KIND_CONSUMER\"}[5m])) * 0) / sum by (service) (rate(traces_spanmetrics_calls_total{span_kind=\"SPAN_KIND_CONSUMER\"}[5m]))",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "p95 processing time",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 28, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, service) (rate(traces_spanmetrics_latency_bucket{span_kind=\"SPAN_KIND_CONSUMER\"}[5m])))",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "Failed messages by event over the dashboard range",
+      "type": "table",
+      "gridPos": { "x": 0, "y": 36, "w": 24, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "sortBy": [{ "displayName": "Failed", "desc": true }] },
+      "fieldConfig": { "defaults": { "decimals": 0 }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum by (service, span_name) (increase(traces_spanmetrics_calls_total{span_kind=\"SPAN_KIND_CONSUMER\", status_code=\"STATUS_CODE_ERROR\"}[$__range])) > 0",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "indexByName": { "service": 0, "span_name": 1, "Value": 2 },
+            "renameByName": { "service": "Worker", "span_name": "Span", "Value": "Failed" }
+          }
+        }
+      ]
+    }
+  ]
+}
