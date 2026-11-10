@@ -109,7 +109,7 @@ func (cmd *HandleMollieWebhook) Execute(ctx context.Context, gatewayPaymentID st
 		return nil
 	}
 
-	return cmd.db.Transaction(func(tx *gorm.DB) error {
+	err = cmd.db.Transaction(func(tx *gorm.DB) error {
 		if err := cmd.repo.WithTx(tx).Update(ctx, p); err != nil {
 			return fmt.Errorf("failed to update payment: %w", err)
 		}
@@ -121,4 +121,15 @@ func (cmd *HandleMollieWebhook) Execute(ctx context.Context, gatewayPaymentID st
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	if result.Status == payment.StatusSucceeded {
+		paymentapp.RecordSucceeded(ctx)
+	} else {
+		paymentapp.RecordFailed(ctx, result.Reason)
+	}
+
+	return nil
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.opentelemetry.io/otel/trace"
@@ -71,11 +72,14 @@ func TestHandleMollieWebhook_AlreadyTerminalPayment_NoOp(t *testing.T) {
 
 	gw := &fakeGateway{statusResult: payment.PaymentStatusResult{Status: payment.StatusSucceeded}}
 	cmd := commands.NewHandleMollieWebhook(db.DB, repo, gw, outboxRepo)
+	succeededBefore := testutil.CounterValue(t, "payments.succeeded")
 
 	err := cmd.Execute(context.Background(), "tr_terminal")
 	require.NoError(t, err)
 
 	assert.Equal(t, int64(0), countOutboxEvents(t, db))
+	assert.Equal(t, succeededBefore, testutil.CounterValue(t, "payments.succeeded"),
+		"a redelivered webhook must not count again")
 }
 
 func TestHandleMollieWebhook_NonTerminalStatus_NoOp(t *testing.T) {
@@ -89,11 +93,15 @@ func TestHandleMollieWebhook_NonTerminalStatus_NoOp(t *testing.T) {
 
 	gw := &fakeGateway{statusResult: payment.PaymentStatusResult{Status: payment.StatusPending}}
 	cmd := commands.NewHandleMollieWebhook(db.DB, repo, gw, outboxRepo)
+	succeededBefore := testutil.CounterValue(t, "payments.succeeded")
+	failedBefore := testutil.CounterValue(t, "payments.failed")
 
 	err := cmd.Execute(context.Background(), "tr_open")
 	require.NoError(t, err)
 
 	assert.Equal(t, int64(0), countOutboxEvents(t, db))
+	assert.Equal(t, succeededBefore, testutil.CounterValue(t, "payments.succeeded"))
+	assert.Equal(t, failedBefore, testutil.CounterValue(t, "payments.failed"))
 
 	found, err := repo.FindByID(context.Background(), p.ID)
 	require.NoError(t, err)
@@ -111,9 +119,11 @@ func TestHandleMollieWebhook_Paid_MarksSucceededAndPublishes(t *testing.T) {
 
 	gw := &fakeGateway{statusResult: payment.PaymentStatusResult{Status: payment.StatusSucceeded}}
 	cmd := commands.NewHandleMollieWebhook(db.DB, repo, gw, outboxRepo)
+	succeededBefore := testutil.CounterValue(t, "payments.succeeded")
 
 	err := cmd.Execute(context.Background(), "tr_paid")
 	require.NoError(t, err)
+	assert.Equal(t, succeededBefore+1, testutil.CounterValue(t, "payments.succeeded"))
 
 	found, err := repo.FindByID(context.Background(), p.ID)
 	require.NoError(t, err)
@@ -144,9 +154,12 @@ func TestHandleMollieWebhook_Failed_MarksFailedAndPublishes(t *testing.T) {
 		statusResult: payment.PaymentStatusResult{Status: payment.StatusFailed, Reason: "payment expired"},
 	}
 	cmd := commands.NewHandleMollieWebhook(db.DB, repo, gw, outboxRepo)
+	expired := attribute.String("reason", "expired")
+	failedBefore := testutil.CounterValue(t, "payments.failed", expired)
 
 	err := cmd.Execute(context.Background(), "tr_expired")
 	require.NoError(t, err)
+	assert.Equal(t, failedBefore+1, testutil.CounterValue(t, "payments.failed", expired))
 
 	found, err := repo.FindByID(context.Background(), p.ID)
 	require.NoError(t, err)
