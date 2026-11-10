@@ -1,0 +1,197 @@
+{
+  "title": "Business Overview",
+  "uid": "business-overview",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "1m",
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Orders",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "title": "Placed",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "colorMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "decimals": 0 }, "overrides": [] },
+      "targets": [{ "expr": "sum(increase(orders_placed_total[$__range])) or vector(0)", "instant": true, "refId": "A" }]
+    },
+    {
+      "id": 3,
+      "title": "Confirmed",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "colorMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "decimals": 0 }, "overrides": [] },
+      "targets": [{ "expr": "sum(increase(orders_confirmed_total[$__range])) or vector(0)", "instant": true, "refId": "A" }]
+    },
+    {
+      "id": 4,
+      "title": "Completed",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "colorMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "decimals": 0 }, "overrides": [] },
+      "targets": [{ "expr": "sum(increase(orders_completed_total[$__range])) or vector(0)", "instant": true, "refId": "A" }]
+    },
+    {
+      "id": 5,
+      "title": "Cancelled",
+      "type": "stat",
+      "gridPos": { "x": 18, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "colorMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "decimals": 0 }, "overrides": [] },
+      "targets": [{ "expr": "sum(increase(orders_cancelled_total[$__range])) or vector(0)", "instant": true, "refId": "A" }]
+    },
+    {
+      "id": 6,
+      "title": "Orders placed per hour, by fulfillment",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 5, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "decimals": 0 }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum by (fulfillment) (increase(orders_placed_total[1h]))",
+          "legendFormat": "{{fulfillment}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Cancellations per hour, by source",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 5, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "decimals": 0 }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum by (source) (increase(orders_cancelled_total[1h]))",
+          "legendFormat": "{{source}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Placed to completed, p50 / p90 (last hour)",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 5, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum by (le) (increase(order_completion_duration_seconds_bucket[1h])))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.9, sum by (le) (increase(order_completion_duration_seconds_bucket[1h])))",
+          "legendFormat": "p90",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Payments",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 13, "w": 24, "h": 1 },
+      "panels": []
+    },
+    {
+      "id": 10,
+      "title": "Succeeded",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 14, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "colorMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "decimals": 0 }, "overrides": [] },
+      "targets": [{ "expr": "sum(increase(payments_succeeded_total[$__range])) or vector(0)", "instant": true, "refId": "A" }]
+    },
+    {
+      "id": 11,
+      "title": "Failed (expired, failed, other)",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 14, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "colorMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "decimals": 0 }, "overrides": [] },
+      "targets": [
+        { "expr": "sum(increase(payments_failed_total{reason!=\"canceled\"}[$__range])) or vector(0)", "instant": true, "refId": "A" }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Abandoned at checkout (canceled)",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 14, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "colorMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "decimals": 0 }, "overrides": [] },
+      "targets": [
+        { "expr": "sum(increase(payments_failed_total{reason=\"canceled\"}[$__range])) or vector(0)", "instant": true, "refId": "A" }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "Failure share (abandoned excluded)",
+      "type": "stat",
+      "gridPos": { "x": 18, "y": 14, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "colorMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "decimals": 1 }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "(sum(increase(payments_failed_total{reason!=\"canceled\"}[$__range])) or vector(0)) / (((sum(increase(payments_succeeded_total[$__range])) or vector(0)) + (sum(increase(payments_failed_total{reason!=\"canceled\"}[$__range])) or vector(0))) > 0)",
+          "instant": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "Payment outcomes per hour",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 18, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "decimals": 0 }, "overrides": [] },
+      "targets": [
+        { "expr": "sum(increase(payments_succeeded_total[1h]))", "legendFormat": "succeeded", "refId": "A" },
+        {
+          "expr": "sum by (reason) (increase(payments_failed_total[1h]))",
+          "legendFormat": "failed: {{reason}}",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "Failure share per hour (abandoned excluded)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 18, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "(sum(increase(payments_failed_total{reason!=\"canceled\"}[1h])) or vector(0)) / (((sum(increase(payments_succeeded_total[1h])) or vector(0)) + (sum(increase(payments_failed_total{reason!=\"canceled\"}[1h])) or vector(0))) > 0)",
+          "legendFormat": "failure share",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}
