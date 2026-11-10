@@ -8,6 +8,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
 
 	"order-service/internal/application/order/commands"
 	"order-service/internal/domain/order"
@@ -51,6 +52,8 @@ func TestCancel_AsCustomer_Success(t *testing.T) {
 	repo := &testutil.MockOrderRepository{FindByIDAndCustomerResult: ord}
 	payment := &cancelPaymentFake{}
 	cmd := commands.NewCancel(repo, payment)
+	source := attribute.String("source", "customer")
+	cancelledBefore := testutil.CounterValue(t, "orders.cancelled", source)
 
 	res, err := cmd.Execute(context.Background(), ord.ID, testutil.MustNewID(), "customer")
 
@@ -58,6 +61,7 @@ func TestCancel_AsCustomer_Success(t *testing.T) {
 	assert.Equal(t, order.StatusCancelled, res.Status)
 	require.Len(t, repo.Updated, 1)
 	assert.Equal(t, []string{"pay_123"}, payment.cancelledPaymentIDs)
+	assert.Equal(t, cancelledBefore+1, testutil.CounterValue(t, "orders.cancelled", source))
 }
 
 func TestCancel_AsOwner_Success(t *testing.T) {
@@ -67,11 +71,14 @@ func TestCancel_AsOwner_Success(t *testing.T) {
 	}
 	repo := &testutil.MockOrderRepository{FindByIDAndRestaurantOwnerResult: ord}
 	cmd := commands.NewCancel(repo, &cancelPaymentFake{})
+	source := attribute.String("source", "owner")
+	cancelledBefore := testutil.CounterValue(t, "orders.cancelled", source)
 
 	res, err := cmd.Execute(context.Background(), ord.ID, testutil.MustNewID(), "owner")
 
 	require.NoError(t, err)
 	assert.Equal(t, order.StatusCancelled, res.Status)
+	assert.Equal(t, cancelledBefore+1, testutil.CounterValue(t, "orders.cancelled", source))
 }
 
 func TestCancel_NoPaymentIDYet_SkipsPaymentCancel(t *testing.T) {
@@ -173,10 +180,12 @@ func TestCancel_InvalidTransition_ReturnsConflict(t *testing.T) {
 	}
 	repo := &testutil.MockOrderRepository{FindByIDAndCustomerResult: ord}
 	cmd := commands.NewCancel(repo, &cancelPaymentFake{})
+	cancelledBefore := testutil.CounterValue(t, "orders.cancelled")
 
 	_, err := cmd.Execute(context.Background(), ord.ID, testutil.MustNewID(), "customer")
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, apperr.ErrConflict)
 	assert.Empty(t, repo.Updated)
+	assert.Equal(t, cancelledBefore, testutil.CounterValue(t, "orders.cancelled"))
 }

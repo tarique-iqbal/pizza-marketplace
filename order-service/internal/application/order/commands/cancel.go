@@ -66,6 +66,8 @@ func (cmd *Cancel) Execute(
 		return orderapp.OrderResponse{}, fmt.Errorf("failed to update order: %w", err)
 	}
 
+	orderapp.RecordCancelled(ctx, cancelSource(role))
+
 	// Best-effort: the order stays cancelled even if the gateway cancel call fails.
 	if ord.PaymentID != nil {
 		if err := cmd.paymentProvider.CancelPayment(ctx, *ord.PaymentID); err != nil {
@@ -77,4 +79,12 @@ func (cmd *Cancel) Execute(
 	}
 
 	return orderapp.ToOrderResponse(ord), nil
+}
+
+func cancelSource(role string) orderapp.CancelSource {
+	if role == "owner" {
+		return orderapp.CancelSourceOwner
+	}
+
+	return orderapp.CancelSourceCustomer
 }

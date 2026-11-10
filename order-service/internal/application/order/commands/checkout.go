@@ -191,6 +191,8 @@ func (cmd *Checkout) Execute(
 		return orderapp.CheckoutResponse{}, err
 	}
 
+	orderapp.RecordPlaced(ctx, newOrder)
+
 	redirectURL := cmd.frontendBaseURL + "/orders/" + orderID.String()
 
 	paymentResult, err := cmd.paymentProvider.CreatePayment(ctx, order.CreatePaymentRequest{

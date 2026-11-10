@@ -9,6 +9,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
 
 	orderapp "order-service/internal/application/order"
@@ -206,16 +207,21 @@ func TestCheckout_CartItemUnavailable_SizeInactive(t *testing.T) {
 
 func TestCheckout_BelowMinimumOrder(t *testing.T) {
 	seed := seedCheckout(t, func(r *readmodel.Restaurant) { r.MinimumOrder = decimal.NewFromFloat(100.00) })
+	placedBefore := testutil.CounterValue(t, "orders.placed")
 
 	_, err := seed.checkout.Execute(context.Background(), seed.customer.ID, orderapp.CheckoutRequest{
 		Fulfillment: "pickup",
 	})
 
 	assert.ErrorIs(t, err, order.ErrBelowMinimumOrder)
+	assert.Equal(t, placedBefore, testutil.CounterValue(t, "orders.placed"),
+		"a rejected checkout is not counted")
 }
 
 func TestCheckout_PickupHappyPath(t *testing.T) {
 	seed := seedCheckout(t, nil)
+	pickup := attribute.String("fulfillment", "pickup")
+	placedBefore := testutil.CounterValue(t, "orders.placed", pickup)
 
 	res, err := seed.checkout.Execute(context.Background(), seed.customer.ID, orderapp.CheckoutRequest{
 		Fulfillment: "pickup",
@@ -242,6 +248,8 @@ func TestCheckout_PickupHappyPath(t *testing.T) {
 
 	require.Len(t, seed.payment.calls, 1)
 	assert.True(t, seed.payment.calls[0].Amount.Equal(decimal.NewFromFloat(15.00)))
+
+	assert.Equal(t, placedBefore+1, testutil.CounterValue(t, "orders.placed", pickup))
 }
 
 func TestCheckout_DeliveryWithoutPhone(t *testing.T) {

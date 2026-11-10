@@ -41,5 +41,7 @@ func (cmd *Complete) Execute(
 		return orderapp.OrderResponse{}, fmt.Errorf("failed to update order: %w", err)
 	}
 
+	orderapp.RecordCompleted(ctx, ord)
+
 	return orderapp.ToOrderResponse(ord), nil
 }

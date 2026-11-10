@@ -8,6 +8,7 @@ import (
 
 	"gorm.io/gorm"
 
+	orderapp "order-service/internal/application/order"
 	"order-service/internal/domain/order"
 	"order-service/internal/domain/readmodel"
 
@@ -32,7 +33,8 @@ func (h *PaymentFailedHandler) Handle(ctx context.Context, evt readmodel.EventPa
 		return nil
 	}
 
-	return h.db.Transaction(func(tx *gorm.DB) error {
+	cancelled := false
+	err := h.db.Transaction(func(tx *gorm.DB) error {
 		orderRepo := h.orderRepo.WithTx(tx)
 
 		ord, err := orderRepo.FindByID(ctx, payload.SubjectID)
@@ -52,6 +54,20 @@ func (h *PaymentFailedHandler) Handle(ctx context.Context, evt readmodel.EventPa
 			return fmt.Errorf("failed to cancel order: %w", err)
 		}
 
-		return orderRepo.Update(ctx, ord)
+		if err := orderRepo.Update(ctx, ord); err != nil {
+			return err
+		}
+
+		cancelled = true
+		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	if cancelled {
+		orderapp.RecordCancelled(ctx, orderapp.CancelSourcePaymentFailed)
+	}
+
+	return nil
 }

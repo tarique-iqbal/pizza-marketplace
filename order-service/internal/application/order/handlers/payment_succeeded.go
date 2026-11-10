@@ -53,7 +53,8 @@ func (h *PaymentSucceededHandler) Handle(ctx context.Context, evt readmodel.Even
 		return nil
 	}
 
-	return h.db.Transaction(func(tx *gorm.DB) error {
+	var confirmed *order.Order
+	err := h.db.Transaction(func(tx *gorm.DB) error {
 		orderRepo := h.orderRepo.WithTx(tx)
 
 		ord, err := orderRepo.FindByID(ctx, payload.SubjectID)
@@ -89,8 +90,22 @@ func (h *PaymentSucceededHandler) Handle(ctx context.Context, evt readmodel.Even
 
 		enricher := h.enrichConfirmed(ord, restaurant.Name, restaurant.OwnerEmail, items)
 
-		return orderapp.DispatchEventsTx(ctx, h.outboxRepo.WithTx(tx), ord, enricher)
+		if err := orderapp.DispatchEventsTx(ctx, h.outboxRepo.WithTx(tx), ord, enricher); err != nil {
+			return err
+		}
+
+		confirmed = ord
+		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	if confirmed != nil {
+		orderapp.RecordConfirmed(ctx, confirmed)
+	}
+
+	return nil
 }
 
 func (h *PaymentSucceededHandler) enrichConfirmed(

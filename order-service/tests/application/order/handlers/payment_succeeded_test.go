@@ -10,6 +10,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/gorm"
 
 	orderapp "order-service/internal/application/order"
@@ -113,6 +114,8 @@ func newPaymentSucceededHandler(db *gorm.DB) *handlers.PaymentSucceededHandler {
 func TestPaymentSucceededHandler_Handle_ConfirmsOrderAndDispatchesEvent(t *testing.T) {
 	db, restaurant, ord := seedPendingOrder(t)
 	h := newPaymentSucceededHandler(db.DB)
+	pickup := attribute.String("fulfillment", "pickup")
+	confirmedBefore := testutil.CounterValue(t, "orders.confirmed", pickup)
 
 	err := h.Handle(context.Background(), newPaymentEventPayload(t, "payment.succeeded", "order", ord.ID))
 	require.NoError(t, err)
@@ -134,11 +137,13 @@ func TestPaymentSucceededHandler_Handle_ConfirmsOrderAndDispatchesEvent(t *testi
 	require.Len(t, payload.Items, 1)
 	assert.Equal(t, "Margherita", payload.Items[0].Name)
 	assert.Equal(t, int16(2), payload.Items[0].Quantity)
+	assert.Equal(t, confirmedBefore+1, testutil.CounterValue(t, "orders.confirmed", pickup))
 }
 
 func TestPaymentSucceededHandler_Handle_NoOpWhenAlreadyConfirmed(t *testing.T) {
 	db, _, ord := seedPendingOrder(t)
 	h := newPaymentSucceededHandler(db.DB)
+	confirmedBefore := testutil.CounterValue(t, "orders.confirmed")
 
 	require.NoError(t, h.Handle(
 		context.Background(),
@@ -152,6 +157,8 @@ func TestPaymentSucceededHandler_Handle_NoOpWhenAlreadyConfirmed(t *testing.T) {
 	var events []outbox.OutboxEvent
 	require.NoError(t, db.DB.Where("aggregate_id = ?", ord.ID).Find(&events).Error)
 	assert.Len(t, events, 1, "redelivery must not create a second outbox row")
+	assert.Equal(t, confirmedBefore+1, testutil.CounterValue(t, "orders.confirmed"),
+		"redelivery must not count a second confirmation")
 }
 
 func TestPaymentSucceededHandler_Handle_IgnoresNonOrderSubject(t *testing.T) {
