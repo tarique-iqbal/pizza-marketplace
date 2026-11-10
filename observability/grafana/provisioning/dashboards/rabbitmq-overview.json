@@ -48,6 +48,75 @@
         { "expr": "rabbitmq_queue_messages_ready", "legendFormat": "ready", "refId": "A" },
         { "expr": "rabbitmq_queue_messages", "legendFormat": "total", "refId": "B" }
       ]
+    },
+    {
+      "id": 6,
+      "title": "Per queue",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 13, "w": 24, "h": 1 },
+      "panels": []
+    },
+    {
+      "id": 7,
+      "title": "DLQ messages",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 14, "w": 12, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        { "expr": "sum(rabbitmq_detailed_queue_messages{queue=~\".+[.]dlq\"}) or vector(0)", "refId": "A" }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Queues with messages but no consumers (DLQs excluded)",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 14, "w": 12, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "count((rabbitmq_detailed_queue_messages{queue!~\".+[.]dlq\"} > 0) and on (queue) (rabbitmq_detailed_queue_consumers == 0)) or vector(0)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Queues",
+      "type": "table",
+      "gridPos": { "x": 0, "y": 18, "w": 24, "h": 10 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": { "sortBy": [{ "displayName": "Queue", "desc": false }] },
+      "targets": [
+        { "expr": "sum by (queue) (rabbitmq_detailed_queue_messages_ready)", "format": "table", "instant": true, "refId": "A" },
+        { "expr": "sum by (queue) (rabbitmq_detailed_queue_messages_unacked)", "format": "table", "instant": true, "refId": "B" },
+        { "expr": "sum by (queue) (rabbitmq_detailed_queue_consumers)", "format": "table", "instant": true, "refId": "C" }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "indexByName": { "queue": 0, "Value #A": 1, "Value #B": 2, "Value #C": 3 },
+            "renameByName": { "queue": "Queue", "Value #A": "Ready", "Value #B": "Unacked", "Value #C": "Consumers" }
+          }
+        }
+      ]
     }
   ]
 }
