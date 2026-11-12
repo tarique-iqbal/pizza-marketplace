@@ -1,0 +1,63 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: rabbitmq
+    folder: Pizza Marketplace
+    interval: 1m
+    rules:
+      - uid: queue-no-consumers
+        title: Queue with messages but no consumers
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                max by (queue) ((rabbitmq_detailed_queue_messages{queue!~".+[.]dlq"} > 0)
+                and on (queue) (rabbitmq_detailed_queue_consumers == 0))
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $labels.queue }} has {{ with $values.A }}{{ .Value }}{{ end }} messages and no consumers'
+
+      - uid: dlq-messages
+        title: Messages in a DLQ
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: max by (queue) (rabbitmq_detailed_queue_messages{queue=~".+[.]dlq"})
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $labels.queue }} holds {{ with $values.A }}{{ .Value }}{{ end }} messages'
