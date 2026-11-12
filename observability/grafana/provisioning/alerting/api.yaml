@@ -1,0 +1,104 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: api
+    folder: Pizza Marketplace
+    interval: 1m
+    rules:
+      - uid: api-5xx-share
+        title: API 5xx share
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                (sum by (job) (rate(http_server_request_duration_seconds_count{job=~".+-api",
+                http_route!~"/healthz/.*", http_response_status_code=~"5.."}[5m]))
+                or sum by (job) (rate(http_server_request_duration_seconds_count{job=~".+-api",
+                http_route!~"/healthz/.*"}[5m])) * 0)
+                / (sum by (job) (rate(http_server_request_duration_seconds_count{job=~".+-api",
+                http_route!~"/healthz/.*"}[5m])) > 0)
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.01] }
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: '{{ $labels.job }} 5xx share is {{ with $values.A }}{{ humanizePercentage .Value }}{{ end }}'
+
+      - uid: api-p95-latency
+        title: API p95 latency
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                histogram_quantile(0.95, sum by (le, job)
+                (rate(http_server_request_duration_seconds_bucket{job=~".+-api",
+                http_route!~"/healthz/.*"}[5m]))) >= 0
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.5] }
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $labels.job }} p95 latency is {{ with $values.A }}{{ humanizeDuration .Value }}{{ end }}'
+
+      - uid: grpc-server-errors
+        title: gRPC server errors
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                (sum by (rpc_method) (rate(rpc_server_call_duration_seconds_count{job="payment-api",
+                rpc_method!~"grpc.health.*",
+                rpc_response_status_code=~"UNKNOWN|DEADLINE_EXCEEDED|UNIMPLEMENTED|INTERNAL|UNAVAILABLE|DATA_LOSS"}[5m]))
+                or sum by (rpc_method) (rate(rpc_server_call_duration_seconds_count{job="payment-api",
+                rpc_method!~"grpc.health.*"}[5m])) * 0)
+                / (sum by (rpc_method) (rate(rpc_server_call_duration_seconds_count{job="payment-api",
+                rpc_method!~"grpc.health.*"}[5m])) > 0)
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.01] }
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'payment-api {{ $labels.rpc_method }} server-error share is {{ with $values.A }}{{ humanizePercentage .Value }}{{ end }}'
