@@ -1,0 +1,39 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: business
+    folder: Pizza Marketplace
+    interval: 1m
+    rules:
+      - uid: payment-failure-share
+        title: Payment failure share
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              expr: >-
+                (sum(increase(payments_failed_total{reason!="canceled"}[15m])) or vector(0))
+                / ((sum(increase(payments_succeeded_total[15m])) or vector(0))
+                + (sum(increase(payments_failed_total{reason!="canceled"}[15m])) or vector(0)))
+                and round((sum(increase(payments_succeeded_total[15m])) or vector(0))
+                + (sum(increase(payments_failed_total{reason!="canceled"}[15m])) or vector(0))) >= 3
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.2] }
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Payment failure share is {{ with $values.A }}{{ humanizePercentage .Value }}{{ end }} over 15m'
