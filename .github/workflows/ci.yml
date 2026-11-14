@@ -35,6 +35,10 @@ on:
         description: Run customer-service tests
         type: boolean
         default: false
+      run_shared:
+        description: Run shared module tests
+        type: boolean
+        default: false
 
 jobs:
   detect-changes:
@@ -48,6 +52,7 @@ jobs:
       order: ${{ steps.filter.outputs.order }}
       payment: ${{ steps.filter.outputs.payment }}
       customer: ${{ steps.filter.outputs.customer }}
+      shared: ${{ steps.filter.outputs.shared }}
     steps:
       - uses: actions/checkout@v5
       - uses: dorny/paths-filter@v4
@@ -56,6 +61,7 @@ jobs:
           filters: |
             identity:
               - 'identity-service/**'
+              - 'shared/**'
               - 'compose.yaml'
               - 'compose/base.yaml'
               - 'compose/identity.yaml'
@@ -64,6 +70,7 @@ jobs:
               - 'compose/identity-test.yaml'
             restaurant:
               - 'restaurant-service/**'
+              - 'shared/**'
               - 'compose.yaml'
               - 'compose/base.yaml'
               - 'compose/restaurant.yaml'
@@ -72,11 +79,13 @@ jobs:
               - 'compose/restaurant-test.yaml'
             notification:
               - 'notification-service/**'
+              - 'shared/**'
               - 'compose.yaml'
               - 'compose/base.yaml'
               - 'compose/notification.yaml'
             search:
               - 'search-service/**'
+              - 'shared/**'
               - 'compose.yaml'
               - 'compose/base.yaml'
               - 'compose/search.yaml'
@@ -85,6 +94,7 @@ jobs:
               - 'compose/search-test.yaml'
             order:
               - 'order-service/**'
+              - 'shared/**'
               - 'compose.yaml'
               - 'compose/base.yaml'
               - 'compose/order.yaml'
@@ -93,6 +103,7 @@ jobs:
               - 'compose/order-test.yaml'
             payment:
               - 'payment-service/**'
+              - 'shared/**'
               - 'compose.yaml'
               - 'compose/base.yaml'
               - 'compose/payment.yaml'
@@ -101,12 +112,15 @@ jobs:
               - 'compose/payment-test.yaml'
             customer:
               - 'customer-service/**'
+              - 'shared/**'
               - 'compose.yaml'
               - 'compose/base.yaml'
               - 'compose/customer.yaml'
               - 'compose.test.yaml'
               - 'compose/base-test.yaml'
               - 'compose/customer-test.yaml'
+            shared:
+              - 'shared/**'
 
   identity-ci:
     needs: detect-changes
@@ -430,3 +444,32 @@ jobs:
       - name: Tear down
         if: always()
         run: docker compose -f compose.test.yaml --profile customer-test down -v
+
+  shared-ci:
+    needs: detect-changes
+    if: |
+      always() &&
+      (needs.detect-changes.outputs.shared == 'true' ||
+        (github.event_name == 'workflow_dispatch' && inputs.run_shared))
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: shared/go.mod
+
+      - name: Check formatting
+        run: |
+          cd shared
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Run go vet
+        run: cd shared && go vet ./...
+
+      - name: Run tests
+        run: cd shared && go test ./...
