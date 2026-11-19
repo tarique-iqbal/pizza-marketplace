@@ -13,7 +13,7 @@ skill only covers *how exchanges, queues, and bindings are named and wired*, not
 
 No `direct`, `fanout`, or `headers` exchange exists anywhere in this repo. Every publish exchange
 (`identity.events`, `restaurant.events`, `order.events`, `payment.events`, `customer.events`) and every DLX
-(`restaurant_dlx`, `search_dlx`, `order_dlx`, `customer_dlx`, `email_dlx`) is declared the same way:
+(`restaurant_dlx`, `search_dlx`, `order_dlx`, `customer_dlx`, `notification_dlx`) is declared the same way:
 `ExchangeDeclare(name, "topic", true, false, false, false, nil)` — durable, not auto-deleted, no extra
 arguments. Routing keys are always exact event names (`user.registered`, `restaurant.launched`, ...), never
 wildcard patterns (`restaurant.*`) — `topic` is used here purely for its exact-match routing, not its
@@ -39,12 +39,11 @@ A service only gets its own `.events` exchange once it actually raises an event.
 
 ## 3. Consumer side: one queue + one DLX per consuming service
 
-Each consuming service declares, in its own `rabbitmq_consumer.go`'s `connect()`:
+The consumer itself is shared code (`shared/amqp/rabbitmq_consumer.go`). Each consuming service only
+describes its topology in `internal/infrastructure/messaging/bindings.go` (`QueueName`, `DLXName`,
+`Exchanges`, returned by `ConsumerConfig()`), and the shared `connect()` declares:
 
-- **Its own DLX**, named `<service>_dlx` (e.g. `restaurant_dlx`) — `topic`, durable. Note:
-  `notification-service`'s is still `email_dlx`/`email_queue` (its main queue, below), left over from before
-  its rename from `email-service` — don't silently "fix" this to `notification_*` without checking whether
-  it's worth the breaking rename first.
+- **Its own DLX**, named `<service>_dlx` (e.g. `restaurant_dlx`) — `topic`, durable.
 - **Its own main queue**, named `<service>_queue`, durable, with `x-dead-letter-exchange: <service>_dlx` and
   `x-dead-letter-routing-key: <service>_queue.retry` as queue arguments.
 - **An `Exchanges` map** (`map[string][]string`, exchange name → routing keys) listing every upstream
@@ -58,11 +57,13 @@ Each consuming service declares, in its own `rabbitmq_consumer.go`'s `connect()`
 **Adding a new inbound event to an existing consumer**: add one entry to its `Exchanges` map (a new exchange
 key if it's a new upstream publisher, or a new routing key under an existing one), plus a handler registered
 against that exact routing-key string in `internal/container/worker.go` — a literal string, not a constant
-imported from the publishing service (no shared Go module in this repo; see root `CLAUDE.md`).
+imported from the publishing service (`shared/` holds infrastructure code only, never event names or other
+domain constants).
 
 ## 4. Retries don't go back through the topic exchange
 
-A failed delivery is retried via the **default exchange** (`""`), published directly to the queue by name:
+A failed delivery is retried via the **default exchange** (`""`), published directly to the queue by name
+(`Republish` in `shared/amqp`):
 
 ```go
 channel.PublishWithContext(ctx, "", QueueName, false, false, amqp.Publishing{
