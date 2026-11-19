@@ -10,12 +10,13 @@ import (
 	"search-service/internal/infrastructure/messaging"
 	"search-service/internal/interfaces/http/handlers"
 
+	"pizza-marketplace/shared/amqp"
 	"pizza-marketplace/shared/health"
 )
 
 type WorkerContainer struct {
 	Dispatcher    index.EventDispatcher
-	Consumer      *messaging.RabbitMQConsumer
+	Consumer      *amqp.RabbitMQConsumer
 	HealthHandler *handlers.HealthHandler
 }
 
@@ -44,7 +45,7 @@ func NewWorkerContainer() (*WorkerContainer, error) {
 	dispatcher.Register("restaurant.pizza_updated", syncPizza)
 	dispatcher.Register("restaurant.topping_prices_updated", syncToppingPrices)
 
-	consumer, err := messaging.NewRabbitMQConsumer(amqpURL)
+	consumer, err := amqp.NewRabbitMQConsumer(amqpURL, messaging.ConsumerConfig())
 	if err != nil {
 		return nil, err
 	}
