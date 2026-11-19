@@ -150,9 +150,10 @@ flowchart LR
 - **Inbound**: `restaurant.initiated`, consumed by `cmd/worker`'s `RabbitMQConsumer` → dispatched via an
   in-process `EventDispatcher` to the `RestaurantInitiated` handler, which creates the local `Restaurant` row.
   Reliability: manual ack, QoS prefetch 1, dead-letter exchange (`restaurant_dlx`), in-process retry via
-  `x-retry-count` header (linear backoff, discard after 3 attempts). `Run`/`runOnce` are package-level functions
-  taking a `messageSource` interface parameter rather than methods on `*RabbitMQConsumer`, specifically so tests
-  can inject a fake source with no test-only production API surface.
+  `x-retry-count` header (linear backoff, discard after 3 attempts). The consumer is the shared
+  `pizza-marketplace/shared/amqp` one, used by all 5 consuming services; this service supplies only
+  `internal/infrastructure/messaging/bindings.go` (queue `restaurant_queue`, the DLX, the `Exchanges` bindings, and
+  a `Handler` adapter from event name and body to its `EventDispatcher`).
 - **Outbox relay**: every outbound event (all six below) is written as an `outbox_events` row inside the same
   `db.Transaction` as the business write that raised it — `dispatch.go`'s `DispatchEventsTx` does this
   unconditionally, with no best-effort fallback and no per-event classification (a design ported from
@@ -226,7 +227,7 @@ flowchart LR
 ## Testing
 
 Integration-style against real Postgres (`compose.test.yaml`). `tests/` mirrors `internal/`; fixtures cover
-restaurants at varying checklist-completion states. One exception: `tests/infrastructure/messaging/` is a pure
-unit test suite against `messaging.Run` with a fake message source and a fake `amqp091.Delivery.Acknowledger`
-(so `msg.Ack`/`msg.Nack` can be observed without a real channel) — no DB or broker container needed for it. Same
-shape as notification-service's own copy of this test.
+restaurants at varying checklist-completion states. `tests/infrastructure/messaging/` runs against the test
+RabbitMQ: `bindings_test.go` publishes every event bound in `bindings.go` and checks that it reaches the
+dispatcher through the shared consumer. The consumer's own tests (fake message source, fake
+`amqp091.Delivery.Acknowledger`) live in `shared/amqp`.

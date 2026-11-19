@@ -8,7 +8,7 @@ Scope: this file covers `restaurant-service` only. See the root `CLAUDE.md` for 
 
 Restaurant records and their onboarding checklist, plus the pizza menu (pizzas, toppings, pricing). It is the only service that talks to `postgres-restaurant` and the OpenCage geocoding API. It implements the transactional outbox pattern (see root `CLAUDE.md`) for **every** event it raises — its `cmd/worker` runs two goroutines: the inbound `restaurant.initiated` consumer, and an outbox relay. There is no best-effort/direct-publish path anywhere in this service.
 
-Routes (behind Traefik, JWT-protected + owner-only unless noted): contact/address/delivery/tags/opening-hours updates, payout-details submission and replacement, pizza CRUD (create is checklist-gated), per-size pricing, and topping pricing, all under `/restaurants/:id/...`. See `docs/api/restaurant.md` for the full per-route reference. `GET /healthz/liveness`/`GET /healthz/readiness` (liveness/readiness probes, checks Postgres) are container-internal only, not Traefik-routed. `restaurant-worker` serves the same two paths on its own `:8081` (checks Postgres + RabbitMQ there, since the worker holds both connections live).
+Routes (behind Traefik, JWT-protected + owner-only unless noted): contact/address/delivery/tags/opening-hours updates, payout-details submission and replacement, pizza CRUD (create is checklist-gated), per-size pricing, and topping pricing, all under `/restaurants/:id/...`. See `docs/api/restaurant.md` for the full per-route reference. `GET /healthz/liveness`/`GET /healthz/readiness` (liveness/readiness probes, checks Postgres) are container-internal only, not Traefik-routed. `restaurant-worker` serves the same two paths on its own `:8081` (checks Postgres plus its RabbitMQ publisher and consumer connections there, `rabbitmq-publisher` and `rabbitmq-consumer`, since the worker holds all three live).
 
 ## Commands
 
@@ -26,13 +26,13 @@ Migrations (`internal/infrastructure/migrations/*.sql`, golang-migrate) define `
 
 ## Testing conventions
 
-Same shape as identity-service: `tests/` mirrors `internal/`, real GORM `TestDB` + fixtures (varying checklist completeness). `tests/infrastructure/messaging/` needs no DB or broker — pure unit tests against `messaging.Run` with a fake message source (see `docs/services/restaurant.md` for the fake shapes, same as notification-service's own copy).
+Same shape as identity-service: `tests/` mirrors `internal/`, real GORM `TestDB` + fixtures (varying checklist completeness). `tests/infrastructure/messaging/` runs against the test RabbitMQ: `bindings_test.go` checks that every event bound in `bindings.go` reaches the dispatcher through the shared consumer, next to the publisher's own tests. The consumer itself is tested in `shared/amqp`.
 
 ## Invariants and gotchas
 
 - **`CreatePizza` is the only caller of `Checklist.IsCompleted()`** — pizza creation is gated on full onboarding (`403` otherwise); the restaurant's own status transitions are a separate, ungated mechanism.
 - **Every event goes through `DispatchEventsTx`** (the outbox) — there is no direct-publish path anywhere in this service, for any event.
-- **`cmd/worker` runs two goroutines** (inbound consumer + outbox relay), and `ensureConnected` checks both `c.conn.IsClosed()` and `c.channel.IsClosed()` before reconnecting — a channel can die from an AMQP exception while the connection stays open.
+- **`cmd/worker` runs two goroutines** (inbound consumer + outbox relay). The consumer is the shared `pizza-marketplace/shared/amqp` one; this service only supplies `internal/infrastructure/messaging/bindings.go` (queue, DLX, `Exchanges` bindings, and a `Handler` adapter to its dispatcher). Reconnect, retry and DLQ behaviour live in `shared/amqp`, so change them there, once, for all 5 consuming services.
 - **Geocoding is conditional**: `UpdateAddress` only calls OpenCage when the address actually changed, reusing the stored `Lat`/`Lon` otherwise.
 - **No numeric validator tags on `decimal.Decimal` request fields** — `go-playground/validator`'s numeric tags panic on that type; the DB's own `CHECK` constraint is the only guard.
 - **`PizzaPriceRepository.ReplacePrices` sets `UpdatedAt` manually** before its bulk upsert — GORM's `autoUpdateTime` omits a nil value from the upsert's `VALUES` client-side, which then propagates into `EXCLUDED.updated_at` too, leaving genuinely-updated rows `NULL`.
