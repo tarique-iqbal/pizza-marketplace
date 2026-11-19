@@ -26,7 +26,7 @@ func NewWorkerContainer(logger *slog.Logger) (*WorkerContainer, error) {
 
 	readiness := health.NewReadiness(
 		health.Check{Name: "postgres", Pinger: base.Postgres},
-		health.Check{Name: "rabbitmq", Pinger: base.Publisher},
+		health.Check{Name: "rabbitmq-publisher", Pinger: base.Publisher},
 	)
 	healthHandler := http.NewHealthHandler(readiness)
 
