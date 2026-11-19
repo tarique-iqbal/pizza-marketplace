@@ -51,7 +51,7 @@ func NewContainer() (*Container, error) {
 	}
 
 	readiness := health.NewReadiness(
-		health.Check{Name: "rabbitmq", Pinger: consumer},
+		health.Check{Name: "rabbitmq-consumer", Pinger: consumer},
 	)
 	healthHandler := handlers.NewHealthHandler(readiness)
 
