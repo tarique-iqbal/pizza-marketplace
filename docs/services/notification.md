@@ -23,7 +23,8 @@ internal/infrastructure/notification/     → one subdirectory per channel adapt
   email                                     (SMTP sender via net/smtp, text/template-based template loader).
                                             A second channel (SMS, web-push) would be a new sibling directory
                                             implementing the same Sender interface — no interface change needed.
-internal/infrastructure/messaging        → RabbitMQ consumer (Run/runOnce as package-level functions)
+internal/infrastructure/messaging        → bindings.go: queue, DLX and bindings for the shared shared/amqp
+                                            consumer, plus a Handler adapter to the dispatcher
 internal/interfaces/http                 → health handler/routes only — no other HTTP surface
 internal/container                       → wires Sender/TemplateLoader/handlers/health, registers routing keys
 ```
@@ -102,21 +103,21 @@ bind the wrong handler to the wrong routing key.
 
 ## Consumer reliability
 
-Same shape as restaurant-service's worker consumer, but the two implementations are independent copies that
-have since diverged in a couple of details rather than shared code: dead-letter exchange (`email_dlx`), manual
-ack, QoS prefetch 1, linear-backoff retry via an `x-retry-count` header, discard after `MaxRetryAttempts = 3`.
+The consumer is the shared `pizza-marketplace/shared/amqp` one, the same code restaurant, order, customer and
+search run, so a reliability change is made there, once. This service supplies only
+`internal/infrastructure/messaging/bindings.go`: queue `notification_queue`, dead-letter exchange
+`notification_dlx`, the `Exchanges` bindings, and a `Handler` adapter. Behaviour: manual ack, QoS prefetch 1,
+linear-backoff retry via an `x-retry-count` header, then `notification_queue.dlq` after `MaxRetryAttempts = 3`.
 
-`ensureConnected` checks both `conn.IsClosed()` and `channel.IsClosed()` before reconnecting — a channel can die
-from a channel-level AMQP exception while the underlying connection stays open, so a connection-only check would
-loop failing forever instead of recovering. `Run`/`runOnce` are package-level functions taking a `messageSource`
-interface as a plain parameter (not a method reading a struct field) — the same shape as `io.Copy(dst, src)` —
-specifically so tests can call `messaging.Run(ctx, fakeSource, dispatcher)` directly against no real broker,
-without either an unexported-field-setting test living inside `internal/` or a test-only exported constructor.
+Reconnecting checks both `conn.IsClosed()` and `channel.IsClosed()` — a channel can die from a channel-level AMQP
+exception while the underlying connection stays open, so a connection-only check would loop failing forever
+instead of recovering. The consumer is mutex-protected, so the `rabbitmq-consumer` readiness check can call its
+`Ping` while the consumer loop runs.
 
 ## Testing
 
 Plain unit tests, no infrastructure required: mocked `Sender`/`TemplateLoader`/`EventDispatcher` at the
 interface boundary, following a local `mockX` struct + compile-time `var _ notification.X = (*mockX)(nil)`
-pattern rather than a mocking library. The one consumer test suite (`tests/infrastructure/messaging/`)
-additionally needs a `fakeSource` (channel-backed `messageSource`) and a `fakeAcknowledger` (implementing
-`amqp091.Delivery`'s `Acknowledger` field) to observe `Ack`/`Nack` without a real channel.
+pattern rather than a mocking library. `tests/infrastructure/messaging/bindings_test.go` tests the `Handler`
+adapter, plus one routing test against a real RabbitMQ that skips unless `RABBITMQ_URL` is set. The consumer's
+own tests (fake message source, fake `Acknowledger`) live in `shared/amqp`.

@@ -8,7 +8,7 @@ Scope: this file covers `notification-service` only. See the root `CLAUDE.md` fo
 
 Sends transactional notifications (welcome emails, verification codes) in response to RabbitMQ events, via a channel-adapter design: `internal/domain/notification.Sender` is the channel-agnostic interface, and `internal/infrastructure/notification/email` is its one implementation today (SMTP). A second channel (SMS, web-push) would be a new sibling package implementing the same `Sender` interface, see `internal/domain/notification/sender.go`. It has no database and no public HTTP API — `cmd/worker/main.go` is the only binary, a pure consumer, started directly by the root `compose.yaml`. It does have `cmd/worker/bootstrap/` like most other services (see root `CLAUDE.md`), plus a container-internal-only health listener (below).
 
-Consumes (`internal/infrastructure/messaging/rabbitmq_consumer.go`), all published via outbox, not best-effort:
+Consumes, on `notification_queue` (bindings in `internal/infrastructure/messaging/bindings.go`), all published via outbox, not best-effort:
 - `email.verification_created` (identity-service) → `EmailVerificationCreated` handler
 - `user.registered` (identity-service) → `UserRegistered` handler
 - `restaurant.ready_for_review` (restaurant-service) → `RestaurantReadyForReview` handler, sent to `ADMIN_EMAIL`
@@ -25,7 +25,7 @@ go run ./cmd/worker   # or `air -c .air.toml` for live reload, matches the dev c
 go test ./...
 go test ./... -run TestName
 ```
-No database or `.env.test`/`compose.test.yaml` needed here — tests are pure unit tests against mocked `notification.Sender`/`notification.TemplateLoader`/`notification.EventDispatcher` interfaces, including for the RabbitMQ consumer.
+No database or `.env.test`/`compose.test.yaml` needed here — tests are pure unit tests against mocked `notification.Sender`/`notification.TemplateLoader`/`notification.EventDispatcher` interfaces. The one exception is the routing test in `tests/infrastructure/messaging/bindings_test.go`, which needs a real RabbitMQ and skips unless `RABBITMQ_URL` is set.
 
 ## Testing conventions
 
@@ -34,7 +34,7 @@ Everything is mocked at the interface boundary (`notification.Sender`, `notifica
 ## Invariants and gotchas
 
 - **Templates are selected dynamically by role for `user.registered`**: filenames are built as `fmt.Sprintf("%s_welcome_email_subject.html", payload.Role)` — adding a new role means adding matching `<role>_welcome_email_subject.html`/`_body.html` files under `internal/infrastructure/notification/email/templates/`. There's no fallback: an unrecognized role fails validation before rendering is attempted. `email_verification_created`'s templates are fixed-named instead (`email_verification_subject.html`/`_body.html`), not role-based.
-- **`ensureConnected` checks both `c.conn.IsClosed()` and `c.channel.IsClosed()`** before reconnecting — a channel can die from a channel-level AMQP exception while the connection stays open. This is an independent copy of restaurant-service's consumer, not shared code, so mirror any retry/DLX/reconnect change there too. `RabbitMQConsumer` is mutex-protected so its own `Ping` (used by the health listener) is safe to call concurrently with the consumer loop.
+- **The consumer is shared code** (`pizza-marketplace/shared/amqp`), used by all 5 consuming services, so a reconnect, retry or DLQ change is made there, once. This service only supplies `internal/infrastructure/messaging/bindings.go`: queue `notification_queue`, DLX `notification_dlx`, the `Exchanges` bindings, and a `Handler` adapter to its dispatcher. The consumer is mutex-protected, so its `Ping` (the `rabbitmq-consumer` readiness check) is safe to call concurrently with the consumer loop.
 - **Handlers are wired by literal routing-key strings** in `internal/container/container.go` (`dispatcher.Register("user.registered", userRegistered)`, etc.).
 - **Config is read directly from `os.Getenv` in application handlers** (`APP_NAME`, `SUPPORT_EMAIL`, `TOKEN_EXPIRY_MINUTES`), not just in `container.go` — there's no central config struct passed down.
 - **Templates render via `text/template`, not `html/template`**: every template is plain-text content despite the `.html` filenames, so HTML-escaping would be pointless overhead.
