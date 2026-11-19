@@ -471,5 +471,14 @@ jobs:
       - name: Run go vet
         run: cd shared && go vet ./...
 
+      - name: Start test RabbitMQ
+        run: docker compose -f compose.test.yaml up -d --wait rabbitmq-test
+
       - name: Run tests
-        run: cd shared && go test ./...
+        env:
+          RABBITMQ_URL: amqp://user_test:pass_test@localhost:5673/
+        run: cd shared && go test -p 1 -count=1 ./...
+
+      - name: Tear down test RabbitMQ
+        if: always()
+        run: docker compose -f compose.test.yaml down -v rabbitmq-test
