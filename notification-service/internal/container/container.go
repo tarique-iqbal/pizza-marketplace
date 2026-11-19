@@ -9,6 +9,7 @@ import (
 	notifemail "notification-service/internal/infrastructure/notification/email"
 	"notification-service/internal/interfaces/http/handlers"
 
+	"pizza-marketplace/shared/amqp"
 	"pizza-marketplace/shared/health"
 )
 
@@ -16,7 +17,7 @@ const emailTemplatePath = "internal/infrastructure/notification/email/templates"
 
 type Container struct {
 	Dispatcher    notification.EventDispatcher
-	Consumer      *messaging.RabbitMQConsumer
+	Consumer      *amqp.RabbitMQConsumer
 	HealthHandler *handlers.HealthHandler
 }
 
@@ -44,7 +45,7 @@ func NewContainer() (*Container, error) {
 	dispatcher.Register("restaurant.approved", restaurantApproved)
 	dispatcher.Register("order.confirmed", orderConfirmed)
 
-	consumer, err := messaging.NewRabbitMQConsumer(amqpURL)
+	consumer, err := amqp.NewRabbitMQConsumer(amqpURL, messaging.ConsumerConfig())
 	if err != nil {
 		return nil, err
 	}
