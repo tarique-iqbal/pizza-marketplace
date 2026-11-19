@@ -52,7 +52,7 @@ func NewWorkerContainer() (*WorkerContainer, error) {
 
 	readiness := health.NewReadiness(
 		health.Check{Name: "elasticsearch", Pinger: elasticsearch.Pinger{ES: es}},
-		health.Check{Name: "rabbitmq", Pinger: consumer},
+		health.Check{Name: "rabbitmq-consumer", Pinger: consumer},
 	)
 	healthHandler := handlers.NewHealthHandler(readiness)
 
