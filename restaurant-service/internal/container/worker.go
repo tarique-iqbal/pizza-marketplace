@@ -11,13 +11,14 @@ import (
 	"restaurant-service/internal/infrastructure/persistence"
 	"restaurant-service/internal/interfaces/http/handlers"
 
+	"pizza-marketplace/shared/amqp"
 	"pizza-marketplace/shared/health"
 )
 
 type WorkerContainer struct {
 	*Shared
 	Dispatcher    restaurant.EventDispatcher
-	Consumer      *messaging.RabbitMQConsumer
+	Consumer      *amqp.RabbitMQConsumer
 	Publisher     *messaging.RabbitMQPublisher
 	OutboxWorker  *outboxapp.Worker
 	HealthHandler *handlers.HealthHandler
@@ -35,7 +36,7 @@ func NewWorkerContainer(logger *slog.Logger) (*WorkerContainer, error) {
 	dispatcher := inbound.NewEventDispatcher()
 	dispatcher.Register(messaging.Exchanges["identity.events"][0], restaurantInitiated)
 
-	consumer, err := messaging.NewRabbitMQConsumer(base.AMQPURL)
+	consumer, err := amqp.NewRabbitMQConsumer(base.AMQPURL, messaging.ConsumerConfig())
 	if err != nil {
 		return nil, err
 	}
