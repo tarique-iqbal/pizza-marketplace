@@ -71,26 +71,22 @@ go func() {
 Which goroutines exist depends on the service — see the table further down — but every service has at
 least one "business" goroutine plus the health-server goroutine:
 
-- **Consumer goroutine** (`messaging.Run(ctx, consumer, dispatcher)`) — present for every service with
-  inbound events (restaurant, order, customer, search, notification; *not* identity or payment, which
-  consume nothing). Its result is checked:
+- **Consumer goroutine** (`amqp.Run(ctx, consumer, messaging.Handler(dispatcher))`, from
+  `pizza-marketplace/shared/amqp`) — present for every service with inbound events (restaurant, order,
+  customer, search, notification; *not* identity or payment, which consume nothing). Its result is checked:
   ```go
-  if err := messaging.Run(ctx, r.app.Consumer, r.app.Dispatcher); err != nil &&
+  if err := amqp.Run(ctx, r.app.Consumer, messaging.Handler(r.app.Dispatcher)); err != nil &&
       !errors.Is(err, context.Canceled) {
       r.logger.Error("consumer stopped unexpectedly", "error", err)
       stop()
   }
   ```
-  **This branch is unreachable in every service, by design.** `messaging.Run`'s own implementation
-  (independent copies in each service, not shared code) never returns a non-nil, non-cancellation error:
-  any transient broker failure inside its loop is logged and retried after a 1-second backoff, forever,
-  until `ctx` is cancelled. The branch exists for a failure mode the current implementation doesn't have —
-  a future change to `Run()` that gives up after N retries would need exactly this branch to shut the
-  worker down cleanly, but as the code stands, it cannot execute.
-  **One inconsistency**: restaurant-service's copy of `Run` returns `ctx.Err()` on both exit paths
-  instead of `nil` like the other four. This happens to be harmless — `ctx.Err()` is guaranteed to equal
-  `context.Canceled` at that point, so `errors.Is(err, context.Canceled)` is still true and the branch above
-  is still skipped — but it's a real, if cosmetic, drift between "independent copies, not shared code."
+  **This branch is unreachable in every service, by design.** `amqp.Run` (one shared implementation for all
+  5 services) never returns a non-cancellation error: any transient broker failure inside its loop is logged
+  and retried after a 1-second backoff, forever, until `ctx` is cancelled, and then it returns `ctx.Err()`,
+  which `errors.Is(err, context.Canceled)` matches. The branch exists for a failure mode the current
+  implementation doesn't have — a future change to `Run()` that gives up after N retries would need exactly
+  this branch to shut the worker down cleanly, but as the code stands, it cannot execute.
 - **Outbox worker goroutine** (`outbox.Worker.Start(ctx)`) — present for every service with an outbox
   (identity, restaurant, order, payment, customer; *not* search or notification, which never publish).
   Returns nothing — there's no error to check. Internally it runs its own ticker loop and, on each tick,
@@ -112,7 +108,7 @@ least one "business" goroutine plus the health-server goroutine:
 1. SIGINT or SIGTERM arrives (from `docker stop`, `kubectl delete pod`, Ctrl+C, etc.).
 2. `signal.NotifyContext`'s internal goroutine cancels `ctx`.
 3. Every goroutine notices independently, on its own schedule:
-   - The consumer's `messaging.Run` loop checks `ctx.Err()` right after its current `runOnce` call returns
+   - The consumer's `amqp.Run` loop checks `ctx.Err()` right after its current `runOnce` call returns
      (which itself selects on `<-ctx.Done()` while waiting for the next message) and exits.
    - The outbox worker's ticker `select` sees `<-ctx.Done()`, logs `"stopping worker..."`, and calls its own
      internal `shutdown()` — which waits for its *own* in-flight batches (`activeWg`) to finish, capped at
@@ -188,20 +184,26 @@ the Go runtime's signal handling entirely and is never caught by application cod
 
 | Service | Consumer goroutine | Outbox goroutine | Readiness checks | `Close()` tears down |
 |---|---|---|---|---|
-| identity-worker | — | ✓ | postgres, rabbitmq | Postgres, Publisher (via embedded `Shared.Close()`) |
-| restaurant-worker | ✓ | ✓ | postgres, rabbitmq | DB, Consumer, Publisher |
-| order-worker | ✓ | ✓ | postgres, rabbitmq | DB, Consumer, Publisher |
-| payment-worker | — | ✓ | postgres, rabbitmq | DB, Publisher (no consumer — this service never consumes) |
-| customer-worker | ✓ | ✓ | postgres, rabbitmq | DB, Consumer, Publisher |
-| search-worker | ✓ | — | elasticsearch, rabbitmq | Consumer only (no DB, no outbox) |
-| notification | ✓ | — | rabbitmq | Consumer only (no DB, no outbox) |
+| identity-worker | — | ✓ | postgres, rabbitmq-publisher | Postgres, Publisher (via embedded `Shared.Close()`) |
+| restaurant-worker | ✓ | ✓ | postgres, rabbitmq-publisher, rabbitmq-consumer | DB, Consumer, Publisher |
+| order-worker | ✓ | ✓ | postgres, rabbitmq-publisher, rabbitmq-consumer | DB, Consumer, Publisher |
+| payment-worker | — | ✓ | postgres, rabbitmq-publisher | DB, Publisher (no consumer — this service never consumes) |
+| customer-worker | ✓ | ✓ | postgres, rabbitmq-publisher, rabbitmq-consumer | DB, Consumer, Publisher |
+| search-worker | ✓ | — | elasticsearch, rabbitmq-consumer | Consumer only (no DB, no outbox) |
+| notification | ✓ | — | rabbitmq-consumer | Consumer only (no DB, no outbox) |
 
 Every service's readiness check only covers what *that process* genuinely holds a live connection to — not
-a copy of its own API container's checks. search-service's and notification-service's `RabbitMQConsumer`
-types are mutex-protected around `conn`/`channel`, because their `rabbitmq` readiness check calls `Ping`
-from the health-server goroutine while the consumer loop's own `connect()`/`ensureConnected()` can be
-reassigning those same fields from a different goroutine — without the mutex, that would be a genuine data
-race, not just a theoretical one.
+a copy of its own API container's checks. The publisher and the consumer each hold their own RabbitMQ
+connection, so a worker with both reports both. The shared consumer and every publisher are mutex-protected
+around `conn`/`channel`, because their readiness check calls `Ping` from the health-server goroutine while
+the consumer loop's own `connect()`/`ensureConnected()` (or a publish) can be reassigning those same fields
+from a different goroutine — without the mutex, that would be a genuine data race, not just a theoretical
+one.
+
+One known gap: the publisher reconnects only when it publishes, and its `Ping` doesn't reconnect. After a
+broker restart, a worker with nothing in its outbox reports `rabbitmq-publisher` down until its next event,
+although the broker is up. The consumer reconnects by itself within about a second, so `rabbitmq-consumer`
+recovers on its own.
 
 ## Why this exists: health probes
 
