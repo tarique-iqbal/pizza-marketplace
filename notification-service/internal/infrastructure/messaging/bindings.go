@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	QueueName        = "email_queue"
-	DLXName          = "email_dlx"
+	QueueName        = "notification_queue"
+	DLXName          = "notification_dlx"
 	MaxRetryAttempts = 3
 )
 
