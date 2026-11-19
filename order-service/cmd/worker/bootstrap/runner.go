@@ -9,6 +9,8 @@ import (
 
 	"order-service/internal/container"
 	"order-service/internal/infrastructure/messaging"
+
+	"pizza-marketplace/shared/amqp"
 )
 
 type runner struct {
@@ -29,7 +31,7 @@ func (r *runner) start(ctx context.Context, stop context.CancelFunc) {
 		defer r.wg.Done()
 		defer r.recoverPanic(stop)
 
-		if err := messaging.Run(ctx, r.app.Consumer, r.app.Dispatcher); err != nil &&
+		if err := amqp.Run(ctx, r.app.Consumer, messaging.Handler(r.app.Dispatcher)); err != nil &&
 			!errors.Is(err, context.Canceled) {
 			r.logger.ErrorContext(ctx, "consumer stopped unexpectedly", "error", err)
 			stop()

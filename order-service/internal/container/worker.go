@@ -12,13 +12,14 @@ import (
 	"order-service/internal/infrastructure/persistence"
 	"order-service/internal/interfaces/http/handlers"
 
+	"pizza-marketplace/shared/amqp"
 	"pizza-marketplace/shared/health"
 )
 
 type WorkerContainer struct {
 	*Shared
 	Dispatcher    readmodel.EventDispatcher
-	Consumer      *messaging.RabbitMQConsumer
+	Consumer      *amqp.RabbitMQConsumer
 	Publisher     *messaging.RabbitMQPublisher
 	OutboxWorker  *outboxapp.Worker
 	HealthHandler *handlers.HealthHandler
@@ -60,7 +61,7 @@ func NewWorkerContainer(logger *slog.Logger) (*WorkerContainer, error) {
 	dispatcher.Register("payment.succeeded", paymentSucceeded)
 	dispatcher.Register("payment.failed", paymentFailed)
 
-	consumer, err := messaging.NewRabbitMQConsumer(base.AMQPURL)
+	consumer, err := amqp.NewRabbitMQConsumer(base.AMQPURL, messaging.ConsumerConfig())
 	if err != nil {
 		return nil, err
 	}
