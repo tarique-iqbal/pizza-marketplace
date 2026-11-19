@@ -26,8 +26,8 @@ internal/infrastructure/elasticsearch → client wrapper, index_setup.go (Ensure
                                      search_repository.go, geocode_repository.go (CachingGeocoder)
 internal/infrastructure/geocoder  → OpenCageGeocoder — search-service's own copy, independent of
                                      restaurant-service's (see "Geocoding" below)
-internal/infrastructure/messaging → RabbitMQ consumer, copied from notification-service's shape (the bug-fixed version —
-                                     checks both conn and channel closed before reconnecting)
+internal/infrastructure/messaging → bindings.go: queue, DLX and bindings for the shared shared/amqp consumer,
+                                     plus a Handler adapter to the dispatcher
 internal/infrastructure/observability → copied verbatim from restaurant-service (slog-based logger, Gin middleware)
 internal/interfaces/http          → SearchHandler, GetRestaurantHandler, routes.go — no middleware package at
                                      all, this API has no auth
