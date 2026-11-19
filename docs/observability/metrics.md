@@ -37,7 +37,7 @@ instrumented library that records metrics, so they appear only through the span-
 
 Span-derived metrics are grouped by span name, and messaging span names include the destination, so
 they break down per event type, for example
-`traces_spanmetrics_calls_total{service="notification-worker", span_name="process identity.events:email.verification_created:email_queue", status_code="STATUS_CODE_ERROR"}`.
+`traces_spanmetrics_calls_total{service="notification-worker", span_name="process identity.events:email.verification_created:notification_queue", status_code="STATUS_CODE_ERROR"}`.
 
 ## Names and labels
 

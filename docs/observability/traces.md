@@ -36,7 +36,7 @@ identity-api         CLIENT    select email_verifications
 identity-api         CLIENT    insert email_verifications
 identity-api         CLIENT    insert outbox_events
 identity-worker      PRODUCER  send identity.events:email.verification_created
-notification-worker  CONSUMER  process identity.events:email.verification_created:email_queue
+notification-worker  CONSUMER  process identity.events:email.verification_created:notification_queue
 identity-worker      CLIENT    update outbox_events
 ```
 
@@ -99,9 +99,10 @@ Events cross two asynchronous hops, and the trace context crosses both:
    spans.
 3. **Publish.** `otelamqp.StartPublish` starts a `PRODUCER` span and injects its context into the AMQP
    headers as `traceparent`.
-4. **Consume.** Each consumer's `runOnce` calls `otelamqp.StartConsume`, which extracts `traceparent` and
-   starts a `CONSUMER` span as its child. The handler runs with that context, through
-   `Dispatch(ctx, event)` → `Handle(ctx, event)`, so its queries and any events it raises into its own
+4. **Consume.** The shared consumer's `runOnce` (`shared/amqp`, used by all 5 consuming services) calls
+   `otelamqp.StartConsume`, which extracts `traceparent` and starts a `CONSUMER` span as its child. The handler
+   runs with that context, through the service's `Handler` adapter → `Dispatch(ctx, event)` →
+   `Handle(ctx, event)`, so its queries and any events it raises into its own
    outbox join the same trace. The span ends when the handler returns, with error status on failure.
 
 Span names and attributes follow the OpenTelemetry messaging conventions (semconv v1.43.0):
