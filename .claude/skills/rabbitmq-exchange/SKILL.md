@@ -37,7 +37,7 @@ same `<service>.events` exchange with its own routing key.
 A service only gets its own `.events` exchange once it actually raises an event. `search-service` and
 `notification-service` have none — both are pure consumers (sinks), never publishers.
 
-## 3. Consumer side: one queue + one DLX per consuming service
+## 3. Consumer side: three queues + one DLX per consuming service
 
 The consumer itself is shared code (`shared/amqp/rabbitmq_consumer.go`). Each consuming service only
 describes its topology in `internal/infrastructure/messaging/bindings.go` (`QueueName`, `DLXName`,
@@ -50,9 +50,14 @@ describes its topology in `internal/infrastructure/messaging/bindings.go` (`Queu
   exchange this service binds to and exactly which event names it wants from each. `connect()` loops this
   map to `ExchangeDeclare` each referenced exchange (so a consumer never depends on its publisher having
   started first) and `QueueBind`s the main queue to it once per routing key.
-- **One DLQ**, named `<service>_queue.dlq`, bound to the DLX with routing key `<service>_queue.retry` — where
+- **One wait queue**, named `<service>_queue.wait`, bound to the DLX with routing key `<service>_queue.retry`,
+  with `x-message-ttl` = `Config.RetryDelay` (5 s by default) and `x-dead-letter-exchange: ""` +
+  `x-dead-letter-routing-key: <service>_queue`, so an expired message goes straight back to the main queue.
+  It never has consumers. Changing the delay means deleting this queue first: the TTL is a queue argument.
+- **One DLQ**, named `<service>_queue.dlq`, bound to the DLX with routing key `<service>_queue.dlq` — where
   a message lands after exhausting `MaxRetryAttempts` (always `3` across every service), held for manual
-  inspection/replay, never auto-reprocessed.
+  inspection/replay, never auto-reprocessed. `connect()` also removes any older binding of the DLQ to
+  `<service>_queue.retry`, which would otherwise copy every retry into it.
 
 **Adding a new inbound event to an existing consumer**: add one entry to its `Exchanges` map (a new exchange
 key if it's a new upstream publisher, or a new routing key under an existing one), plus a handler registered
@@ -60,21 +65,21 @@ against that exact routing-key string in `internal/container/worker.go` — a li
 imported from the publishing service (`shared/` holds infrastructure code only, never event names or other
 domain constants).
 
-## 4. Retries don't go back through the topic exchange
+## 4. Retries go through the DLX and the wait queue, never the topic exchange
 
-A failed delivery is retried via the **default exchange** (`""`), published directly to the queue by name
-(`Republish` in `shared/amqp`):
+The broker does the retrying; the consumer never republishes a retry itself (`handle` in `shared/amqp`):
 
-```go
-channel.PublishWithContext(ctx, "", QueueName, false, false, amqp.Publishing{
-    Headers: headers, // x-retry-count incremented here
-    // ...
-})
-```
+- **Retries left:** `Nack(false, false)`. The main queue's dead-letter arguments route the message through
+  the DLX (key `<service>_queue.retry`) into `.wait`; after the TTL it returns via the default exchange (`""`)
+  to the main queue. No sleep in the consumer, so one failing message never blocks the queue.
+- **Retries used up:** the consumer publishes the message to the DLX with key `<service>_queue.dlq` and waits
+  for the broker's confirm (`DeadLetter`) before acking the original. If that fails it nacks again, so the
+  message takes one more pass through `.wait` instead of being lost.
 
-Not republished through the `.events` topic exchange or the DLX. Only final exhaustion (`Nack`, no requeue)
-routes through the queue's dead-letter arguments into the DLX → DLQ. Keep this distinction if touching retry
-logic: the DLX only ever sees messages being given up on, never an in-progress retry.
+A redelivered message arrives with exchange `""` and routing key `<service>_queue`. The retry count and the
+original exchange and routing key come from the broker's `x-death` entry for the main queue with reason
+`rejected` (`firstRejection`), which keeps the original values on every pass. Don't add custom retry
+headers, and keep the two DLX routing keys distinct: `.retry` means "try again later", `.dlq` means "given up".
 
 ## 5. `payment-service` is publisher-only, by design
 
