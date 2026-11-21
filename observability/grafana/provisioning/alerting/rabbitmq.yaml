@@ -17,7 +17,7 @@ groups:
               refId: A
               instant: true
               expr: >-
-                max by (queue) ((rabbitmq_detailed_queue_messages{queue!~".+[.]dlq"} > 0)
+                max by (queue) ((rabbitmq_detailed_queue_messages{queue!~".+[.](dlq|wait)"} > 0)
                 and on (queue) (rabbitmq_detailed_queue_consumers == 0))
           - refId: C
             datasourceUid: __expr__

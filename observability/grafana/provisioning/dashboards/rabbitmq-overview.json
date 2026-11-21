@@ -89,7 +89,7 @@
       },
       "targets": [
         {
-          "expr": "count((rabbitmq_detailed_queue_messages{queue!~\".+[.]dlq\"} > 0) and on (queue) (rabbitmq_detailed_queue_consumers == 0)) or vector(0)",
+          "expr": "count((rabbitmq_detailed_queue_messages{queue!~\".+[.](dlq|wait)\"} > 0) and on (queue) (rabbitmq_detailed_queue_consumers == 0)) or vector(0)",
           "refId": "A"
         }
       ]
