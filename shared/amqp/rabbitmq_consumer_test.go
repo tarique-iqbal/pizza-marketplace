@@ -21,36 +21,44 @@ import (
 const (
 	testQueue      = "shared_amqp_test_queue"
 	testMaxRetries = 3
+	testExchange   = "shared_amqp_test.events"
+	testEvent      = "test.happened"
 )
 
 type recordingHandler struct {
 	mu          sync.Mutex
-	fail        bool
-	called      bool
-	eventName   string
-	body        []byte
+	failTimes   int
+	calls       []string
 	spanContext trace.SpanContext
+}
+
+func alwaysFailing() *recordingHandler {
+	return &recordingHandler{failTimes: -1}
 }
 
 func (h *recordingHandler) handle(ctx context.Context, eventName string, body []byte) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	h.called = true
-	h.eventName = eventName
-	h.body = body
+	h.calls = append(h.calls, eventName)
 	h.spanContext = trace.SpanContextFromContext(ctx)
 
-	if h.fail {
+	if h.failTimes < 0 || len(h.calls) <= h.failTimes {
 		return errors.New("fail dispatch")
 	}
 	return nil
 }
 
-func (h *recordingHandler) received() (called bool, eventName string, spanContext trace.SpanContext) {
+func (h *recordingHandler) received() []string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	return h.called, h.eventName, h.spanContext
+	return append([]string(nil), h.calls...)
+}
+
+func (h *recordingHandler) lastSpanContext() trace.SpanContext {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.spanContext
 }
 
 type fakeAcknowledger struct {
@@ -91,15 +99,21 @@ func (f *fakeAcknowledger) isNacked() (nacked, requeue bool) {
 	return f.nacked, f.requeue
 }
 
-type fakeSource struct {
-	messages chan amqp091.Delivery
+func (f *fakeAcknowledger) settled() bool {
+	nacked, _ := f.isNacked()
+	return nacked || f.isAcked()
+}
 
-	mu          sync.Mutex
-	republished []int
+type fakeSource struct {
+	messages      chan amqp091.Delivery
+	deadLetterErr error
+
+	mu           sync.Mutex
+	deadLettered int
 }
 
 func newFakeSource() *fakeSource {
-	return &fakeSource{messages: make(chan amqp091.Delivery, 1)}
+	return &fakeSource{messages: make(chan amqp091.Delivery, 2)}
 }
 
 func (f *fakeSource) Queue() string {
@@ -114,17 +128,41 @@ func (f *fakeSource) GetMessages(ctx context.Context) (<-chan amqp091.Delivery, 
 	return f.messages, nil
 }
 
-func (f *fakeSource) Republish(ctx context.Context, msg amqp091.Delivery, retryCount int) error {
+func (f *fakeSource) DeadLetter(ctx context.Context, msg amqp091.Delivery) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.republished = append(f.republished, retryCount)
-	return nil
+	f.deadLettered++
+	return f.deadLetterErr
 }
 
-func (f *fakeSource) republishCalls() []int {
+func (f *fakeSource) deadLetterCalls() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return append([]int(nil), f.republished...)
+	return f.deadLettered
+}
+
+func rejectedHeaders(count int64) amqp091.Table {
+	return amqp091.Table{
+		"x-death": []interface{}{
+			amqp091.Table{
+				"queue": testQueue + ".wait", "reason": "expired", "count": count,
+				"exchange": "test_dlx", "routing-keys": []interface{}{testQueue + ".retry"},
+			},
+			amqp091.Table{
+				"queue": testQueue, "reason": "rejected", "count": count,
+				"exchange": testExchange, "routing-keys": []interface{}{testEvent},
+			},
+		},
+	}
+}
+
+func redelivery(ack *fakeAcknowledger, count int64) amqp091.Delivery {
+	return amqp091.Delivery{
+		Acknowledger: ack,
+		RoutingKey:   testQueue,
+		Headers:      rejectedHeaders(count),
+		Body:         []byte(`{}`),
+	}
 }
 
 func startRun(t *testing.T, source MessageSource, handler Handler) {
@@ -156,71 +194,88 @@ func TestRun_HandlerSucceeds_AcksMessage(t *testing.T) {
 	startRun(t, source, handler.handle)
 
 	ack := &fakeAcknowledger{}
-	source.messages <- amqp091.Delivery{
-		Acknowledger: ack,
-		RoutingKey:   "restaurant.initiated",
-		Body:         []byte(`{"business_name":"Pizza Palace"}`),
-	}
+	source.messages <- amqp091.Delivery{Acknowledger: ack, RoutingKey: testEvent, Body: []byte(`{}`)}
 
 	waitFor(t, time.Second, ack.isAcked)
 
-	called, eventName, _ := handler.received()
-	if !called || eventName != "restaurant.initiated" {
-		t.Fatalf("handler called=%v with %q, want restaurant.initiated", called, eventName)
+	if calls := handler.received(); len(calls) != 1 || calls[0] != testEvent {
+		t.Fatalf("handler calls %v, want [%s]", calls, testEvent)
 	}
 	if nacked, _ := ack.isNacked(); nacked {
 		t.Fatal("message should not be nacked")
 	}
-	if calls := source.republishCalls(); len(calls) != 0 {
-		t.Fatalf("republished %v, want none", calls)
+}
+
+func TestRun_HandlerFailsWithRetriesLeft_NacksToWaitQueue(t *testing.T) {
+	source := newFakeSource()
+	startRun(t, source, alwaysFailing().handle)
+
+	ack := &fakeAcknowledger{}
+	source.messages <- redelivery(ack, testMaxRetries-1)
+
+	waitFor(t, time.Second, ack.settled)
+
+	if nacked, requeue := ack.isNacked(); !nacked || requeue {
+		t.Fatalf("nacked=%v requeue=%v, want a nack without requeue", nacked, requeue)
+	}
+	if ack.isAcked() {
+		t.Fatal("message should not be acked")
+	}
+	if n := source.deadLetterCalls(); n != 0 {
+		t.Fatalf("dead-lettered %d times, want 0", n)
 	}
 }
 
-func TestRun_HandlerFails_RepublishesWithIncrementedRetryCount(t *testing.T) {
-	handler := &recordingHandler{fail: true}
+func TestRun_RetryLimitReached_DeadLettersThenAcks(t *testing.T) {
 	source := newFakeSource()
-	startRun(t, source, handler.handle)
+	startRun(t, source, alwaysFailing().handle)
 
 	ack := &fakeAcknowledger{}
-	source.messages <- amqp091.Delivery{
-		Acknowledger: ack,
-		RoutingKey:   "restaurant.initiated",
-		Headers:      amqp091.Table{"x-retry-count": int32(1)},
-		Body:         []byte(`{}`),
-	}
+	source.messages <- redelivery(ack, testMaxRetries)
 
-	waitFor(t, 3*time.Second, func() bool { return len(source.republishCalls()) == 1 })
-
-	if calls := source.republishCalls(); calls[0] != 2 {
-		t.Fatalf("republished with retry count %d, want 2", calls[0])
-	}
 	waitFor(t, time.Second, ack.isAcked)
+
+	if n := source.deadLetterCalls(); n != 1 {
+		t.Fatalf("dead-lettered %d times, want 1", n)
+	}
+	if nacked, _ := ack.isNacked(); nacked {
+		t.Fatal("message should not be nacked")
+	}
 }
 
-func TestRun_RetryLimitReached_NacksWithoutRequeue(t *testing.T) {
-	handler := &recordingHandler{fail: true}
+func TestRun_DeadLetterFails_NacksWithoutAck(t *testing.T) {
 	source := newFakeSource()
-	startRun(t, source, handler.handle)
+	source.deadLetterErr = errors.New("broker unavailable")
+	startRun(t, source, alwaysFailing().handle)
 
 	ack := &fakeAcknowledger{}
-	source.messages <- amqp091.Delivery{
-		Acknowledger: ack,
-		RoutingKey:   "restaurant.initiated",
-		Headers:      amqp091.Table{"x-retry-count": int32(testMaxRetries)},
-		Body:         []byte(`{}`),
-	}
+	source.messages <- redelivery(ack, testMaxRetries)
 
-	waitFor(t, time.Second, func() bool {
-		nacked, _ := ack.isNacked()
-		return nacked
-	})
+	waitFor(t, time.Second, ack.settled)
 
-	if _, requeue := ack.isNacked(); requeue {
-		t.Fatal("exhausted retries must go to the DLQ, not back to the queue")
+	if nacked, requeue := ack.isNacked(); !nacked || requeue {
+		t.Fatalf("nacked=%v requeue=%v, want a nack without requeue", nacked, requeue)
 	}
-	if calls := source.republishCalls(); len(calls) != 0 {
-		t.Fatalf("republished %v, want none", calls)
+	if ack.isAcked() {
+		t.Fatal("message must not be acked when the DLQ copy wasn't confirmed")
 	}
+}
+
+func TestRun_FailingMessage_DoesNotBlockNextMessage(t *testing.T) {
+	source := newFakeSource()
+	handler := func(ctx context.Context, eventName string, body []byte) error {
+		if eventName == "bad.event" {
+			return errors.New("fail dispatch")
+		}
+		return nil
+	}
+	startRun(t, source, handler)
+
+	bad, good := &fakeAcknowledger{}, &fakeAcknowledger{}
+	source.messages <- amqp091.Delivery{Acknowledger: bad, RoutingKey: "bad.event", Body: []byte(`{}`)}
+	source.messages <- amqp091.Delivery{Acknowledger: good, RoutingKey: testEvent, Body: []byte(`{}`)}
+
+	waitFor(t, 200*time.Millisecond, func() bool { return bad.settled() && good.isAcked() })
 }
 
 func TestRun_RetriedMessage_KeepsOriginalEventName(t *testing.T) {
@@ -229,21 +284,34 @@ func TestRun_RetriedMessage_KeepsOriginalEventName(t *testing.T) {
 	startRun(t, source, handler.handle)
 
 	ack := &fakeAcknowledger{}
-	source.messages <- amqp091.Delivery{
-		Acknowledger: ack,
-		RoutingKey:   testQueue,
-		Headers: amqp091.Table{
-			"x-retry-count":          int32(1),
-			"x-original-routing-key": "restaurant.initiated",
-			"x-original-exchange":    "identity.events",
-		},
-		Body: []byte(`{}`),
-	}
+	source.messages <- redelivery(ack, 1)
 
 	waitFor(t, time.Second, ack.isAcked)
 
-	if _, eventName, _ := handler.received(); eventName != "restaurant.initiated" {
-		t.Fatalf("event name %q, want restaurant.initiated", eventName)
+	if calls := handler.received(); len(calls) != 1 || calls[0] != testEvent {
+		t.Fatalf("handler calls %v, want [%s]", calls, testEvent)
+	}
+}
+
+func TestFirstRejection(t *testing.T) {
+	if got := firstRejection(amqp091.Table{}, testQueue); got != nil {
+		t.Fatalf("no x-death: got %+v, want nil", got)
+	}
+
+	got := firstRejection(rejectedHeaders(2), testQueue)
+	if got == nil || got.count != 2 || got.exchange != testExchange || got.routingKey != testEvent {
+		t.Fatalf("got %+v, want count 2 from %s with key %s", got, testExchange, testEvent)
+	}
+
+	if got := firstRejection(rejectedHeaders(2), "other_queue"); got != nil {
+		t.Fatalf("other queue: got %+v, want nil", got)
+	}
+
+	int32Count := amqp091.Table{"x-death": []interface{}{
+		amqp091.Table{"queue": testQueue, "reason": "rejected", "count": int32(3)},
+	}}
+	if got := firstRejection(int32Count, testQueue); got == nil || got.count != 3 {
+		t.Fatalf("int32 count: got %+v, want count 3", got)
 	}
 }
 
@@ -277,8 +345,8 @@ func TestRun_HandlerRunsUnderConsumerSpan(t *testing.T) {
 	ack := &fakeAcknowledger{}
 	source.messages <- amqp091.Delivery{
 		Acknowledger: ack,
-		Exchange:     "identity.events",
-		RoutingKey:   "restaurant.initiated",
+		Exchange:     testExchange,
+		RoutingKey:   testEvent,
 		Headers:      headers,
 		Body:         []byte(`{}`),
 	}
@@ -287,7 +355,7 @@ func TestRun_HandlerRunsUnderConsumerSpan(t *testing.T) {
 
 	var consumer sdktrace.ReadOnlySpan
 	for _, s := range recorder.Ended() {
-		if s.Name() == "process identity.events:restaurant.initiated:"+testQueue {
+		if s.Name() == "process "+testExchange+":"+testEvent+":"+testQueue {
 			consumer = s
 		}
 	}
@@ -303,94 +371,190 @@ func TestRun_HandlerRunsUnderConsumerSpan(t *testing.T) {
 	if consumer.Parent().SpanID() != producer.SpanID() {
 		t.Fatal("consumer span should be a child of the producer span")
 	}
-	if _, _, got := handler.received(); got.SpanID() != consumer.SpanContext().SpanID() {
+	if handler.lastSpanContext().SpanID() != consumer.SpanContext().SpanID() {
 		t.Fatal("handler should run under the consumer span")
 	}
 }
 
-func brokerURL(t *testing.T) string {
+type broker struct {
+	t  *testing.T
+	ch *amqp091.Channel
+}
+
+func newBroker(t *testing.T) *broker {
 	t.Helper()
 
 	url := os.Getenv("RABBITMQ_URL")
 	if url == "" {
 		t.Skip("RABBITMQ_URL not set; skipping real-broker test")
 	}
-	return url
+
+	conn, err := amqp091.Dial(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+
+	ch, err := conn.Channel()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &broker{t: t, ch: ch}
 }
 
-func TestRabbitMQConsumer_Republish_RetryKeepsEventName(t *testing.T) {
-	url := brokerURL(t)
+func (b *broker) deleteQueues(queue string) {
+	for _, name := range []string{queue, queue + ".wait", queue + ".dlq"} {
+		if _, err := b.ch.QueueDelete(name, false, false, false); err != nil {
+			b.t.Fatal(err)
+		}
+	}
+}
 
-	consumer, err := NewRabbitMQConsumer(url, Config{
-		Queue:            testQueue,
-		DLX:              "shared_amqp_test_dlx",
-		Bindings:         map[string][]string{"shared_amqp_test.events": {"test.happened"}},
-		MaxRetryAttempts: testMaxRetries,
+func (b *broker) consumer(queue string, maxRetries int) *RabbitMQConsumer {
+	b.t.Helper()
+
+	consumer, err := NewRabbitMQConsumer(os.Getenv("RABBITMQ_URL"), Config{
+		Queue:            queue,
+		DLX:              queue + "_dlx",
+		Bindings:         map[string][]string{testExchange: {testEvent}},
+		MaxRetryAttempts: maxRetries,
+		RetryDelay:       200 * time.Millisecond,
 	})
 	if err != nil {
-		t.Fatal(err)
+		b.t.Fatal(err)
 	}
-	t.Cleanup(consumer.Close)
+	b.t.Cleanup(consumer.Close)
+	return consumer
+}
 
-	if _, err := consumer.channel.QueuePurge(testQueue, false); err != nil {
-		t.Fatal(err)
-	}
+func (b *broker) publish(headers amqp091.Table) {
+	b.t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	if err := consumer.Ping(ctx); err != nil {
-		t.Fatalf("ping: %v", err)
-	}
-
-	original := amqp091.Delivery{
-		Exchange:   "shared_amqp_test.events",
-		RoutingKey: "test.happened",
-		Headers:    amqp091.Table{},
-		Body:       []byte(`{}`),
-		MessageId:  "retry-keeps-event-name",
-	}
-	if err := consumer.Republish(ctx, original, 1); err != nil {
-		t.Fatal(err)
-	}
-
-	msgs, err := consumer.GetMessages(ctx)
+	msg := amqp091.Publishing{ContentType: "application/json", Body: []byte(`{"id":1}`), Headers: headers}
+	err := b.ch.PublishWithContext(context.Background(), testExchange, testEvent, false, false, msg)
 	if err != nil {
+		b.t.Fatal(err)
+	}
+}
+
+func (b *broker) messages(queue string) int {
+	b.t.Helper()
+
+	q, err := b.ch.QueueDeclarePassive(queue, true, false, false, false, nil)
+	if err != nil {
+		b.t.Fatal(err)
+	}
+	return q.Messages
+}
+
+func TestRabbitMQConsumer_AlwaysFailing_EndsInDLQAfterRetries(t *testing.T) {
+	b := newBroker(t)
+	const queue = "shared_amqp_always_failing"
+	b.deleteQueues(queue)
+	t.Cleanup(func() { b.deleteQueues(queue) })
+
+	consumer := b.consumer(queue, testMaxRetries)
+	handler := alwaysFailing()
+	startRun(t, consumer, handler.handle)
+
+	b.publish(amqp091.Table{"traceparent": "00-0102030405060708090a0b0c0d0e0f10-0102030405060708-01"})
+
+	waitFor(t, 5*time.Second, func() bool { return b.messages(queue+".dlq") == 1 })
+
+	calls := handler.received()
+	if len(calls) != testMaxRetries+1 {
+		t.Fatalf("handler ran %d times, want %d", len(calls), testMaxRetries+1)
+	}
+	for i, name := range calls {
+		if name != testEvent {
+			t.Fatalf("attempt %d saw event %q, want %q", i+1, name, testEvent)
+		}
+	}
+
+	dead, ok, err := b.ch.Get(queue+".dlq", true)
+	if err != nil || !ok {
+		t.Fatalf("DLQ get: ok=%v err=%v", ok, err)
+	}
+	if string(dead.Body) != `{"id":1}` {
+		t.Fatalf("DLQ body %q, want the original", dead.Body)
+	}
+	if dead.Headers["traceparent"] != "00-0102030405060708090a0b0c0d0e0f10-0102030405060708-01" {
+		t.Fatalf("DLQ traceparent %v, want the original", dead.Headers["traceparent"])
+	}
+	if n := b.messages(queue) + b.messages(queue+".wait"); n != 0 {
+		t.Fatalf("%d messages left in the main and wait queues, want 0", n)
+	}
+}
+
+func TestRabbitMQConsumer_FailsOnce_DeliveredOnSecondAttempt(t *testing.T) {
+	b := newBroker(t)
+	const queue = "shared_amqp_fails_once"
+	b.deleteQueues(queue)
+	t.Cleanup(func() { b.deleteQueues(queue) })
+
+	consumer := b.consumer(queue, testMaxRetries)
+	handler := &recordingHandler{failTimes: 1}
+	startRun(t, consumer, handler.handle)
+
+	b.publish(nil)
+
+	waitFor(t, 5*time.Second, func() bool { return len(handler.received()) == 2 })
+	time.Sleep(500 * time.Millisecond)
+
+	if calls := handler.received(); len(calls) != 2 || calls[1] != testEvent {
+		t.Fatalf("handler calls %v, want 2 attempts of %s", calls, testEvent)
+	}
+	if n := b.messages(queue + ".dlq"); n != 0 {
+		t.Fatalf("%d messages in the DLQ, want 0", n)
+	}
+}
+
+func TestRabbitMQConsumer_ExistingBroker_RetriesDoNotReachDLQ(t *testing.T) {
+	b := newBroker(t)
+	const queue = "shared_amqp_upgrade"
+	b.deleteQueues(queue)
+	t.Cleanup(func() { b.deleteQueues(queue) })
+
+	dlx := queue + "_dlx"
+	if err := b.ch.ExchangeDeclare(dlx, "topic", true, false, false, false, nil); err != nil {
+		t.Fatal(err)
+	}
+	args := amqp091.Table{"x-dead-letter-exchange": dlx, "x-dead-letter-routing-key": queue + ".retry"}
+	if _, err := b.ch.QueueDeclare(queue, true, false, false, false, args); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := b.ch.QueueDeclare(queue+".dlq", true, false, false, false, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.ch.QueueBind(queue+".dlq", queue+".retry", dlx, false, nil); err != nil {
 		t.Fatal(err)
 	}
 
-	var retried amqp091.Delivery
-	select {
-	case retried = <-msgs:
-	case <-ctx.Done():
-		t.Fatal("republished message was never delivered")
-	}
-	if err := retried.Ack(false); err != nil {
-		t.Fatal(err)
-	}
+	consumer := b.consumer(queue, 1)
+	handler := alwaysFailing()
+	startRun(t, consumer, handler.handle)
 
-	if got := getRetryCount(retried.Headers); got != 1 {
-		t.Fatalf("retry count %d, want 1", got)
-	}
-	if got := getEventName(retried); got != "test.happened" {
-		t.Fatalf("event name %q, want test.happened", got)
-	}
-	if got := getExchange(retried); got != "shared_amqp_test.events" {
-		t.Fatalf("exchange %q, want shared_amqp_test.events", got)
+	b.publish(nil)
+
+	waitFor(t, 5*time.Second, func() bool { return len(handler.received()) == 2 })
+	waitFor(t, 2*time.Second, func() bool { return b.messages(queue+".dlq") == 1 })
+	time.Sleep(500 * time.Millisecond)
+
+	if n := b.messages(queue + ".dlq"); n != 1 {
+		t.Fatalf("%d messages in the DLQ, want 1: the old retry binding must be gone", n)
 	}
 }
 
 func TestRabbitMQConsumer_Ping_AfterClose_Fails(t *testing.T) {
-	url := brokerURL(t)
+	b := newBroker(t)
+	const queue = "shared_amqp_ping"
+	b.deleteQueues(queue)
+	t.Cleanup(func() { b.deleteQueues(queue) })
 
-	consumer, err := NewRabbitMQConsumer(url, Config{
-		Queue:            testQueue,
-		DLX:              "shared_amqp_test_dlx",
-		Bindings:         map[string][]string{"shared_amqp_test.events": {"test.happened"}},
-		MaxRetryAttempts: testMaxRetries,
-	})
-	if err != nil {
-		t.Fatal(err)
+	consumer := b.consumer(queue, testMaxRetries)
+
+	if err := consumer.Ping(context.Background()); err != nil {
+		t.Fatalf("ping: %v", err)
 	}
 
 	consumer.Close()

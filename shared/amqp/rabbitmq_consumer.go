@@ -14,11 +14,14 @@ import (
 	"pizza-marketplace/shared/telemetry/otelamqp"
 )
 
+const DefaultRetryDelay = 5 * time.Second
+
 type Config struct {
 	Queue            string
 	DLX              string
 	Bindings         map[string][]string
 	MaxRetryAttempts int
+	RetryDelay       time.Duration
 }
 
 type Handler func(ctx context.Context, eventName string, body []byte) error
@@ -27,7 +30,7 @@ type MessageSource interface {
 	Queue() string
 	MaxRetryAttempts() int
 	GetMessages(ctx context.Context) (<-chan amqp091.Delivery, error)
-	Republish(ctx context.Context, msg amqp091.Delivery, retryCount int) error
+	DeadLetter(ctx context.Context, msg amqp091.Delivery) error
 }
 
 type RabbitMQConsumer struct {
@@ -39,6 +42,10 @@ type RabbitMQConsumer struct {
 }
 
 func NewRabbitMQConsumer(amqpURL string, cfg Config) (*RabbitMQConsumer, error) {
+	if cfg.RetryDelay == 0 {
+		cfg.RetryDelay = DefaultRetryDelay
+	}
+
 	c := &RabbitMQConsumer{amqpURL: amqpURL, cfg: cfg}
 	if err := c.connect(); err != nil {
 		return nil, err
@@ -52,6 +59,18 @@ func (c *RabbitMQConsumer) Queue() string {
 
 func (c *RabbitMQConsumer) MaxRetryAttempts() int {
 	return c.cfg.MaxRetryAttempts
+}
+
+func (c *RabbitMQConsumer) waitQueue() string {
+	return c.cfg.Queue + ".wait"
+}
+
+func (c *RabbitMQConsumer) dlq() string {
+	return c.cfg.Queue + ".dlq"
+}
+
+func (c *RabbitMQConsumer) retryKey() string {
+	return c.cfg.Queue + ".retry"
 }
 
 // connect assumes the caller already holds c.mu.
@@ -73,6 +92,24 @@ func (c *RabbitMQConsumer) connect() error {
 		return fmt.Errorf("channel creation failed: %w", err)
 	}
 
+	if err := c.declareTopology(ch); err != nil {
+		return err
+	}
+
+	if err := ch.Confirm(false); err != nil {
+		return fmt.Errorf("confirm mode setup failed: %w", err)
+	}
+
+	if err := ch.Qos(1, 0, false); err != nil {
+		return fmt.Errorf("QoS setup failed: %w", err)
+	}
+
+	c.conn = conn
+	c.channel = ch
+	return nil
+}
+
+func (c *RabbitMQConsumer) declareTopology(ch *amqp091.Channel) error {
 	if err := ch.ExchangeDeclare(c.cfg.DLX, "topic", true, false, false, false, nil); err != nil {
 		return fmt.Errorf("DLX declaration failed: %w", err)
 	}
@@ -85,36 +122,45 @@ func (c *RabbitMQConsumer) connect() error {
 
 	args := amqp091.Table{
 		"x-dead-letter-exchange":    c.cfg.DLX,
-		"x-dead-letter-routing-key": c.cfg.Queue + ".retry",
+		"x-dead-letter-routing-key": c.retryKey(),
 	}
-	q, err := ch.QueueDeclare(c.cfg.Queue, true, false, false, false, args)
-	if err != nil {
+	if _, err := ch.QueueDeclare(c.cfg.Queue, true, false, false, false, args); err != nil {
 		return fmt.Errorf("queue declaration failed: %w", err)
 	}
 
 	for exchange, routingKeys := range c.cfg.Bindings {
 		for _, key := range routingKeys {
-			if err := ch.QueueBind(q.Name, key, exchange, false, nil); err != nil {
+			if err := ch.QueueBind(c.cfg.Queue, key, exchange, false, nil); err != nil {
 				return fmt.Errorf("queue bind failed for exchange %s with key %s: %w", exchange, key, err)
 			}
 		}
 	}
 
-	dlq, err := ch.QueueDeclare(c.cfg.Queue+".dlq", true, false, false, false, nil)
-	if err != nil {
+	waitArgs := amqp091.Table{
+		"x-message-ttl":             c.cfg.RetryDelay.Milliseconds(),
+		"x-dead-letter-exchange":    "",
+		"x-dead-letter-routing-key": c.cfg.Queue,
+	}
+	if _, err := ch.QueueDeclare(c.waitQueue(), true, false, false, false, waitArgs); err != nil {
+		return fmt.Errorf("wait queue declaration failed: %w", err)
+	}
+
+	if err := ch.QueueBind(c.waitQueue(), c.retryKey(), c.cfg.DLX, false, nil); err != nil {
+		return fmt.Errorf("wait queue bind failed: %w", err)
+	}
+
+	if _, err := ch.QueueDeclare(c.dlq(), true, false, false, false, nil); err != nil {
 		return fmt.Errorf("DLQ declaration failed: %w", err)
 	}
 
-	if err := ch.QueueBind(dlq.Name, c.cfg.Queue+".retry", c.cfg.DLX, false, nil); err != nil {
+	if err := ch.QueueUnbind(c.dlq(), c.retryKey(), c.cfg.DLX, nil); err != nil {
+		return fmt.Errorf("DLQ unbind of retry key failed: %w", err)
+	}
+
+	if err := ch.QueueBind(c.dlq(), c.dlq(), c.cfg.DLX, false, nil); err != nil {
 		return fmt.Errorf("DLQ bind failed: %w", err)
 	}
 
-	if err := ch.Qos(1, 0, false); err != nil {
-		return fmt.Errorf("QoS setup failed: %w", err)
-	}
-
-	c.conn = conn
-	c.channel = ch
 	return nil
 }
 
@@ -180,102 +226,120 @@ func runOnce(ctx context.Context, source MessageSource, handler Handler) error {
 				return errors.New("message channel closed")
 			}
 
-			eventName := getEventName(msg)
-
-			msgCtx, span := otelamqp.StartConsume(ctx, source.Queue(), getExchange(msg), eventName, msg)
-			msgCtx = logobs.WithContext(msgCtx, logobs.FromContext(ctx).With(
-				"event_name", eventName,
-				"message_id", msg.MessageId,
-			))
-
-			err := handler(msgCtx, eventName, msg.Body)
-			telemetry.EndSpan(span, err)
-
-			if err != nil {
-				retryCount := getRetryCount(msg.Headers)
-
-				if retryCount >= source.MaxRetryAttempts() {
-					logobs.FromContext(msgCtx).WarnContext(msgCtx,
-						"message exceeded retry limit",
-						"retry_count", retryCount,
-					)
-
-					_ = msg.Nack(false, false)
-
-					continue
-				}
-
-				time.Sleep(time.Second * time.Duration(retryCount+1))
-
-				if err := source.Republish(ctx, msg, retryCount+1); err != nil {
-					logobs.FromContext(msgCtx).WarnContext(msgCtx,
-						"failed to republish for retry",
-						"error", err,
-					)
-
-					_ = msg.Nack(false, true)
-
-					continue
-				}
-
-				_ = msg.Ack(false)
-
-				continue
-			}
-
-			_ = msg.Ack(false)
+			handle(ctx, source, handler, msg)
 		}
 	}
 }
 
-// Republish requeues msg via the default exchange with an incremented
-// x-retry-count, which getRetryCount reads on the next delivery. The default exchange
-// routes by queue name, so the original routing key and exchange are kept in x-original-*.
-func (c *RabbitMQConsumer) Republish(ctx context.Context, msg amqp091.Delivery, retryCount int) error {
-	headers := amqp091.Table{}
-	for k, v := range msg.Headers {
-		headers[k] = v
-	}
-	headers["x-retry-count"] = int32(retryCount)
-	if _, ok := headers["x-original-routing-key"]; !ok {
-		headers["x-original-routing-key"] = msg.RoutingKey
-	}
-	if _, ok := headers["x-original-exchange"]; !ok {
-		headers["x-original-exchange"] = msg.Exchange
+func handle(ctx context.Context, source MessageSource, handler Handler, msg amqp091.Delivery) {
+	death := firstRejection(msg.Headers, source.Queue())
+	eventName, exchange := msg.RoutingKey, msg.Exchange
+	if death != nil && death.routingKey != "" {
+		eventName, exchange = death.routingKey, death.exchange
 	}
 
+	msgCtx, span := otelamqp.StartConsume(ctx, source.Queue(), exchange, eventName, msg)
+	msgCtx = logobs.WithContext(msgCtx, logobs.FromContext(ctx).With(
+		"event_name", eventName,
+		"message_id", msg.MessageId,
+	))
+
+	err := handler(msgCtx, eventName, msg.Body)
+	telemetry.EndSpan(span, err)
+
+	if err == nil {
+		_ = msg.Ack(false)
+		return
+	}
+
+	retries := 0
+	if death != nil {
+		retries = death.count
+	}
+
+	if retries < source.MaxRetryAttempts() {
+		_ = msg.Nack(false, false)
+		return
+	}
+
+	logobs.FromContext(msgCtx).WarnContext(msgCtx, "message exceeded retry limit", "retry_count", retries)
+
+	if err := source.DeadLetter(ctx, msg); err != nil {
+		logobs.FromContext(msgCtx).WarnContext(msgCtx, "failed to move message to DLQ", "error", err)
+		_ = msg.Nack(false, false)
+		return
+	}
+
+	_ = msg.Ack(false)
+}
+
+// DeadLetter publishes msg to the DLQ and returns once the broker has confirmed it, so the
+// caller only acks the original after the copy is safe.
+func (c *RabbitMQConsumer) DeadLetter(ctx context.Context, msg amqp091.Delivery) error {
 	c.mu.Lock()
 	channel := c.channel
 	c.mu.Unlock()
 
-	return channel.PublishWithContext(ctx, "", c.cfg.Queue, false, false, amqp091.Publishing{
-		ContentType:  msg.ContentType,
-		Body:         msg.Body,
-		Headers:      headers,
-		DeliveryMode: amqp091.Persistent,
-		MessageId:    msg.MessageId,
-	})
-}
-
-func getEventName(msg amqp091.Delivery) string {
-	if name, ok := msg.Headers["x-original-routing-key"].(string); ok && name != "" {
-		return name
+	confirm, err := channel.PublishWithDeferredConfirmWithContext(ctx, c.cfg.DLX, c.dlq(), false, false,
+		amqp091.Publishing{
+			ContentType:  msg.ContentType,
+			Body:         msg.Body,
+			Headers:      msg.Headers,
+			DeliveryMode: amqp091.Persistent,
+			MessageId:    msg.MessageId,
+		})
+	if err != nil {
+		return fmt.Errorf("DLQ publish failed: %w", err)
 	}
-	return msg.RoutingKey
-}
 
-func getExchange(msg amqp091.Delivery) string {
-	if exchange, ok := msg.Headers["x-original-exchange"].(string); ok {
-		return exchange
+	acked, err := confirm.WaitContext(ctx)
+	if err != nil {
+		return fmt.Errorf("DLQ publish confirm failed: %w", err)
 	}
-	return msg.Exchange
+	if !acked {
+		return errors.New("DLQ publish nacked by broker")
+	}
+	return nil
 }
 
-func getRetryCount(headers amqp091.Table) int {
-	if val, ok := headers["x-retry-count"]; ok {
-		if count, ok := val.(int32); ok {
-			return int(count)
+type rejection struct {
+	count      int
+	exchange   string
+	routingKey string
+}
+
+// firstRejection reads the x-death entry the broker keeps for rejections from queue. It holds
+// the message's original exchange and routing key on every pass, and how often it was rejected.
+func firstRejection(headers amqp091.Table, queue string) *rejection {
+	deaths, ok := headers["x-death"].([]interface{})
+	if !ok {
+		return nil
+	}
+
+	for _, d := range deaths {
+		entry, ok := d.(amqp091.Table)
+		if !ok || entry["queue"] != queue || entry["reason"] != "rejected" {
+			continue
 		}
+
+		r := &rejection{count: toInt(entry["count"])}
+		r.exchange, _ = entry["exchange"].(string)
+		if keys, ok := entry["routing-keys"].([]interface{}); ok && len(keys) > 0 {
+			r.routingKey, _ = keys[0].(string)
+		}
+		return r
+	}
+	return nil
+}
+
+func toInt(v interface{}) int {
+	switch n := v.(type) {
+	case int64:
+		return int(n)
+	case int32:
+		return int(n)
+	case int:
+		return n
 	}
 	return 0
 }
