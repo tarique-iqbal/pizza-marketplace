@@ -107,7 +107,7 @@ The consumer is the shared `pizza-marketplace/shared/amqp` one, the same code re
 search run, so a reliability change is made there, once. This service supplies only
 `internal/infrastructure/messaging/bindings.go`: queue `notification_queue`, dead-letter exchange
 `notification_dlx`, the `Exchanges` bindings, and a `Handler` adapter. Behaviour: manual ack, QoS prefetch 1,
-linear-backoff retry via an `x-retry-count` header, then `notification_queue.dlq` after `MaxRetryAttempts = 3`.
+retries 5 s apart through `notification_queue.wait`, then `notification_queue.dlq` after `MaxRetryAttempts = 3`.
 
 Reconnecting checks both `conn.IsClosed()` and `channel.IsClosed()` — a channel can die from a channel-level AMQP
 exception while the underlying connection stays open, so a connection-only check would loop failing forever

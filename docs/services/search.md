@@ -287,9 +287,9 @@ All four routing keys are bound in `messaging.Exchanges["restaurant.events"]`; `
 All four guards compare epoch milliseconds (`t.UnixMilli()` on the Go side, `Instant.parse(...).toEpochMilli()`
 in Painless) via a strict `>`, entirely inside the scripted update — there's no read-then-write race between two
 out-of-order deliveries, since ES applies the script atomically per document. This exists because RabbitMQ
-redelivery can reorder messages: `Republish` (the consumer's retry path) re-sends a failed message to the *back*
-of the queue with an incremented `x-retry-count`, while newer messages for the same restaurant/pizza/topping-price
-list get processed in between — so a transient failure on an older event, followed by a newer one succeeding
+redelivery can reorder messages: a failed message waits in `search_queue.wait` for the retry delay and then
+rejoins the *back* of the queue, while newer messages for the same restaurant/pizza/topping-price list get
+processed in between — so a transient failure on an older event, followed by a newer one succeeding
 first, would otherwise let the retried older event silently clobber the newer data once it's finally reprocessed.
 
 ## `GET /search`

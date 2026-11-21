@@ -149,9 +149,9 @@ flowchart LR
 
 - **Inbound**: `restaurant.initiated`, consumed by `cmd/worker`'s `RabbitMQConsumer` → dispatched via an
   in-process `EventDispatcher` to the `RestaurantInitiated` handler, which creates the local `Restaurant` row.
-  Reliability: manual ack, QoS prefetch 1, dead-letter exchange (`restaurant_dlx`), in-process retry via
-  `x-retry-count` header (linear backoff, discard after 3 attempts). The consumer is the shared
-  `pizza-marketplace/shared/amqp` one, used by all 5 consuming services; this service supplies only
+  Reliability: manual ack, QoS prefetch 1, dead-letter exchange (`restaurant_dlx`); a failed message is retried
+  3 times, 5 s apart through `restaurant_queue.wait`, then moved to `restaurant_queue.dlq`. The consumer is the
+  shared `pizza-marketplace/shared/amqp` one, used by all 5 consuming services; this service supplies only
   `internal/infrastructure/messaging/bindings.go` (queue `restaurant_queue`, the DLX, the `Exchanges` bindings, and
   a `Handler` adapter from event name and body to its `EventDispatcher`).
 - **Outbox relay**: every outbound event (all six below) is written as an `outbox_events` row inside the same
