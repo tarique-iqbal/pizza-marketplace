@@ -84,7 +84,7 @@ the middleware stores the logger and writes the completion line.
 **Workers** store the logger once, in `bootstrap.App.Run`, and log with the worker loop's context, which
 carries no span. Per-unit work gets its own context:
 
-- **Consumers:** the shared consumer's `runOnce` (`shared/amqp`) derives a context per message holding the
+- **Consumers:** the shared consumer (`shared/amqp`) derives a context per message holding the
   consumer span and a logger with `event_name` and `message_id`, and passes it to the handler. The handler's
   lines and the consumer's own retry warnings carry the trace ID.
 - **Outbox relay:** each event is handled under its restored trace context, so its lines carry the trace

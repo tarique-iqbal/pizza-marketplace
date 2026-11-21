@@ -149,8 +149,8 @@ only the two families the dashboards need, which keeps the series count at a few
 # messages sitting in dead-letter queues
 sum(rabbitmq_detailed_queue_messages{queue=~".+[.]dlq"})
 
-# queues holding messages that nothing consumes (DLQs never have consumers)
-(rabbitmq_detailed_queue_messages{queue!~".+[.]dlq"} > 0)
+# queues holding messages that nothing consumes (DLQs and wait queues never have consumers)
+(rabbitmq_detailed_queue_messages{queue!~".+[.](dlq|wait)"} > 0)
   and on (queue) (rabbitmq_detailed_queue_consumers == 0)
 ```
 

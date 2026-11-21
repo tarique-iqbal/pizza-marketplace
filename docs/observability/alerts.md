@@ -16,7 +16,7 @@ method, queue or database. Firing alerts are listed in Grafana under Alerting �
 | `api.yaml` | [API 5xx share](#api-5xx-share) | 5xx / all per API job, `[5m]`, > 1% | 5 m | OK | critical |
 | `api.yaml` | [API p95 latency](#api-p95-latency) | p95 per API job, `[5m]`, > 500 ms | 5 m | OK | warning |
 | `api.yaml` | [gRPC server errors](#grpc-server-errors) | server-side codes / all per payment-api method, `[5m]`, > 1% | 5 m | OK | critical |
-| `rabbitmq.yaml` | [Queue with messages but no consumers](#queue-with-messages-but-no-consumers) | messages > 0 and consumers == 0, per queue | 5 m | OK | warning |
+| `rabbitmq.yaml` | [Queue with messages but no consumers](#queue-with-messages-but-no-consumers) | messages > 0 and consumers == 0, per queue, not `.dlq`/`.wait` | 5 m | OK | warning |
 | `rabbitmq.yaml` | [Messages in a DLQ](#messages-in-a-dlq) | `.dlq` queue messages > 0, per queue | 1 m | OK | warning |
 | `business.yaml` | [Payment failure share](#payment-failure-share) | failed / attempts, `[15m]`, at least 3 attempts, > 20% | 5 m | OK | critical |
 | `postgres.yaml` | [Database unreachable](#database-unreachable) | `pg_up == 0`, per database | 2 m | Alerting | critical |
@@ -72,7 +72,8 @@ When it fires:
 
 ### Queue with messages but no consumers
 
-A non-DLQ queue holding messages with zero consumers for 5 minutes. The 5 minutes cover a worker restart.
+A queue holding messages with zero consumers for 5 minutes. The 5 minutes cover a worker restart. DLQs and
+`<service>_queue.wait` queues are left out: neither has consumers by design.
 
 When it fires:
 - The queue's worker isn't running or can't connect: check its container (`docker ps`, `docker logs
@@ -81,14 +82,16 @@ When it fires:
 
 ### Messages in a DLQ
 
-Any message in a `<service>_queue.dlq` for 1 minute. A consumer retries a failing message 3 times (republished
-with `x-retry-count`), then nacks it into the DLQ, so one message there already means an event was not handled.
+Any message in a `<service>_queue.dlq` for 1 minute. A consumer retries a failing message 3 times, 5 s apart
+through `<service>_queue.wait`, then moves it into the DLQ, so one message there already means an event was not
+handled.
 
 When it fires:
 - Service RED → workers row → failed messages by event: which event failed.
 - Loki: `{service_name="<svc>-worker"} |= "message exceeded retry limit"` gives the `event_name` and the
   `trace_id` of the last attempt; the trace shows the error.
-- RabbitMQ UI → Queues → the DLQ → Get messages shows the payload and headers.
+- RabbitMQ UI → Queues → the DLQ → Get messages shows the payload and headers; `x-death` records each pass
+  through the wait queue.
 - Fix the cause; the message stays in the DLQ until it is moved back or purged by hand. There's no replay tool.
 
 ### Payment failure share

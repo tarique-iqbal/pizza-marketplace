@@ -99,7 +99,7 @@ Events cross two asynchronous hops, and the trace context crosses both:
    spans.
 3. **Publish.** `otelamqp.StartPublish` starts a `PRODUCER` span and injects its context into the AMQP
    headers as `traceparent`.
-4. **Consume.** The shared consumer's `runOnce` (`shared/amqp`, used by all 5 consuming services) calls
+4. **Consume.** For each message, the shared consumer (`shared/amqp`, used by all 5 consuming services) calls
    `otelamqp.StartConsume`, which extracts `traceparent` and starts a `CONSUMER` span as its child. The handler
    runs with that context, through the service's `Handler` adapter → `Dispatch(ctx, event)` →
    `Handle(ctx, event)`, so its queries and any events it raises into its own
@@ -111,11 +111,13 @@ Span names and attributes follow the OpenTelemetry messaging conventions (semcon
 keys are fixed strings in code, so span names stay low-cardinality. The conventions default to span links
 between producer and consumer and allow a parent link for single-message processing, which is the case here.
 
-A retry is republished through the default exchange, so its delivery has no exchange and the queue name as
-routing key. `Republish` keeps the original values in `x-original-exchange`/`x-original-routing-key`, and
-each attempt's consumer span carries the original destination, as a sibling of the first attempt under the
-same producer span. A message that exhausts its retries ends in the queue's DLQ with its headers, including
-`traceparent`.
+A failed message with retries left is rejected. The broker dead-letters it into `<svc>_queue.wait`, and after
+the retry delay back onto the main queue through the default exchange, so the redelivery has no exchange and
+the queue name as routing key. The broker's `x-death` entry for the main queue keeps the original exchange and
+routing key on every pass, and the consumer reads them from there. Dead-lettering keeps the headers, so each
+attempt's consumer span carries the original destination, as a sibling of the first attempt under the same
+producer span. A message that exhausts its retries is published to the queue's DLQ with its headers, including
+`traceparent`, and the original is acked once the broker confirms the copy.
 
 ### The Mollie webhook: a span link, not a parent
 
