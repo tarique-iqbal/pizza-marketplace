@@ -20,7 +20,7 @@ type WorkerContainer struct {
 	*Shared
 	Dispatcher    customer.EventDispatcher
 	Consumer      *amqp.RabbitMQConsumer
-	Publisher     *messaging.RabbitMQPublisher
+	Publisher     *amqp.RabbitMQPublisher
 	OutboxWorker  *outboxapp.Worker
 	HealthHandler *httphandlers.HealthHandler
 }
@@ -45,7 +45,7 @@ func NewWorkerContainer(logger *slog.Logger) (*WorkerContainer, error) {
 		return nil, err
 	}
 
-	publisher, err := messaging.NewRabbitMQPublisher(base.AMQPURL)
+	publisher, err := amqp.NewRabbitMQPublisher(base.AMQPURL, messaging.Exchange)
 	if err != nil {
 		return nil, err
 	}

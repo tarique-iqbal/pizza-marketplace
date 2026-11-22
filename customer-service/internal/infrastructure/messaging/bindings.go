@@ -9,6 +9,7 @@ import (
 )
 
 const (
+	Exchange         = "customer.events"
 	QueueName        = "customer_queue"
 	DLXName          = "customer_dlx"
 	MaxRetryAttempts = 3
