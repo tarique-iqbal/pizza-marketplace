@@ -9,6 +9,7 @@ import (
 )
 
 const (
+	Exchange         = "restaurant.events"
 	QueueName        = "restaurant_queue"
 	DLXName          = "restaurant_dlx"
 	MaxRetryAttempts = 3
