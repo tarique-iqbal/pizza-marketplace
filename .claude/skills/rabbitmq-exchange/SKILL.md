@@ -22,12 +22,15 @@ wildcard capability. See §6 before introducing a different exchange type.
 ## 2. Publisher side: one `<service>.events` exchange per publishing service
 
 A service that raises domain events owns exactly **one** exchange, named `<service>.events` — not one
-exchange per event type. Declared in `internal/infrastructure/messaging/rabbitmq_publisher.go`'s `connect()`:
+exchange per event type. The publisher is shared code (`shared/amqp/rabbitmq_publisher.go`); each publishing
+service names its exchange in `internal/infrastructure/messaging/bindings.go` and passes it in, and the shared
+`connect()` declares it:
 
 ```go
-const exchangeName = "<service>.events"
-// ...
-ch.ExchangeDeclare(exchangeName, "topic", true, false, false, false, nil)
+const Exchange = "<service>.events" // bindings.go
+
+publisher, err := amqp.NewRabbitMQPublisher(amqpURL, messaging.Exchange) // container/worker.go
+// shared connect(): ch.ExchangeDeclare(p.exchange, "topic", true, false, false, false, nil)
 ```
 
 Routing key on publish is the event's own name (`payload.GetEventName()`), nothing else. A new event type
