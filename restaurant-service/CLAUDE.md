@@ -26,13 +26,13 @@ Migrations (`internal/infrastructure/migrations/*.sql`, golang-migrate) define `
 
 ## Testing conventions
 
-Same shape as identity-service: `tests/` mirrors `internal/`, real GORM `TestDB` + fixtures (varying checklist completeness). `tests/infrastructure/messaging/` runs against the test RabbitMQ: `bindings_test.go` checks that every event bound in `bindings.go` reaches the dispatcher through the shared consumer, next to the publisher's own tests. The consumer itself is tested in `shared/amqp`.
+Same shape as identity-service: `tests/` mirrors `internal/`, real GORM `TestDB` + fixtures (varying checklist completeness). `tests/infrastructure/messaging/` runs against the test RabbitMQ: `bindings_test.go` checks that every event bound in `bindings.go` reaches the dispatcher through the shared consumer. The consumer and the publisher themselves are tested in `shared/amqp`.
 
 ## Invariants and gotchas
 
 - **`CreatePizza` is the only caller of `Checklist.IsCompleted()`** — pizza creation is gated on full onboarding (`403` otherwise); the restaurant's own status transitions are a separate, ungated mechanism.
 - **Every event goes through `DispatchEventsTx`** (the outbox) — there is no direct-publish path anywhere in this service, for any event.
-- **`cmd/worker` runs two goroutines** (inbound consumer + outbox relay). The consumer is the shared `pizza-marketplace/shared/amqp` one; this service only supplies `internal/infrastructure/messaging/bindings.go` (queue, DLX, `Exchanges` bindings, and a `Handler` adapter to its dispatcher). Reconnect, retry and DLQ behaviour live in `shared/amqp`, so change them there, once, for all 5 consuming services.
+- **`cmd/worker` runs two goroutines** (inbound consumer + outbox relay). The consumer and the publisher are the shared `pizza-marketplace/shared/amqp` ones; this service only supplies `internal/infrastructure/messaging/bindings.go` (queue, DLX, `Exchanges` bindings, the `Exchange` it publishes to, and a `Handler` adapter to its dispatcher). Reconnect, retry and DLQ behaviour live in `shared/amqp`, so change them there, once, for every service.
 - **Geocoding is conditional**: `UpdateAddress` only calls OpenCage when the address actually changed, reusing the stored `Lat`/`Lon` otherwise.
 - **No numeric validator tags on `decimal.Decimal` request fields** — `go-playground/validator`'s numeric tags panic on that type; the DB's own `CHECK` constraint is the only guard.
 - **`PizzaPriceRepository.ReplacePrices` sets `UpdatedAt` manually** before its bulk upsert — GORM's `autoUpdateTime` omits a nil value from the upsert's `VALUES` client-side, which then propagates into `EXCLUDED.updated_at` too, leaving genuinely-updated rows `NULL`.
