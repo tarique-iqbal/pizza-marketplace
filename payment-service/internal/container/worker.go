@@ -8,12 +8,13 @@ import (
 	"payment-service/internal/infrastructure/messaging"
 	"payment-service/internal/interfaces/http/handlers"
 
+	"pizza-marketplace/shared/amqp"
 	"pizza-marketplace/shared/health"
 )
 
 type WorkerContainer struct {
 	*Shared
-	Publisher     *messaging.RabbitMQPublisher
+	Publisher     *amqp.RabbitMQPublisher
 	OutboxWorker  *outboxapp.Worker
 	HealthHandler *handlers.HealthHandler
 }
@@ -24,7 +25,7 @@ func NewWorkerContainer(logger *slog.Logger) (*WorkerContainer, error) {
 		return nil, err
 	}
 
-	publisher, err := messaging.NewRabbitMQPublisher(base.AMQPURL)
+	publisher, err := amqp.NewRabbitMQPublisher(base.AMQPURL, messaging.Exchange)
 	if err != nil {
 		return nil, err
 	}
