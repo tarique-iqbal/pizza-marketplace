@@ -36,9 +36,10 @@ internal/application/address         → schema.go (AddressResponse), mapper.go,
                                         queries/List
 internal/application/outbox          → Worker/Relay
 internal/infrastructure/persistence  → customer_repository.go, address_repository.go, outbox.go
-internal/infrastructure/messaging    → RabbitMQ consumer + publisher
+internal/infrastructure/messaging    → bindings.go: queue, DLX, bindings and exchange for the shared
+                                        shared/amqp consumer and publisher, plus a Handler adapter
 internal/infrastructure/db           → Postgres connection
-internal/infrastructure/observability → per-request slog logger middleware + context helpers
+shared/logobs                        → slog logger and Gin request middleware (shared module, not in this tree)
 internal/interfaces/http             → middleware (Auth only, no role gate), response.HandleError,
                                         validation, handlers/{CustomerHandler,AddressHandler},
                                         routes/{customer_routes.go,address_routes.go}

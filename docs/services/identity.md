@@ -23,7 +23,8 @@ cmd/worker/bootstrap      → this service's app/runner setup (graceful shutdown
 internal/domain           → User, auth (credential/token/verification), OutboxEvent — no framework deps
 internal/application      → use cases: register_owner, register_customer, login, refresh, logout,
                              request_email_otp, verify_email, find_by_id; application/outbox (Relay)
-internal/infrastructure   → GORM persistence, Redis refresh-token store, RabbitMQ publisher, JWT manager,
+internal/infrastructure   → GORM persistence, Redis refresh-token store, RabbitMQ exchange for the shared
+                             publisher, JWT manager,
                              password hasher, OpenCage-independent (this service has no geocoding)
 internal/interfaces/http  → Gin handlers, middleware, error mapping
 internal/container        → shared.go (common deps) → api.go / worker.go
@@ -102,7 +103,7 @@ sequenceDiagram
     API-->>API: return 201 to client
     loop every PollInterval (2s)
         Worker->>DB: FetchAndMarkProcessing (SELECT ... FOR UPDATE SKIP LOCKED)
-        Worker->>MQ: PublishRaw(event_name, payload)
+        Worker->>MQ: Publish(event_name, payload)
         alt publish succeeds
             Worker->>DB: MarkProcessed
         else publish fails

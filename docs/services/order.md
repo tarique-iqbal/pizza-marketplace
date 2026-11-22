@@ -73,8 +73,9 @@ internal/infrastructure/payment      → grpc_client.go (Client, implements Paym
                                         (CircuitBreakerProvider decorator, 3 independent sony/gobreaker/v2
                                         breakers) + pb/ (payment-service's generated client code, copied by
                                         hand)
-internal/infrastructure/messaging    → RabbitMQ consumer + publisher, same shape as every other service's copy
-internal/infrastructure/observability → copied verbatim from restaurant-service
+internal/infrastructure/messaging    → bindings.go: queue, DLX, bindings and exchange for the shared
+                                        shared/amqp consumer and publisher, plus a Handler adapter
+shared/logobs                        → slog logger and Gin request middleware (shared module, not in this tree)
 internal/interfaces/http             → middleware (Auth/RequireRole — Customer/Owner, no Admin role needed here),
                                         response.HandleError, validation.ExtractValidationErrors, handlers/
                                         (CartHandler, OrderHandler), routes/ (cart_routes.go, order_routes.go —

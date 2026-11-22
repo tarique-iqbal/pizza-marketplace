@@ -28,7 +28,7 @@ internal/infrastructure/geocoder  → OpenCageGeocoder — search-service's own 
                                      restaurant-service's (see "Geocoding" below)
 internal/infrastructure/messaging → bindings.go: queue, DLX and bindings for the shared shared/amqp consumer,
                                      plus a Handler adapter to the dispatcher
-internal/infrastructure/observability → copied verbatim from restaurant-service (slog-based logger, Gin middleware)
+shared/logobs                     → slog logger and Gin request middleware (shared module, not in this tree)
 internal/interfaces/http          → SearchHandler, GetRestaurantHandler, routes.go — no middleware package at
                                      all, this API has no auth
 internal/container                → api.go / worker.go

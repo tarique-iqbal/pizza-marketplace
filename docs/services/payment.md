@@ -32,8 +32,9 @@ internal/infrastructure/persistence   → payment.go, outbox.go — thin GORM wr
                                         GORM models
 internal/infrastructure/gateway       → MollieGateway — hand-rolled net/http client, no SDK, implements
                                         PaymentGateway against Mollie's real v2 API
-internal/infrastructure/messaging     → RabbitMQ publisher only — no consumer, matching the worker's own shape
-internal/infrastructure/observability → copied verbatim from restaurant-service
+internal/infrastructure/messaging     → bindings.go: the exchange for the shared shared/amqp publisher — no
+                                        consumer, matching the worker's own shape
+shared/logobs                         → slog logger and Gin request middleware (shared module, not in this tree)
 internal/interfaces/grpc              → Server implementing PaymentService (pb.UnimplementedPaymentServiceServer
                                         embedded), pb/ — generated code from api/proto/payment/v1/payment.proto
 internal/interfaces/http              → handlers/WebhookHandler, routes/ — the one public route
@@ -238,10 +239,9 @@ Go plugins on `PATH`; `--go_out`/`--go-grpc_out` must both be `payment-service`,
 
 No shared Go module for the generated code — order-service's own gRPC client
 (`internal/infrastructure/payment/`) copies the generated client stub into its own tree by hand, kept in
-sync manually (same per-service-duplication convention this repo uses for the RabbitMQ consumer/publisher
-and every OpenCage client copy). Transport is plaintext, no
-TLS, internal Docker network only — matches this repo's current security posture everywhere else (RabbitMQ/
-Postgres connections are also unencrypted internal traffic).
+sync manually (same per-service-duplication convention this repo uses for every OpenCage client copy).
+Transport is plaintext, no TLS, internal Docker network only — matches this repo's current security posture
+everywhere else (RabbitMQ/Postgres connections are also unencrypted internal traffic).
 
 ## Testing conventions
 

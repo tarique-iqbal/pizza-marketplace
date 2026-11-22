@@ -24,7 +24,8 @@ internal/application/payout     → CreatePayout, UpdatePayout
 internal/application/pizza      → CreatePizza, UpdatePizza, SetPizzaPrices, ListPizzas
 internal/application/topping    → SetToppingPrices
 internal/application/outbox     → Worker (poller), Relay
-internal/infrastructure         → GORM persistence (incl. outbox), RabbitMQ consumer + publisher, OpenCage geocoder, observability
+internal/infrastructure         → GORM persistence (incl. outbox), RabbitMQ bindings for the shared consumer and
+                                  publisher, OpenCage geocoder
 internal/interfaces/http        → Gin handlers, X-User-ID/X-User-Role middleware (no local JWT parsing)
 internal/container              → shared.go → api.go / worker.go
 ```
@@ -160,7 +161,7 @@ flowchart LR
   `identity-service`, then widened here to cover every event, not just the cross-service-critical ones). The
   API request's job stops at writing that row; it never touches RabbitMQ itself. `cmd/worker`'s outbox relay
   (`internal/application/outbox.Worker`, `DefaultConfig()`: 2s poll interval, batch 50, concurrency 5, 3 retries
-  with exponential backoff) is the only thing that ever calls `publisher.PublishRaw`, claiming pending rows with
+  with exponential backoff) is the only thing that ever calls `publisher.Publish`, claiming pending rows with
   `SELECT ... FOR UPDATE SKIP LOCKED`. A row that exhausts its retries is marked `failed` and sits for manual
   inspection rather than being retried forever or silently dropped. This means an HTTP request only depends on
   Postgres being up, not RabbitMQ — a broker outage no longer loses events, it just delays them.
