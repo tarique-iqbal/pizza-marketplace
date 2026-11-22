@@ -184,7 +184,7 @@ the Go runtime's signal handling entirely and is never caught by application cod
 
 | Service | Consumer goroutine | Outbox goroutine | Readiness checks | `Close()` tears down |
 |---|---|---|---|---|
-| identity-worker | — | ✓ | postgres, rabbitmq-publisher | Postgres, Publisher (via embedded `Shared.Close()`) |
+| identity-worker | — | ✓ | postgres, rabbitmq-publisher | Postgres (via embedded `Shared.Close()`), Publisher |
 | restaurant-worker | ✓ | ✓ | postgres, rabbitmq-publisher, rabbitmq-consumer | DB, Consumer, Publisher |
 | order-worker | ✓ | ✓ | postgres, rabbitmq-publisher, rabbitmq-consumer | DB, Consumer, Publisher |
 | payment-worker | — | ✓ | postgres, rabbitmq-publisher | DB, Publisher (no consumer — this service never consumes) |
@@ -200,10 +200,9 @@ the consumer loop's own `connect()`/`ensureConnected()` (or a publish) can be re
 from a different goroutine — without the mutex, that would be a genuine data race, not just a theoretical
 one.
 
-One known gap: the publisher reconnects only when it publishes, and its `Ping` doesn't reconnect. After a
-broker restart, a worker with nothing in its outbox reports `rabbitmq-publisher` down until its next event,
-although the broker is up. The consumer reconnects by itself within about a second, so `rabbitmq-consumer`
-recovers on its own.
+Both recover by themselves after a broker restart: the consumer's loop reconnects within about a second,
+and the publisher's `Ping` reconnects when it finds the connection down, so `rabbitmq-publisher` comes back
+on the next probe even when the outbox has nothing to send.
 
 ## Why this exists: health probes
 
