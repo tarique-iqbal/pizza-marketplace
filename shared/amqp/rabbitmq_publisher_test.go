@@ -163,3 +163,40 @@ func TestRabbitMQPublisher_Publish_InjectsProducerTraceContext(t *testing.T) {
 		t.Fatal("header should carry the producer span")
 	}
 }
+
+func TestRabbitMQPublisher_Ping_ReconnectsAfterConnectionLoss(t *testing.T) {
+	p := newTestPublisher(t)
+
+	if err := p.conn.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := p.Ping(context.Background()); err != nil {
+		t.Fatalf("ping after connection loss: %v, want a reconnect", err)
+	}
+	if p.conn.IsClosed() {
+		t.Fatal("ping should leave an open connection")
+	}
+	if err := p.Publish(context.Background(), "test.event", []byte(`{}`)); err != nil {
+		t.Fatalf("publish after reconnect: %v", err)
+	}
+}
+
+func TestRabbitMQPublisher_ChannelFailure_ClosesOldConnection(t *testing.T) {
+	p := newTestPublisher(t)
+	old := p.conn
+
+	if err := p.channel.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := p.Publish(context.Background(), "test.event", []byte(`{}`)); err != nil {
+		t.Fatalf("publish after channel failure: %v", err)
+	}
+	if p.conn == old {
+		t.Fatal("publish should have reconnected")
+	}
+	if !old.IsClosed() {
+		t.Fatal("the old connection should be closed, not leaked")
+	}
+}

@@ -34,7 +34,15 @@ func NewRabbitMQPublisher(amqpURL, exchange string) (*RabbitMQPublisher, error) 
 	return p, nil
 }
 
+// connect assumes the caller already holds p.mu (or, from the constructor, that nothing else can).
 func (p *RabbitMQPublisher) connect() error {
+	if p.channel != nil {
+		_ = p.channel.Close()
+	}
+	if p.conn != nil {
+		_ = p.conn.Close()
+	}
+
 	conn, err := amqp091.Dial(p.amqpURL)
 	if err != nil {
 		return fmt.Errorf("connect to rabbitmq: %w", err)
@@ -42,14 +50,17 @@ func (p *RabbitMQPublisher) connect() error {
 
 	ch, err := conn.Channel()
 	if err != nil {
+		_ = conn.Close()
 		return fmt.Errorf("open channel: %w", err)
 	}
 
 	if err := ch.Confirm(false); err != nil {
+		_ = conn.Close()
 		return fmt.Errorf("enable publisher confirms: %w", err)
 	}
 
 	if err := ch.ExchangeDeclare(p.exchange, "topic", true, false, false, false, nil); err != nil {
+		_ = conn.Close()
 		return fmt.Errorf("declare exchange: %w", err)
 	}
 
@@ -161,8 +172,8 @@ func (p *RabbitMQPublisher) Ping(ctx context.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if p.conn == nil || p.conn.IsClosed() {
-		return amqp091.ErrClosed
+	if err := p.ensureConnected(ctx); err != nil {
+		return err
 	}
 
 	ch, err := p.conn.Channel()
