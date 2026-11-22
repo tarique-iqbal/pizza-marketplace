@@ -9,6 +9,7 @@ import (
 )
 
 const (
+	Exchange         = "order.events"
 	QueueName        = "order_queue"
 	DLXName          = "order_dlx"
 	MaxRetryAttempts = 3
