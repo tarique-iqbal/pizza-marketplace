@@ -65,7 +65,10 @@ func (cmd *UpdatePhone) Execute(
 			return fmt.Errorf("failed to update customer: %w", err)
 		}
 
-		event := outbox.NewOutboxEvent(c.ID, updated.EventName, payload)
+		event, err := outbox.NewOutboxEvent(c.ID, updated.EventName, payload)
+		if err != nil {
+			return fmt.Errorf("failed to build outbox event: %w", err)
+		}
 		if err := cmd.outboxRepo.WithTx(tx).Create(ctx, &event); err != nil {
 			return fmt.Errorf("failed to create outbox event: %w", err)
 		}

@@ -18,11 +18,12 @@ func LoadOutboxEventFixtures(t *testing.T, db *gorm.DB) error {
 		paymentID, payload, err := paymentSucceededPayload()
 		require.NoError(t, err)
 
-		event := outbox.NewOutboxEvent(
+		event, err := outbox.NewOutboxEvent(
 			paymentID,
 			"payment.succeeded",
 			payload,
 		)
+		require.NoError(t, err)
 
 		err = db.Create(&event).Error
 		require.NoError(t, err)

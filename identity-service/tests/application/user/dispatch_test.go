@@ -41,20 +41,20 @@ func (f *fakeOutboxRepo) FetchAndMarkProcessing(
 	return nil, nil
 }
 
-func (f *fakeOutboxRepo) MarkProcessed(ctx context.Context, id int64) error {
+func (f *fakeOutboxRepo) MarkProcessed(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
 func (f *fakeOutboxRepo) ReleaseForRetry(
 	ctx context.Context,
-	id int64,
+	id uuid.UUID,
 	errMsg string,
 	delay time.Duration,
 ) error {
 	return nil
 }
 
-func (f *fakeOutboxRepo) MarkFailed(ctx context.Context, id int64, errMsg string) error {
+func (f *fakeOutboxRepo) MarkFailed(ctx context.Context, id uuid.UUID, errMsg string) error {
 	return nil
 }
 

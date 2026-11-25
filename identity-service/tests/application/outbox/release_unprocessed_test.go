@@ -30,7 +30,8 @@ func TestWorker_Shutdown_ReleasesUndispatchedBatchEvents(t *testing.T) {
 	tdb := newEmptyTestDB(t)
 
 	for range 3 {
-		ev := outbox.NewOutboxEvent(testutil.MustNewID(), outbox.EventUserRegistered, []byte(`{}`))
+		ev, err := outbox.NewOutboxEvent(testutil.MustNewID(), outbox.EventUserRegistered, []byte(`{}`))
+		require.NoError(t, err)
 		require.NoError(t, tdb.DB.Create(&ev).Error)
 	}
 

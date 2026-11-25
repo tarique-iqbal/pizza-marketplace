@@ -37,19 +37,20 @@ func TestOutboxRepository_Create(t *testing.T) {
 	}
 	payload, _ := json.Marshal(payloadMap)
 
-	event := outbox.NewOutboxEvent(
+	event, err := outbox.NewOutboxEvent(
 		paymentID,
 		"payment.succeeded",
 		payload,
 	)
+	require.NoError(t, err)
 
-	err := repo.Create(context.Background(), &event)
+	err = repo.Create(context.Background(), &event)
 
 	require.NoError(t, err)
 	assert.NotZero(t, event.ID)
 
 	var found outbox.OutboxEvent
-	err = db.DB.First(&found, event.ID).Error
+	err = db.DB.First(&found, "id = ?", event.ID).Error
 	require.NoError(t, err)
 
 	assert.Equal(t, outbox.StatusPending, found.Status)
@@ -67,11 +68,12 @@ func TestOutboxRepository_Create_StoresTraceContext(t *testing.T) {
 	})
 	ctx := trace.ContextWithSpanContext(context.Background(), sc)
 
-	event := outbox.NewOutboxEvent(testutil.MustNewID(), "payment.succeeded", []byte(`{}`))
+	event, err := outbox.NewOutboxEvent(testutil.MustNewID(), "payment.succeeded", []byte(`{}`))
+	require.NoError(t, err)
 	require.NoError(t, repo.Create(ctx, &event))
 
 	var found outbox.OutboxEvent
-	require.NoError(t, db.DB.First(&found, event.ID).Error)
+	require.NoError(t, db.DB.First(&found, "id = ?", event.ID).Error)
 	require.NotNil(t, found.TraceContext)
 	assert.Equal(t, "00-"+sc.TraceID().String()+"-"+sc.SpanID().String()+"-01", *found.TraceContext)
 }
@@ -80,11 +82,12 @@ func TestOutboxRepository_Create_WithoutSpan_LeavesTraceContextNil(t *testing.T)
 	db := testutil.DB(t)
 	repo := setupOutboxRepo(t)
 
-	event := outbox.NewOutboxEvent(testutil.MustNewID(), "payment.succeeded", []byte(`{}`))
+	event, err := outbox.NewOutboxEvent(testutil.MustNewID(), "payment.succeeded", []byte(`{}`))
+	require.NoError(t, err)
 	require.NoError(t, repo.Create(context.Background(), &event))
 
 	var found outbox.OutboxEvent
-	require.NoError(t, db.DB.First(&found, event.ID).Error)
+	require.NoError(t, db.DB.First(&found, "id = ?", event.ID).Error)
 	assert.Nil(t, found.TraceContext)
 }
 
@@ -106,7 +109,7 @@ func TestOutboxRepository_FetchAndMarkProcessing(t *testing.T) {
 
 	// DB verification (critical)
 	var dbEvent outbox.OutboxEvent
-	err = db.DB.First(&dbEvent, e.ID).Error
+	err = db.DB.First(&dbEvent, "id = ?", e.ID).Error
 	require.NoError(t, err)
 
 	assert.Equal(t, outbox.StatusProcessing, dbEvent.Status)
@@ -119,11 +122,12 @@ func TestOutboxRepository_FetchAndMarkProcessing_Limit(t *testing.T) {
 
 	// insert extra events
 	for range 3 {
-		e := outbox.NewOutboxEvent(
+		e, err := outbox.NewOutboxEvent(
 			testutil.MustNewID(),
 			"payment.succeeded",
 			[]byte(`{}`),
 		)
+		require.NoError(t, err)
 		require.NoError(t, repo.Create(context.Background(), &e))
 	}
 
@@ -147,7 +151,7 @@ func TestOutboxRepository_MarkProcessed(t *testing.T) {
 	require.NoError(t, err)
 
 	var updated outbox.OutboxEvent
-	require.NoError(t, db.DB.First(&updated, event.ID).Error)
+	require.NoError(t, db.DB.First(&updated, "id = ?", event.ID).Error)
 
 	assert.Equal(t, outbox.StatusProcessed, updated.Status)
 	assert.NotNil(t, updated.ProcessedAt)
@@ -171,7 +175,7 @@ func TestOutboxRepository_ReleaseForRetry(t *testing.T) {
 	require.NoError(t, err)
 
 	var updated outbox.OutboxEvent
-	require.NoError(t, db.DB.First(&updated, event.ID).Error)
+	require.NoError(t, db.DB.First(&updated, "id = ?", event.ID).Error)
 
 	require.NotNil(t, updated.LastError)
 	assert.Equal(t, outbox.StatusPending, updated.Status)
@@ -190,7 +194,7 @@ func TestOutboxRepository_MarkFailed(t *testing.T) {
 	require.NoError(t, err)
 
 	var updated outbox.OutboxEvent
-	require.NoError(t, db.DB.First(&updated, event.ID).Error)
+	require.NoError(t, db.DB.First(&updated, "id = ?", event.ID).Error)
 
 	require.NotNil(t, updated.LastError)
 	assert.Equal(t, outbox.StatusFailed, updated.Status)
@@ -230,7 +234,10 @@ func TestOutboxRepository_WithTx_CommitsWithOuterTransaction(t *testing.T) {
 	paymentID := testutil.MustNewID()
 
 	err := db.DB.Transaction(func(tx *gorm.DB) error {
-		event := outbox.NewOutboxEvent(paymentID, "payment.succeeded", []byte(`{}`))
+		event, err := outbox.NewOutboxEvent(paymentID, "payment.succeeded", []byte(`{}`))
+		if err != nil {
+			return err
+		}
 		return repo.WithTx(tx).Create(context.Background(), &event)
 	})
 	require.NoError(t, err)

@@ -17,7 +17,8 @@ func LoadOutboxEventFixtures(t *testing.T, db *gorm.DB) error {
 		customerID, payload, err := phoneUpdatedPayload()
 		require.NoError(t, err)
 
-		event := outbox.NewOutboxEvent(customerID, "customer.phone_updated", payload)
+		event, err := outbox.NewOutboxEvent(customerID, "customer.phone_updated", payload)
+		require.NoError(t, err)
 
 		err = db.Create(&event).Error
 		require.NoError(t, err)

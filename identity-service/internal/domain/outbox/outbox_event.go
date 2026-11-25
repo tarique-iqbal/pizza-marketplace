@@ -21,7 +21,7 @@ const (
 )
 
 type OutboxEvent struct {
-	ID            int64          `gorm:"primaryKey;autoIncrement"`
+	ID            uuid.UUID      `gorm:"type:uuid;primaryKey"`
 	AggregateID   uuid.UUID      `gorm:"type:uuid;not null;index"`
 	EventName     string         `gorm:"type:varchar(64);not null"`
 	Payload       datatypes.JSON `gorm:"type:jsonb;not null"`
@@ -39,12 +39,18 @@ func (OutboxEvent) TableName() string {
 	return "outbox_events"
 }
 
-func NewOutboxEvent(aggregateID uuid.UUID, name string, payload []byte) OutboxEvent {
+func NewOutboxEvent(aggregateID uuid.UUID, name string, payload []byte) (OutboxEvent, error) {
+	id, err := uuid.NewV7()
+	if err != nil {
+		return OutboxEvent{}, err
+	}
+
 	return OutboxEvent{
+		ID:          id,
 		AggregateID: aggregateID,
 		EventName:   name,
 		Payload:     datatypes.JSON(payload),
 		Status:      StatusPending,
 		CreatedAt:   time.Now().UTC(),
-	}
+	}, nil
 }

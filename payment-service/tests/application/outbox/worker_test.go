@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
@@ -92,12 +93,12 @@ func assertAllProcessed(t *testing.T, events []outbox.OutboxEvent) bool {
 
 	for _, e := range events {
 		if e.Status != "processed" {
-			t.Logf("event %d: expected processed, got %s (attempts=%d)",
+			t.Logf("event %s: expected processed, got %s (attempts=%d)",
 				e.ID, e.Status, e.Attempts)
 			return false
 		}
 		if e.ProcessedAt == nil {
-			t.Logf("event %d: ProcessedAt is nil", e.ID)
+			t.Logf("event %s: ProcessedAt is nil", e.ID)
 			return false
 		}
 	}
@@ -111,19 +112,19 @@ func assertAllFailed(t *testing.T, events []outbox.OutboxEvent, maxRetries int) 
 		switch e.Status {
 		case "failed":
 			if e.Attempts < maxRetries {
-				t.Logf("event %d: failed too early (attempts=%d, max=%d)",
+				t.Logf("event %s: failed too early (attempts=%d, max=%d)",
 					e.ID, e.Attempts, maxRetries)
 				return false
 			}
 		case "pending":
 			if e.Attempts >= maxRetries {
-				t.Logf("event %d: should be failed, still pending (attempts=%d)",
+				t.Logf("event %s: should be failed, still pending (attempts=%d)",
 					e.ID, e.Attempts)
 				return false
 			}
 			return false // still retrying
 		default:
-			t.Logf("event %d: unexpected status=%s", e.ID, e.Status)
+			t.Logf("event %s: unexpected status=%s", e.ID, e.Status)
 			return false
 		}
 	}
@@ -212,11 +213,12 @@ func TestWorker_Start_failure(t *testing.T) {
 
 func TestWorker_Start_partial(t *testing.T) {
 	tdb := newTestDB(t)
+	firstID := listEvents(t, tdb.DB)[0].ID
 
 	// first event succeeds, subsequent events fail
 	relayer := &relayStub{
 		fn: func(ctx context.Context, e outbox.OutboxEvent) error {
-			if e.ID == 1 {
+			if e.ID == firstID {
 				return nil
 			}
 			return errors.New("partial failure")
@@ -452,7 +454,8 @@ func TestWorker_Start_RelayRunsUnderEventTraceContext(t *testing.T) {
 	})
 	requestCtx := trace.ContextWithSpanContext(context.Background(), sc)
 
-	event := outbox.NewOutboxEvent(testutil.MustNewID(), "payment.succeeded", []byte(`{}`))
+	event, err := outbox.NewOutboxEvent(testutil.MustNewID(), "payment.succeeded", []byte(`{}`))
+	require.NoError(t, err)
 	require.NoError(t, testDB.Repo.Create(requestCtx, &event))
 
 	seen := make(chan trace.SpanContext, 1)
@@ -507,14 +510,14 @@ func (r *ctxRecordingRepo) FetchAndMarkProcessing(
 	return r.OutboxRepository.FetchAndMarkProcessing(ctx, limit)
 }
 
-func (r *ctxRecordingRepo) MarkProcessed(ctx context.Context, id int64) error {
+func (r *ctxRecordingRepo) MarkProcessed(ctx context.Context, id uuid.UUID) error {
 	r.record(&r.processed, ctx)
 	return r.OutboxRepository.MarkProcessed(ctx, id)
 }
 
 func (r *ctxRecordingRepo) ReleaseForRetry(
 	ctx context.Context,
-	id int64,
+	id uuid.UUID,
 	errMsg string,
 	delay time.Duration,
 ) error {
@@ -522,7 +525,7 @@ func (r *ctxRecordingRepo) ReleaseForRetry(
 	return r.OutboxRepository.ReleaseForRetry(ctx, id, errMsg, delay)
 }
 
-func (r *ctxRecordingRepo) MarkFailed(ctx context.Context, id int64, errMsg string) error {
+func (r *ctxRecordingRepo) MarkFailed(ctx context.Context, id uuid.UUID, errMsg string) error {
 	r.record(&r.failed, ctx)
 	return r.OutboxRepository.MarkFailed(ctx, id, errMsg)
 }
@@ -536,7 +539,8 @@ func createTracedEvent(t *testing.T, repo outbox.OutboxRepository) trace.SpanCon
 		TraceFlags: trace.FlagsSampled,
 	})
 
-	event := outbox.NewOutboxEvent(testutil.MustNewID(), "payment.succeeded", []byte(`{}`))
+	event, err := outbox.NewOutboxEvent(testutil.MustNewID(), "payment.succeeded", []byte(`{}`))
+	require.NoError(t, err)
 	require.NoError(t, repo.Create(trace.ContextWithSpanContext(context.Background(), sc), &event))
 
 	return sc

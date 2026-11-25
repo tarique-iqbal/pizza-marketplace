@@ -114,7 +114,10 @@ func (cmd *HandleMollieWebhook) Execute(ctx context.Context, gatewayPaymentID st
 			return fmt.Errorf("failed to update payment: %w", err)
 		}
 
-		event := outbox.NewOutboxEvent(p.ID, eventName, payload)
+		event, err := outbox.NewOutboxEvent(p.ID, eventName, payload)
+		if err != nil {
+			return fmt.Errorf("failed to build outbox event: %w", err)
+		}
 		if err := cmd.outboxRepo.WithTx(tx).Create(ctx, &event); err != nil {
 			return fmt.Errorf("failed to create outbox event: %w", err)
 		}

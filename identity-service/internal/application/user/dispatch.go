@@ -24,7 +24,10 @@ func DispatchEventsTx(ctx context.Context, outboxRepo outbox.OutboxRepository, u
 			return fmt.Errorf("failed to marshal event %s: %w", payload.GetEventName(), err)
 		}
 
-		outboxEvent := outbox.NewOutboxEvent(aggregateID, payload.GetEventName(), body)
+		outboxEvent, err := outbox.NewOutboxEvent(aggregateID, payload.GetEventName(), body)
+		if err != nil {
+			return fmt.Errorf("failed to build outbox event %s: %w", payload.GetEventName(), err)
+		}
 		if err := outboxRepo.Create(ctx, &outboxEvent); err != nil {
 			return fmt.Errorf("failed to create outbox event %s: %w", payload.GetEventName(), err)
 		}

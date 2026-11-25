@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"identity-service/internal/domain/outbox"
@@ -70,7 +71,7 @@ func (r *outboxRepo) FetchAndMarkProcessing(ctx context.Context, limit int) ([]o
 	return events, err
 }
 
-func (r *outboxRepo) MarkProcessed(ctx context.Context, id int64) error {
+func (r *outboxRepo) MarkProcessed(ctx context.Context, id uuid.UUID) error {
 	now := time.Now().UTC()
 
 	res := r.db.WithContext(ctx).
@@ -88,7 +89,7 @@ func (r *outboxRepo) MarkProcessed(ctx context.Context, id int64) error {
 
 func (r *outboxRepo) ReleaseForRetry(
 	ctx context.Context,
-	id int64,
+	id uuid.UUID,
 	errMsg string,
 	delay time.Duration,
 ) error {
@@ -108,7 +109,7 @@ func (r *outboxRepo) ReleaseForRetry(
 	return res.Error
 }
 
-func (r *outboxRepo) MarkFailed(ctx context.Context, id int64, errMsg string) error {
+func (r *outboxRepo) MarkFailed(ctx context.Context, id uuid.UUID, errMsg string) error {
 	return r.db.WithContext(ctx).
 		Model(&outbox.OutboxEvent{}).
 		Where("id = ?", id).

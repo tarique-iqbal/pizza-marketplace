@@ -22,11 +22,12 @@ func LoadOutboxEventFixtures(t *testing.T, db *gorm.DB) error {
 		restaurantID, payload, err := restaurantPayload(r)
 		require.NoError(t, err)
 
-		event := outbox.NewOutboxEvent(
+		event, err := outbox.NewOutboxEvent(
 			restaurantID,
 			outbox.EventRestaurantInitiated,
 			payload,
 		)
+		require.NoError(t, err)
 
 		err = db.Create(&event).Error
 		require.NoError(t, err)
