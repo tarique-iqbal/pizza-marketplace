@@ -86,7 +86,8 @@ carries no span. Per-unit work gets its own context:
 
 - **Consumers:** the shared consumer (`shared/amqp`) derives a context per message holding the
   consumer span and a logger with `event_name` and `message_id`, and passes it to the handler. The handler's
-  lines and the consumer's own retry warnings carry the trace ID.
+  lines and the consumer's own retry warnings carry the trace ID. `message_id` is the outbox row's
+  UUIDv7 `id`, set by the outbox relay, so every resend of the same outbox row logs the same ID.
 - **Outbox relay:** each event is handled under its restored trace context, so its lines carry the trace
   ID of the request that raised it.
 
