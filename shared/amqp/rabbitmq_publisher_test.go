@@ -36,7 +36,7 @@ func newTestPublisher(t *testing.T) *RabbitMQPublisher {
 func TestRabbitMQPublisher_Publish_Success(t *testing.T) {
 	p := newTestPublisher(t)
 
-	if err := p.Publish(context.Background(), "test.event", []byte(`{"ok":true}`)); err != nil {
+	if err := p.Publish(context.Background(), "test:1", "test.event", []byte(`{"ok":true}`)); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -54,7 +54,7 @@ func TestRabbitMQPublisher_Publish_SurvivesPriorTimeouts(t *testing.T) {
 
 	for range 20 {
 		shortCtx, cancel := context.WithTimeout(context.Background(), time.Microsecond)
-		_ = p.Publish(shortCtx, "test.event", []byte(`{}`))
+		_ = p.Publish(shortCtx, "test:1", "test.event", []byte(`{}`))
 		cancel()
 	}
 
@@ -62,7 +62,7 @@ func TestRabbitMQPublisher_Publish_SurvivesPriorTimeouts(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- p.Publish(context.Background(), "test.event", []byte(`{"final":true}`))
+		done <- p.Publish(context.Background(), "test:1", "test.event", []byte(`{"final":true}`))
 	}()
 
 	select {
@@ -121,7 +121,7 @@ func TestRabbitMQPublisher_Publish_InjectsProducerTraceContext(t *testing.T) {
 	deliveries := bindTestQueue(t, testExchange, "test.traced")
 
 	ctx, parent := provider.Tracer("test").Start(context.Background(), "request")
-	if err := p.Publish(ctx, "test.traced", []byte(`{}`)); err != nil {
+	if err := p.Publish(ctx, "test:1", "test.traced", []byte(`{}`)); err != nil {
 		t.Fatal(err)
 	}
 	parent.End()
@@ -164,6 +164,24 @@ func TestRabbitMQPublisher_Publish_InjectsProducerTraceContext(t *testing.T) {
 	}
 }
 
+func TestRabbitMQPublisher_Publish_SetsMessageID(t *testing.T) {
+	p := newTestPublisher(t)
+	deliveries := bindTestQueue(t, testExchange, "test.message_id")
+
+	if err := p.Publish(context.Background(), "test:42", "test.message_id", []byte(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case delivery := <-deliveries:
+		if delivery.MessageId != "test:42" {
+			t.Fatalf("message id %q, want test:42", delivery.MessageId)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("message was never delivered")
+	}
+}
+
 func TestRabbitMQPublisher_Ping_ReconnectsAfterConnectionLoss(t *testing.T) {
 	p := newTestPublisher(t)
 
@@ -177,7 +195,7 @@ func TestRabbitMQPublisher_Ping_ReconnectsAfterConnectionLoss(t *testing.T) {
 	if p.conn.IsClosed() {
 		t.Fatal("ping should leave an open connection")
 	}
-	if err := p.Publish(context.Background(), "test.event", []byte(`{}`)); err != nil {
+	if err := p.Publish(context.Background(), "test:1", "test.event", []byte(`{}`)); err != nil {
 		t.Fatalf("publish after reconnect: %v", err)
 	}
 }
@@ -190,7 +208,7 @@ func TestRabbitMQPublisher_ChannelFailure_ClosesOldConnection(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := p.Publish(context.Background(), "test.event", []byte(`{}`)); err != nil {
+	if err := p.Publish(context.Background(), "test:1", "test.event", []byte(`{}`)); err != nil {
 		t.Fatalf("publish after channel failure: %v", err)
 	}
 	if p.conn == old {

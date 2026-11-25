@@ -10,9 +10,11 @@ import (
 
 	outboxapp "customer-service/internal/application/outbox"
 	"customer-service/internal/domain/outbox"
+	"customer-service/tests/testutil"
 )
 
 type PublishedMessage struct {
+	MessageID  string
 	RoutingKey string
 	Payload    []byte
 }
@@ -24,10 +26,12 @@ type MockEventPublisher struct {
 
 func (m *MockEventPublisher) Publish(
 	ctx context.Context,
+	messageID string,
 	routingKey string,
 	payload []byte,
 ) error {
 	m.Published = append(m.Published, PublishedMessage{
+		MessageID:  messageID,
 		RoutingKey: routingKey,
 		Payload:    payload,
 	})
@@ -44,7 +48,10 @@ func TestRelay_Process_Success(t *testing.T) {
 
 	relay := outboxapp.NewRelay(mockPublisher)
 
+	id := testutil.MustNewID()
+
 	e := outbox.OutboxEvent{
+		ID:        id,
 		EventName: "customer.phone_updated",
 		Payload:   []byte(`{"customer_id":"c9b1f7e0-8f7e-4b7c-9b3e-1a2b3c4d5e6f"}`),
 	}
@@ -57,6 +64,7 @@ func TestRelay_Process_Success(t *testing.T) {
 
 	msg := mockPublisher.Published[0]
 
+	assert.Equal(t, id.String(), msg.MessageID)
 	assert.Equal(t, "customer.phone_updated", msg.RoutingKey)
 
 	assert.JSONEq(

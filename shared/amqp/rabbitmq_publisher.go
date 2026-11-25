@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/rabbitmq/amqp091-go"
 
 	"pizza-marketplace/shared/logobs"
@@ -88,7 +87,7 @@ func (p *RabbitMQPublisher) ensureConnected(ctx context.Context) error {
 	return p.connect()
 }
 
-func (p *RabbitMQPublisher) Publish(ctx context.Context, routingKey string, payload []byte) error {
+func (p *RabbitMQPublisher) Publish(ctx context.Context, messageID, routingKey string, payload []byte) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -107,7 +106,7 @@ func (p *RabbitMQPublisher) Publish(ctx context.Context, routingKey string, payl
 		p.mu.Lock()
 		defer p.mu.Unlock()
 
-		resultCh <- p.publishLocked(ctx, routingKey, payload)
+		resultCh <- p.publishLocked(ctx, messageID, routingKey, payload)
 	}()
 
 	select {
@@ -122,6 +121,7 @@ func (p *RabbitMQPublisher) Publish(ctx context.Context, routingKey string, payl
 // cancellation for its own blocking calls. See the comment in Publish for why.
 func (p *RabbitMQPublisher) publishLocked(
 	ctx context.Context,
+	messageID string,
 	routingKey string,
 	payload []byte,
 ) (err error) {
@@ -143,7 +143,7 @@ func (p *RabbitMQPublisher) publishLocked(
 			ContentType:  "application/json",
 			Body:         payload,
 			DeliveryMode: amqp091.Persistent,
-			MessageId:    uuid.NewString(),
+			MessageId:    messageID,
 			Timestamp:    time.Now().UTC(),
 			Type:         routingKey,
 			Headers:      headers,

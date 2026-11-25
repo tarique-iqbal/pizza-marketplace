@@ -10,9 +10,11 @@ import (
 
 	outboxapp "identity-service/internal/application/outbox"
 	"identity-service/internal/domain/outbox"
+	"identity-service/tests/testutil"
 )
 
 type PublishedMessage struct {
+	MessageID  string
 	RoutingKey string
 	Payload    []byte
 }
@@ -24,10 +26,12 @@ type MockEventPublisher struct {
 
 func (m *MockEventPublisher) Publish(
 	ctx context.Context,
+	messageID string,
 	routingKey string,
 	payload []byte,
 ) error {
 	m.Published = append(m.Published, PublishedMessage{
+		MessageID:  messageID,
 		RoutingKey: routingKey,
 		Payload:    payload,
 	})
@@ -44,7 +48,10 @@ func TestRelay_Process_Success(t *testing.T) {
 
 	relay := outboxapp.NewRelay(mockPublisher)
 
+	id := testutil.MustNewID()
+
 	e := outbox.OutboxEvent{
+		ID:        id,
 		EventName: "restaurant.initiated",
 		Payload:   []byte(`{"business_name":"L'Osteria"}`),
 	}
@@ -57,6 +64,7 @@ func TestRelay_Process_Success(t *testing.T) {
 
 	msg := mockPublisher.Published[0]
 
+	assert.Equal(t, id.String(), msg.MessageID)
 	assert.Equal(t, "restaurant.initiated", msg.RoutingKey)
 
 	assert.JSONEq(

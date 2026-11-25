@@ -7,5 +7,5 @@ type Event interface {
 }
 
 type EventPublisher interface {
-	Publish(ctx context.Context, routingKey string, payload []byte) error
+	Publish(ctx context.Context, messageID, routingKey string, payload []byte) error
 }
