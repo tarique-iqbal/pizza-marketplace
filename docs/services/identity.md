@@ -70,10 +70,11 @@ not-yet-built layer, needed to stop an attacker rotating through many different 
 
 ### `outbox_events` (Postgres)
 
-The transactional outbox. `id` (bigint identity), `aggregate_id`, `event_name`, `payload` (jsonb),
-`status` (`pending` → `processing` → `processed` | `failed`), `attempts`, `locked_until`, `next_attempt_at`,
-`last_error`, `created_at`, `processed_at`. Partial indexes support the worker's fetch pattern: pending rows
-ordered by `next_attempt_at`, plus recovery/inspection indexes on `processing`/`failed` rows.
+The transactional outbox. `id` (UUIDv7, set in Go, sent as the message ID), `aggregate_id`, `event_name`,
+`payload` (jsonb), `status` (`pending` → `processing` → `processed` | `failed`), `attempts`, `locked_until`,
+`next_attempt_at`, `last_error`, `created_at`, `processed_at`. Partial indexes support the worker's fetch
+pattern: pending rows ordered by `next_attempt_at`, plus recovery/inspection indexes on `processing`/`failed`
+rows.
 
 ### Refresh tokens (Redis, not Postgres)
 
