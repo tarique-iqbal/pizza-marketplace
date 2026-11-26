@@ -149,7 +149,8 @@ flowchart LR
 ```
 
 - **Inbound**: `restaurant.initiated`, consumed by `cmd/worker`'s `RabbitMQConsumer` → dispatched via an
-  in-process `EventDispatcher` to the `RestaurantInitiated` handler, which creates the local `Restaurant` row.
+  in-process `EventDispatcher` to the `RestaurantInitiated` handler, which creates the local `Restaurant` row
+  with `ON CONFLICT (id) DO NOTHING`, so a redelivered event is a no-op and never overwrites the row.
   Reliability: manual ack, QoS prefetch 1, dead-letter exchange (`restaurant_dlx`); a failed message is retried
   3 times, 5 s apart through `restaurant_queue.wait`, then moved to `restaurant_queue.dlq`. The consumer is the
   shared `pizza-marketplace/shared/amqp` one, used by all 5 consuming services; this service supplies only
