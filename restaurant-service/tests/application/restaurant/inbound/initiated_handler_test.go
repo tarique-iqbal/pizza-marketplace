@@ -102,9 +102,8 @@ func TestRestaurantInitiated_Handle_DuplicateRestaurant(t *testing.T) {
 	err := handler.Handle(context.Background(), eventPayload)
 	require.NoError(t, err)
 
-	// second insert fail
 	err = handler.Handle(context.Background(), eventPayload)
-	require.Error(t, err)
+	require.NoError(t, err)
 
 	var count int64
 
@@ -116,4 +115,34 @@ func TestRestaurantInitiated_Handle_DuplicateRestaurant(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), count)
+}
+
+func TestRestaurantInitiated_Handle_DuplicateKeepsExistingRow(t *testing.T) {
+	db := testutil.DB(t)
+	handler := setupRestaurantInitiatedHandler(t)
+
+	restaurantID := testutil.MustNewID()
+
+	eventPayload := restaurant.EventPayload{
+		Data: []byte(`{
+			"restaurant_id": "` + restaurantID.String() + `",
+			"owner_id": "` + testutil.MustNewID().String() + `",
+			"business_name": "Pizza Palace",
+			"vat_number": "DE123456789"
+		}`),
+	}
+
+	require.NoError(t, handler.Handle(context.Background(), eventPayload))
+
+	require.NoError(t, db.DB.
+		Model(&restaurant.Restaurant{}).
+		Where("id = ?", restaurantID).
+		Update("name", "Renamed Palace").
+		Error)
+
+	require.NoError(t, handler.Handle(context.Background(), eventPayload))
+
+	var res restaurant.Restaurant
+	require.NoError(t, db.DB.Where("id = ?", restaurantID).First(&res).Error)
+	assert.Equal(t, "Renamed Palace", res.Name)
 }

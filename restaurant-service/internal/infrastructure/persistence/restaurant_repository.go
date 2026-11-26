@@ -22,11 +22,14 @@ func (r *RestaurantRepository) WithTx(tx *gorm.DB) restaurant.RestaurantReposito
 	return &RestaurantRepository{db: tx}
 }
 
-func (repo *RestaurantRepository) Create(
+func (repo *RestaurantRepository) CreateIfNotExists(
 	ctx context.Context,
 	res *restaurant.Restaurant,
 ) error {
-	return repo.db.WithContext(ctx).Create(res).Error
+	return repo.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "id"}},
+		DoNothing: true,
+	}).Create(res).Error
 }
 
 func (repo *RestaurantRepository) Update(

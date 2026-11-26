@@ -49,5 +49,5 @@ func (h *RestaurantInitiated) Handle(ctx context.Context, event restaurant.Event
 		checklist,
 	)
 
-	return h.repo.Create(ctx, res)
+	return h.repo.CreateIfNotExists(ctx, res)
 }

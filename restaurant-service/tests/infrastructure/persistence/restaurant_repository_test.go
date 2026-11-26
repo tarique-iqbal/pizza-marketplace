@@ -33,7 +33,7 @@ func setupRestaurantRepo(t *testing.T) restaurantRepoSetup {
 	}
 }
 
-func TestRestaurantRepository_Create(t *testing.T) {
+func TestRestaurantRepository_CreateIfNotExists(t *testing.T) {
 	setup := setupRestaurantRepo(t)
 
 	checklist := restaurant.NewChecklist()
@@ -48,10 +48,18 @@ func TestRestaurantRepository_Create(t *testing.T) {
 		Pickup:    true,
 	}
 
-	err := setup.RestaurantRepo.Create(context.Background(), &res)
+	err := setup.RestaurantRepo.CreateIfNotExists(context.Background(), &res)
 	assert.NoError(t, err)
 	assert.NotZero(t, res.ID)
 	assert.True(t, res.Checklist[restaurant.ChecklistBasic])
+
+	duplicate := res
+	err = setup.RestaurantRepo.CreateIfNotExists(context.Background(), &duplicate)
+	assert.NoError(t, err)
+
+	var count int64
+	assert.NoError(t, setup.DB.Model(&restaurant.Restaurant{}).Where("id = ?", res.ID).Count(&count).Error)
+	assert.Equal(t, int64(1), count)
 }
 
 func TestRestaurantRepository_Update(t *testing.T) {
